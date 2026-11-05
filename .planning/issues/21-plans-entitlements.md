@@ -1,6 +1,6 @@
 ---
 id: 21-plans-entitlements
-status: todo
+status: done
 type: afk
 depends_on: [03-sign-in]
 ---

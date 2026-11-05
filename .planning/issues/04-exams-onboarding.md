@@ -1,6 +1,6 @@
 ---
 id: 04-exams-onboarding
-status: todo
+status: done
 type: afk
 depends_on: [03-sign-in]
 ---
