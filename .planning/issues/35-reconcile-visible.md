@@ -1,6 +1,6 @@
 ---
 id: 35-reconcile-visible
-status: blocked
+status: done
 type: afk
 depends_on: []
 ---

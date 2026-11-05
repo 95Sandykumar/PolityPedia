@@ -1,6 +1,6 @@
 ---
 id: 31-attempt-score-guard
-status: todo
+status: done
 type: afk
 depends_on: []
 ---

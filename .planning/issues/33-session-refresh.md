@@ -1,6 +1,6 @@
 ---
 id: 33-session-refresh
-status: todo
+status: done
 type: afk
 depends_on: []
 ---

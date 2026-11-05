@@ -1,6 +1,6 @@
 ---
 id: 30-exam-key-lock
-status: todo
+status: done
 type: afk
 depends_on: []
 ---

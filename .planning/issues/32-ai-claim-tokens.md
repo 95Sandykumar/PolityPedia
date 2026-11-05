@@ -1,6 +1,6 @@
 ---
 id: 32-ai-claim-tokens
-status: todo
+status: done
 type: afk
 depends_on: []
 ---

@@ -1,6 +1,6 @@
 ---
 id: 34-webhook-grant-first
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
