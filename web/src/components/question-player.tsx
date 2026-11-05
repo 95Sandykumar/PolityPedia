@@ -39,6 +39,7 @@ import {
 } from '@/lib/attempts/types';
 import { DEFAULT_MODE, labels, plain, type LangMode } from '@/lib/i18n';
 import type { Question } from '@/lib/questions/types';
+import type { SavedTag } from '@/lib/saved/types';
 
 /** What one option button looks like. Never colour on its own. */
 type OptionState = 'idle' | 'right' | 'wrong';
@@ -75,6 +76,7 @@ export function QuestionPlayer({
   examName,
   startedAnswers,
   onFinish,
+  onTag,
 }: {
   /** Every question of the paper, in order. Loaded in ONE request. */
   questions: readonly Question[];
@@ -88,6 +90,14 @@ export function QuestionPlayer({
   startedAnswers?: ReadonlyMap<string, AttemptAnswer>;
   /** Called once, with the score, when the student finishes. */
   onFinish?: (score: number) => void | Promise<void>;
+  /**
+   * The Saved list sink (issue 14-saved-list, PRD F-E8). A wrong answer saves
+   * itself with the tag `wrong`; Mark for later saves `marked` and un-marking
+   * removes it. Optional, and never awaited: a dead network must not stop the
+   * student answering the next question. The write is keyed
+   * `(user_id, question_id, tag)`, so the same tag sent twice is one row.
+   */
+  onTag?: (questionId: string, tag: SavedTag, saved: boolean) => void;
 }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<string, AttemptAnswer>>(
@@ -168,20 +178,26 @@ export function QuestionPlayer({
   }
 
   function choose(optionIdx: number): void {
-    store(question.id, {
-      chosenIdx: optionIdx,
-      isCorrect: verdictOf(question.correctIdx, optionIdx),
-      marked,
-    });
+    const right = verdictOf(question.correctIdx, optionIdx);
+    store(question.id, { chosenIdx: optionIdx, isCorrect: right, marked });
+    // F-E8: a wrong answer saves itself under the tag Wrong. A right answer
+    // saves nothing, and it does NOT take an earlier Wrong row away: the
+    // student decides that with Remove in the Saved tab.
+    if (!right) onTag?.(question.id, 'wrong', true);
     setRevisionAsked(false);
   }
 
   function toggleMark(): void {
+    const wanted = !marked;
     store(question.id, {
       chosenIdx: answer?.chosenIdx ?? null,
       isCorrect: answer?.isCorrect ?? null,
-      marked: !marked,
+      marked: wanted,
     });
+    // The mark lives in two places on purpose: on the answer, which is this
+    // sitting's question grid, and in the Saved list, which outlives the
+    // sitting. Un-marking takes the saved row away again.
+    onTag?.(question.id, 'marked', wanted);
   }
 
   function reveal(): void {

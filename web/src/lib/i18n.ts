@@ -214,6 +214,15 @@ export const dictionary = {
     'player.revision': 'Revision (AI)',
     'player.offline': 'No internet. Answers are saved and sent when back.',
     'player.notConfigured': 'Practice is not set up yet',
+    // The Saved tab (issue 14-saved-list). PRD F-E8: one list, two tags, so
+    // the two words below are both chip labels and row badges.
+    'saved.wrong': 'Wrong',
+    'saved.marked': 'Marked',
+    'saved.filter': 'Filter saved questions',
+    'saved.none': 'Nothing saved yet. Wrong answers come here on their own.',
+    'saved.remove': 'Remove',
+    'saved.failed': 'Could not remove. Try again.',
+    'saved.notConfigured': 'Saved is not set up yet',
   },
   hi: {
     'nav.home': 'होम',
@@ -398,6 +407,13 @@ export const dictionary = {
     'player.revision': 'रिवीजन (AI)',
     'player.offline': 'इंटरनेट नहीं है। उत्तर सहेजे गए हैं और नेट आने पर भेज दिए जाएँगे।',
     'player.notConfigured': 'अभ्यास अभी सेट नहीं है',
+    'saved.wrong': 'गलत',
+    'saved.marked': 'मार्क किए',
+    'saved.filter': 'सहेजे गए प्रश्न छानें',
+    'saved.none': 'अभी कुछ सहेजा नहीं है। गलत उत्तर खुद यहाँ आ जाते हैं।',
+    'saved.remove': 'हटाएँ',
+    'saved.failed': 'हटा नहीं सके। फिर कोशिश करें।',
+    'saved.notConfigured': 'सेव अभी सेट नहीं है',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
