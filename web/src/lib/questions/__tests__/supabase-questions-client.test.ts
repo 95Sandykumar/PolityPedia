@@ -89,6 +89,7 @@ function jobs(fetchImpl: typeof fetch, env: Record<string, string | undefined> =
 const EDIT: QuestionEdit = {
   id: null,
   paperId: PAPER,
+  testId: null,
   number: 1,
   stem: 'Which house is the Council of States?',
   options: ['Lok Sabha', 'Rajya Sabha', 'Both', 'Neither'],

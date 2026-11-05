@@ -310,6 +310,7 @@ describe('editing one question', () => {
     expect(client.save).toHaveBeenCalledWith({
       id: 'q-4',
       paperId: PAPER,
+      testId: null,
       number: 4,
       stem: 'Who appoints the Governor?',
       options: ['President', 'Rajya Sabha', 'Both', 'Neither'],

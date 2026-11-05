@@ -135,6 +135,9 @@ describe('readQuestionEdit', () => {
     expect(readQuestionEdit(good)).toEqual({
       id: null,
       paperId: PAPER,
+      // The other parent, always present and always null for a paper
+      // question (issue 15-mock-sets-authoring).
+      testId: null,
       number: 3,
       stem: 'Who appoints the Governor?',
       options: FOUR,
@@ -207,6 +210,7 @@ describe('readQuestionEdit', () => {
       'paperId',
       'stem',
       'teacherExplanation',
+      'testId',
     ]);
   });
 
