@@ -1,6 +1,6 @@
 ---
 id: 02-db-harness
-status: todo
+status: done
 type: afk
 depends_on: [01-app-shell]
 ---

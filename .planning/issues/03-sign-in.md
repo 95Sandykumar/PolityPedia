@@ -1,6 +1,6 @@
 ---
 id: 03-sign-in
-status: todo
+status: done
 type: afk
 depends_on: [02-db-harness]
 ---
