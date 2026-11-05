@@ -10,3 +10,4 @@ node_modules/
 .vercel/
 __pycache__/
 research/live-checks/results/*.tmp
+.preview/

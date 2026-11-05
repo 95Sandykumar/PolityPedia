@@ -13,7 +13,8 @@ PolityPedia is a Next.js web app in `web/` for Indian Political Science exam stu
 A student opening the app on a 360 px phone sees the PolityPedia shell in the final design: indigo tokens, Noto Sans Devanagari, and a bottom nav with 5 tabs (Home, Teachers, Practice, Saved, Me) in English or Hindi. `npm test` and `npm run build` pass inside `web/` with NO environment variables set.
 
 ## Vertical slice
-- Create a Next.js (App Router, TypeScript) app in `web/` with Tailwind and shadcn/ui base.
+- Create a Next.js (App Router, TypeScript) app in `web/` with Tailwind and shadcn/ui base. Use the latest Next.js (16.4.5 or newer, `npm view next version`). Vercel refuses to build older versions with known holes ("Vulnerable version of Next.js detected", seen 2026-11-05 on 15.5.4).
+- The app is deployed overnight as a Vercel preview with root directory `web/` and no env vars. `npm run build` must pass with no `.env` file, and every page must render without Supabase keys (use the fakes or a "not configured" state).
 - Copy the repo root `ui-design-guide.md` to `web/DESIGN.md` unchanged. Write `web/CLAUDE.md`: first line `@DESIGN.md`, then the conventions in the Context section of this issue (fakes, PGlite, migration naming, i18n, `npm test`).
 - CSS variables for every light token in DESIGN.md section 3 (light column only; v1 is light only). Radius 10 px, gap 12 px, no shadows, no gradients.
 - Font: Noto Sans Devanagari through `next/font/google`, subsets latin + devanagari, weights 400, 500, 700 only.
