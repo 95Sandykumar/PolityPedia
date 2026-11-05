@@ -18,7 +18,13 @@
  * an empty explanation, because a student who paid for an explanation must
  * see the skeleton or an error and never a blank card.
  */
-import { isExplanationStatus, type Explanation, type ExplanationBody, type ExplanationSource } from './types';
+import {
+  isExplanationStatus,
+  readSourceUrl,
+  type Explanation,
+  type ExplanationBody,
+  type ExplanationSource,
+} from './types';
 
 /** Never `select=*`, so a column added later cannot leak by accident. */
 export const EXPLANATION_COLUMNS =
@@ -34,15 +40,24 @@ export interface ExplanationRow {
   edited_by_teacher?: unknown;
 }
 
-/** A link under the explanation. A source with no url is dropped. */
+/**
+ * A link under the explanation. A source with no url is dropped, and so is
+ * one whose url is not `http` or `https` (issue 32-ai-claim-tokens).
+ *
+ * The scheme check is HERE and not only in the database, because this reader
+ * is the last step before the url reaches an `href`: a row stored before
+ * `0032_ai_claim_tokens.sql` has no CHECK behind it, and a `javascript:`
+ * source in that slot would run in the student's own session.
+ */
 export function readExplanationSources(value: unknown): ExplanationSource[] {
   if (!Array.isArray(value)) return [];
   const out: ExplanationSource[] = [];
   for (const raw of value) {
     if (typeof raw !== 'object' || raw === null) continue;
     const { title, url } = raw as Record<string, unknown>;
-    if (typeof url !== 'string') continue;
-    out.push({ title: typeof title === 'string' && title ? title : url, url });
+    const link = readSourceUrl(url);
+    if (!link) continue;
+    out.push({ title: typeof title === 'string' && title ? title : link, url: link });
   }
   return out;
 }

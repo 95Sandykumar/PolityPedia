@@ -50,6 +50,43 @@ export interface ExplanationSource {
   url: string;
 }
 
+/** The longest url we will store or render. A real source is far shorter. */
+export const MAX_SOURCE_URL = 2_000;
+
+/**
+ * A source url we are willing to put in an `href`, or null
+ * (issue 32-ai-claim-tokens).
+ *
+ * A source is rendered as a real anchor the student taps
+ * (`revision-panel.tsx`), so `javascript:` or `data:` in that slot is not a
+ * bad citation, it is code running in the student's session. The model path
+ * checked this from the start; the two STORED readers did not, so a row
+ * written by a hand-posted REST call was rendered as given.
+ *
+ * ONE definition, used by the model reply reader
+ * (`anthropic-explainer.ts`), by both stored-row readers
+ * (`explanation-row.ts` for the browser, `supabase-ai-client.ts` for the
+ * server) and mirrored by a CHECK in `0032_ai_claim_tokens.sql`. The
+ * database is the gate; this is what stops an already-stored row from being
+ * rendered.
+ *
+ * `new URL()` also normalises, so the scheme comes back lower case and the
+ * stored text matches what the SQL CHECK accepts.
+ */
+export function readSourceUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim();
+  if (raw.length === 0 || raw.length > MAX_SOURCE_URL) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return parsed.toString();
+  } catch {
+    // Not a url at all: a relative path, or prose the model made up.
+    return null;
+  }
+}
+
 /**
  * The structured output. Shape is fixed by the JSON schema the real explainer
  * sends, so the UI never has to parse prose.

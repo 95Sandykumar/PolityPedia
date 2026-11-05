@@ -21,6 +21,7 @@ import { readOptions, type QuestionOptions } from '@/lib/questions/types';
 import {
   isClaimCode,
   isExplanationStatus,
+  readSourceUrl,
   type AiClient,
   type ClaimCode,
   type ExplainResult,
@@ -62,14 +63,21 @@ interface StoredQuestion {
   papers?: unknown;
 }
 
+/**
+ * The server-side half of the same reader as `explanation-row.ts`. A source
+ * whose url is not `http` or `https` is dropped here too: this row is handed
+ * straight to the browser as the reply body of /api/revision
+ * (issue 32-ai-claim-tokens).
+ */
 function readSources(value: unknown): ExplanationSource[] {
   if (!Array.isArray(value)) return [];
   const out: ExplanationSource[] = [];
   for (const raw of value) {
     if (typeof raw !== 'object' || raw === null) continue;
     const { title, url } = raw as Record<string, unknown>;
-    if (typeof url !== 'string') continue;
-    out.push({ title: typeof title === 'string' ? title : url, url });
+    const link = readSourceUrl(url);
+    if (!link) continue;
+    out.push({ title: typeof title === 'string' ? title : link, url: link });
   }
   return out;
 }
