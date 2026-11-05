@@ -1,6 +1,6 @@
 ---
 id: 01-app-shell
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
