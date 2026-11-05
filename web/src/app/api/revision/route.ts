@@ -24,11 +24,15 @@
  * Security: nothing here is logged. The cookie holds tokens and the request
  * body quotes exam text.
  */
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createAnthropicExplainer } from '@/lib/ai/anthropic-explainer';
+import { makeExplanationAudio } from '@/lib/ai/explanation-audio';
 import { sharedRateLimiter } from '@/lib/ai/rate-limit';
 import { handleRevision } from '@/lib/ai/revision-route';
 import { createSupabaseAiClient } from '@/lib/ai/supabase-ai-client';
+import { createSupabaseAudioClient } from '@/lib/ai/supabase-audio-client';
+import { createSupabaseAudioStore } from '@/lib/ai/supabase-audio-store';
+import { createUnconfiguredSpeech } from '@/lib/ai/unconfigured-speech';
 import { SESSION_COOKIE, decodeSession, type AuthSession } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
@@ -50,6 +54,7 @@ function readSession(request: Request): AuthSession | null {
 
 export async function POST(request: Request) {
   const session = readSession(request);
+  const accessToken = session?.accessToken ?? '';
 
   let body: unknown = null;
   try {
@@ -61,9 +66,33 @@ export async function POST(request: Request) {
   const reply = await handleRevision({
     body,
     session,
-    client: createSupabaseAiClient({ accessToken: session?.accessToken ?? '' }),
+    client: createSupabaseAiClient({ accessToken }),
     explainer: createAnthropicExplainer(),
     limiter: sharedRateLimiter(),
+
+    // The background audio step (issue 25-revision-audio).
+    //
+    // `after()` is why this is a real background step and not a dangling
+    // promise: it keeps the function alive past the response, so the student
+    // gets their explanation NOW and the voice call runs behind it. A bare
+    // `void makeExplanationAudio(...)` would be killed the moment the
+    // response is flushed, and the row would be stuck on `making`.
+    //
+    // `makeExplanationAudio` never throws and never touches the reply, so
+    // nothing in here can reach the student. Today the voice provider is
+    // unconfigured (X5, human ticket H4), so it stops before it claims
+    // anything and the explanation is simply shown with no audio bar.
+    audio: (audioRequest, explanationBody) => {
+      after(() =>
+        makeExplanationAudio({
+          request: audioRequest,
+          body: explanationBody,
+          audio: createSupabaseAudioClient({ accessToken }),
+          speech: createUnconfiguredSpeech(),
+          store: createSupabaseAudioStore({ accessToken }),
+        }),
+      );
+    },
   });
 
   return NextResponse.json(reply.body, { status: reply.status });

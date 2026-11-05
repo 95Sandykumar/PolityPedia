@@ -29,9 +29,24 @@ import {
   type AiClient,
   type Explainer,
   type Explanation,
+  type ExplanationBody,
   type RateLimiter,
   type RevisionRequest,
 } from './types';
+
+/**
+ * The audio step (issue 25-revision-audio).
+ *
+ * SYNCHRONOUS and returns nothing, on purpose. Making audio is a BACKGROUND
+ * step: the student must get their explanation now, not after a voice
+ * provider has finished reading it out. So this file only ever hands the
+ * finished text over; the route file is what schedules the work, with
+ * `after()` from `next/server`, which keeps the function alive past the
+ * response instead of letting a dangling promise die with it.
+ *
+ * Optional, so issue 22's own tests keep working with no step at all.
+ */
+export type AudioStep = (request: RevisionRequest, body: ExplanationBody) => void;
 
 export interface RevisionInput {
   /** The parsed JSON body, or anything at all: it is validated here. */
@@ -43,6 +58,8 @@ export interface RevisionInput {
   limiter: RateLimiter;
   /** Injected clock, so the rate-limit tests are deterministic. */
   now?: number;
+  /** Where a finished explanation goes to have its audio made (issue 25). */
+  audio?: AudioStep;
 }
 
 /** What the route answers with. */
@@ -79,14 +96,44 @@ function fail(status: number, error: RevisionError): RevisionReply {
   return { status, body: { error } };
 }
 
+/**
+ * Hand a finished explanation to the audio step, and never let it matter.
+ *
+ * The student's reply is already decided by the time this runs. A step that
+ * throws is a bug in the step, not a reason to hide an explanation somebody
+ * paid for, which is exactly what the issue asks for: "with the unconfigured
+ * provider the explanation still shows and no error reaches the student".
+ */
+function startAudio(
+  audio: AudioStep | undefined,
+  request: RevisionRequest,
+  body: ExplanationBody,
+): void {
+  if (!audio) return;
+  try {
+    audio(request, body);
+  } catch {
+    // Nothing useful to do. The explanation stays silent until the next read.
+  }
+}
+
 /** Shape a stored row for the wire. Null body means it is not ready. */
-function readable(found: Explanation | null): RevisionReply {
+function readable(found: Explanation | null, audio?: AudioStep): RevisionReply {
   if (!found || found.status !== 'ready' || !found.body) {
     // Claimed as ready a moment ago but not readable now: a teacher edit or a
     // cache miss. Telling the client "on its way" makes it retry, which is
     // right, and costs nothing because the row already exists.
     return { status: 202, body: { status: 'generating' } };
   }
+
+  // A saved explanation with no audio: either it was written before this
+  // slice existed, or a voice call broke. Reading it is the moment to make
+  // the audio, once. `claim_explanation_audio()` is what stops a popular
+  // question from starting a hundred voice calls.
+  if (!found.audioPath) {
+    startAudio(audio, { questionId: found.questionId, lang: found.lang }, found.body);
+  }
+
   return {
     status: 200,
     body: {
@@ -108,6 +155,7 @@ export async function handleRevision({
   explainer,
   limiter,
   now,
+  audio,
 }: RevisionInput): Promise<RevisionReply> {
   // The limiter is keyed on the user, so a signed-out flood all lands on one
   // bucket. That is deliberate: those requests are refused at step 2 anyway.
@@ -139,7 +187,7 @@ export async function handleRevision({
     case 'generating':
       return { status: 202, body: { status: 'generating' } };
     case 'ready':
-      return readable(await client.get(request));
+      return readable(await client.get(request), audio);
     case 'claimed':
       break;
     default:
@@ -148,13 +196,14 @@ export async function handleRevision({
 
   // We won the race, so from here on exactly one model call happens, and if
   // anything at all goes wrong the student gets their 1 of 30 back.
-  return generate(request, client, explainer);
+  return generate(request, client, explainer, audio);
 }
 
 async function generate(
   request: RevisionRequest,
   client: AiClient,
   explainer: Explainer,
+  audio?: AudioStep,
 ): Promise<RevisionReply> {
   try {
     const question = await client.question(request.questionId);
@@ -177,6 +226,10 @@ async function generate(
     });
 
     await client.finish(request, result);
+
+    // Saved, so there is finally something to read out. This is the "after
+    // `ready`" the issue names (issue 25-revision-audio).
+    startAudio(audio, request, result.body);
 
     return {
       status: 200,

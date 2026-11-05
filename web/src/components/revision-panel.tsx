@@ -21,9 +21,12 @@
  * `fetch`, no socket and no key (web/CLAUDE.md). The defaults are built lazily
  * inside the component, so importing this file does no work.
  *
- * NO AUDIO BAR YET. `audio_path` is always null until issue 25 (TTS), and a
- * player with nothing to play is worse than no player. The field is read and
- * carried, so 25 only has to add the control.
+ * THE AUDIO BAR (issue 25-revision-audio) is drawn only when `audioPath` is
+ * set, because a player with nothing to play is worse than no player. The
+ * audio is made in the background after the text is saved, so the first
+ * student to open a brand-new explanation reads it in silence and everybody
+ * after them gets the bar. That is the trade F-F5 asks for: the voice is paid
+ * per character, so it is made once, not once per reader.
  *
  * A11y: the skeleton is `role="status"` + `aria-busy`, the thumbs are real
  * buttons with `aria-pressed` and an `aria-label` in the current language, and
@@ -32,6 +35,7 @@
 import { ExternalLink, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { RevisionAudioBar } from '@/components/revision-audio-bar';
 import { createBrowserRevisionClient } from '@/lib/ai/browser-revision-client';
 import type { FeedbackVote } from '@/lib/ai/feedback';
 import { REVISION_ERROR_LABEL } from '@/lib/ai/labels';
@@ -354,6 +358,17 @@ function Ready({
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {/* The audio bar, under Sources, exactly where DESIGN.md section 8 puts
+          it. Only when there is a file: audio is made in the background after
+          the text is saved (issue 25-revision-audio). */}
+      {explanation.audioPath ? (
+        <RevisionAudioBar
+          questionId={explanation.questionId}
+          lang={explanation.lang}
+          mode={mode}
+        />
       ) : null}
 
       {/* Thumbs up / down. The vote goes to the teacher (DESIGN.md section 8). */}
