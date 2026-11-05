@@ -162,13 +162,15 @@ describe('subscription.charged', () => {
     expect(store.events).toHaveLength(1);
   });
 
-  it('releases the event id and asks for a retry when the store fails', async () => {
+  it('stores no event id and asks for a retry when the store fails', async () => {
     const store = createFakeWebhookStore({ failAction: true });
     const { reply } = await post(chargedBody(), { store });
 
     expect(reply.status).toBe(500);
     // The month did not land, so the id must not make the retry a duplicate.
-    expect(store.forgotten).toEqual(['evt_sub_1']);
+    // Since issue 34 the de-dupe row and the month are ONE transaction, so a
+    // failed charge writes neither and there is nothing to release.
+    expect(store.forgotten).toEqual([]);
     expect(store.events).toHaveLength(0);
 
     // The retry, with the store healthy again.

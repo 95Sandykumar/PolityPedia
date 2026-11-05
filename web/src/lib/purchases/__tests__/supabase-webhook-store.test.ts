@@ -15,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createSupabaseWebhookStore, readWebhookServiceEnv } from '../supabase-webhook-store';
+import { WebhookPermanentError } from '../webhook';
 
 const ENV = {
   NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co/',
@@ -249,5 +250,181 @@ describe('chargeSubscription and markSubscription (issue 28-plan-subscriptions)'
       store.markSubscription({ subscriptionId: 'x'.repeat(81), status: 'active' }),
     ).rejects.toThrow(/subscription id/);
     expect(calls).toHaveLength(0);
+  });
+});
+
+// --------------------------------------------------------------------------
+// Issue 34-webhook-grant-first
+// --------------------------------------------------------------------------
+
+describe('the amount and the currency (issue 34-webhook-grant-first)', () => {
+  it('sends what the signed body said was paid', async () => {
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.grantPurchase({
+      orderId: 'order_1',
+      feeInr: 9.41,
+      amountPaise: 39_900,
+      currency: 'inr',
+    });
+
+    expect(calls[0].body).toEqual({
+      order_id: 'order_1',
+      fee: 9.41,
+      paid_paise: 39_900,
+      // Upper case, because 0034 compares against 'INR'.
+      paid_currency: 'INR',
+    });
+  });
+
+  it('leaves both OUT when the gateway did not say', async () => {
+    // Omitted and not null, so 0034's own defaults decide and the call looks
+    // exactly like the old two-argument one: "nothing to check".
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.grantPurchase({ orderId: 'order_2', feeInr: 0, amountPaise: null, currency: null });
+
+    expect(calls[0].body).toEqual({ order_id: 'order_2', fee: 0 });
+  });
+});
+
+describe('the charge key and the plan (issue 34-webhook-grant-first)', () => {
+  it('sends the de-dupe key, the type and the body in the SAME call', async () => {
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.chargeSubscription({
+      subscriptionId: 'sub_test_1',
+      chargeKey: 'charged:pay_m1',
+      type: 'subscription.charged',
+      payload: { event: 'subscription.charged' },
+    });
+
+    // ONE request. The de-dupe row and the month are one transaction, so
+    // there is no `record_payment_event` call in front of it.
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://example.supabase.co/rest/v1/rpc/charge_subscription');
+    expect(calls[0].body).toEqual({
+      subscription_id: 'sub_test_1',
+      charge_key: 'charged:pay_m1',
+      new_type: 'subscription.charged',
+      new_payload: { event: 'subscription.charged' },
+    });
+  });
+
+  it('maps the Razorpay plan id to our own plan word', async () => {
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({
+      env: { ...ENV, RAZORPAY_PLAN_AI_ID: 'plan_ai_x', RAZORPAY_PLAN_PRO_ID: 'plan_pro_x' },
+      fetchImpl,
+    });
+
+    await store.chargeSubscription({ subscriptionId: 'sub_1', planId: 'plan_pro_x' });
+
+    expect((calls[0].body as { charged_plan?: string }).charged_plan).toBe('pro');
+  });
+
+  it('sends a word that matches neither plan when the id is unknown', async () => {
+    // Guessing is how a Rs 500 Pro row gets extended by a Rs 100 AI charge.
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({
+      env: { ...ENV, RAZORPAY_PLAN_AI_ID: 'plan_ai_x' },
+      fetchImpl,
+    });
+
+    await store.chargeSubscription({ subscriptionId: 'sub_1', planId: 'plan_somebody_else' });
+
+    const sent = (calls[0].body as { charged_plan?: string }).charged_plan;
+    expect(sent).toBeDefined();
+    expect(['ai', 'pro']).not.toContain(sent);
+  });
+
+  it('sends no plan at all when no plan variable is set', async () => {
+    // A fresh install sets the keys before the plan objects, and a charge that
+    // really arrives must not be refused for that.
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.chargeSubscription({ subscriptionId: 'sub_1', planId: 'plan_ai_x' });
+
+    expect(calls[0].body).toEqual({ subscription_id: 'sub_1' });
+  });
+});
+
+describe('recordAlert (issue 34-webhook-grant-first)', () => {
+  it('calls 0029’s own writer with the five arguments', async () => {
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.recordAlert({
+      kind: 'bad_event',
+      subject: 'event:evt_1',
+      orderId: 'order_1',
+      expectedPaise: 39_900,
+      actualPaise: 100,
+    });
+
+    expect(calls[0].url).toBe('https://example.supabase.co/rest/v1/rpc/record_reconcile_alert');
+    expect(calls[0].body).toEqual({
+      new_kind: 'bad_event',
+      new_subject: 'event:evt_1',
+      new_order_id: 'order_1',
+      new_expected_paise: 39_900,
+      new_actual_paise: 100,
+    });
+    // The SERVICE-ROLE key: 0029 revokes the writer from `authenticated`.
+    expect(calls[0].headers.apikey).toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+  });
+
+  it('trims a long subject to the 160 characters 0029 allows', async () => {
+    const { calls, fetchImpl } = recorder([{ status: 200, body: true }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.recordAlert({
+      kind: 'bad_event',
+      subject: 'event:' + 'x'.repeat(400),
+      orderId: null,
+      expectedPaise: null,
+      actualPaise: null,
+    });
+
+    expect((calls[0].body as { new_subject: string }).new_subject).toHaveLength(160);
+  });
+});
+
+describe('an event that can never succeed (issue 34-webhook-grant-first)', () => {
+  it('throws a PERMANENT error for an over-long order id', async () => {
+    // A plain Error is a 500 and hours of Razorpay retries. An 81-character
+    // order id will still be 81 characters next time, so the handler has to be
+    // able to tell the two apart.
+    const { calls, fetchImpl } = recorder();
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await expect(
+      store.grantPurchase({ orderId: 'order_' + 'x'.repeat(75), feeInr: 0 }),
+    ).rejects.toBeInstanceOf(WebhookPermanentError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('throws a PERMANENT error for a fee that is not a fee', async () => {
+    const { calls, fetchImpl } = recorder();
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await expect(
+      store.grantPurchase({ orderId: 'order_1', feeInr: 400_000 }),
+    ).rejects.toBeInstanceOf(WebhookPermanentError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('throws a PLAIN error when the database is merely unwell', async () => {
+    // Opposite answer, so this one MUST get its retry.
+    const { fetchImpl } = recorder([{ status: 500, body: { message: 'deadlock' } }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    const failed = store.grantPurchase({ orderId: 'order_1', feeInr: 0 });
+    await expect(failed).rejects.toThrow(/500/);
+    await expect(failed).rejects.not.toBeInstanceOf(WebhookPermanentError);
   });
 });

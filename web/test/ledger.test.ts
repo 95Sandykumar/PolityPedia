@@ -405,11 +405,22 @@ describe('X2: how long the set stays open', () => {
 });
 
 describe('A3: forward only', () => {
-  it('a refund before paid does not reopen anything', async () => {
+  it('a refund before paid shuts the row, and the late capture cannot reopen it', async () => {
     await checkout(setId, 'order_early_refund');
 
-    expect(await refund('order_early_refund')).toBe(false);
-    expect(await purchaseStatus('order_early_refund')).toBe('created');
+    // ISSUE 34-WEBHOOK-GRANT-FIRST TURNED THIS ROUND. 0027 refused to refund a
+    // `created` row, in case a capture was a second behind. Razorpay does not
+    // refund money it never took, so a refund for a `created` row of ours
+    // means OUR capture webhook is late or lost, and leaving the row `created`
+    // lets that late capture open a set the student has been paid back for.
+    expect(await refund('order_early_refund')).toBe(true);
+    expect(await purchaseStatus('order_early_refund')).toBe('refunded');
+
+    // The late capture, and `grant_purchase()` only ever moves `created`.
+    expect(await grant('order_early_refund')).toBe(false);
+    expect(await purchaseStatus('order_early_refund')).toBe('refunded');
+
+    // Still forward only: no money owed to a teacher, and no open set.
     expect(await accessRows()).toHaveLength(0);
     expect(await ledgerRows()).toHaveLength(0);
   });
