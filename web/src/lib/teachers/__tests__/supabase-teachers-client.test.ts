@@ -234,3 +234,73 @@ describe('listPublic: the v0 privacy rule at the app layer', () => {
     expect(await client(fakeFetch([{ status: 500, body: {} }]).fn).listPublic()).toEqual([]);
   });
 });
+
+/**
+ * readPublic / listPublicByIds: the portfolio page and the Home tab
+ * (issue 06-portfolio-follow). Both read the VIEW, never the table, so a
+ * pending teacher and an alias real name stay invisible.
+ */
+describe('readPublic', () => {
+  const ROW = {
+    user_id: TEACHER,
+    identity_mode: 'alias',
+    display_name: 'Polity Guru',
+    avatar_path: null,
+    bio_en: null,
+    bio_hi: null,
+    videos_visible: true,
+  };
+
+  it('reads one row of the view by id', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [ROW] }]);
+
+    const row = await client(fn).readPublic(TEACHER);
+
+    expect(row?.displayName).toBe('Polity Guru');
+    expect(Object.keys(row ?? {})).not.toContain('realName');
+    expect(calls[0].url).toContain('/rest/v1/teachers_public?select=');
+    expect(calls[0].url).toContain(`user_id=eq.${TEACHER}`);
+    expect(calls[0].url).not.toContain('real_name');
+  });
+
+  it('is null for a teacher the view does not return (pending, or gone)', async () => {
+    const { fn } = fakeFetch([{ status: 200, body: [] }]);
+    expect(await client(fn).readPublic(TEACHER)).toBeNull();
+  });
+
+  it('is null, and makes no call, for an id that is not a uuid', async () => {
+    const { fn, calls } = fakeFetch();
+    expect(await client(fn).readPublic('../../rest/v1/teachers')).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('is null on any failure', async () => {
+    const { fn } = fakeFetch([{ status: 500, body: {} }]);
+    expect(await client(fn).readPublic(TEACHER)).toBeNull();
+  });
+});
+
+describe('listPublicByIds', () => {
+  it('asks for just those ids', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+
+    await client(fn).listPublicByIds([TEACHER, ADMIN]);
+
+    expect(calls[0].url).toContain(`user_id=in.(${TEACHER},${ADMIN})`);
+  });
+
+  it('makes no call for an empty list', async () => {
+    const { fn, calls } = fakeFetch();
+    expect(await client(fn).listPublicByIds([])).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('drops an id that is not a uuid instead of putting it in the URL', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+
+    await client(fn).listPublicByIds(['nope', TEACHER]);
+
+    expect(calls[0].url).toContain(`user_id=in.(${TEACHER})`);
+    expect(calls[0].url).not.toContain('nope');
+  });
+});
