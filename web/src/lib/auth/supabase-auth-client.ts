@@ -9,6 +9,7 @@
  * secrets. No console call lives in this file, and the errors it throws carry
  * only a fixed message plus the HTTP status, never a response body.
  */
+import { isTeacherStatus, type TeacherStatus } from '@/lib/teachers/types';
 import { readSupabaseEnv, type SupabaseEnv } from './env';
 import { isRole, type AuthSession, type Role, type ServerAuthClient } from './types';
 
@@ -74,6 +75,29 @@ export function createSupabaseAuthClient(
     return isRole(first?.role) ? first.role : 'student';
   }
 
+  /**
+   * A teacher's own `teachers.status` (issue 05-teacher-invite-approval), read
+   * with their access token so `teachers_select_own` decides. Only asked for
+   * when the role is `teacher`, so a student still signs in with one call.
+   * Anything unreadable comes back as `pending`: the guard fails closed.
+   */
+  async function readTeacherStatus(accessToken: string): Promise<TeacherStatus> {
+    const { url, anonKey } = required();
+    const res = await doFetch(url + '/rest/v1/teachers?select=status', {
+      method: 'GET',
+      headers: {
+        apikey: anonKey,
+        authorization: 'Bearer ' + accessToken,
+        accept: 'application/json',
+      },
+      cache: 'no-store',
+    });
+    if (!res.ok) return 'pending';
+    const rows = (await res.json()) as unknown;
+    const first = Array.isArray(rows) ? (rows[0] as { status?: unknown } | undefined) : undefined;
+    return isTeacherStatus(first?.status) ? first.status : 'pending';
+  }
+
   async function toSession(payload: unknown): Promise<AuthSession> {
     const body = (payload ?? {}) as TokenResponse;
     const accessToken = body.access_token;
@@ -81,11 +105,13 @@ export function createSupabaseAuthClient(
     if (typeof accessToken !== 'string' || typeof userId !== 'string') {
       throw new Error('Supabase auth returned no session');
     }
+    const role = await readRole(accessToken);
     return {
       accessToken,
       refreshToken: typeof body.refresh_token === 'string' ? body.refresh_token : '',
       userId,
-      role: await readRole(accessToken),
+      role,
+      ...(role === 'teacher' ? { teacherStatus: await readTeacherStatus(accessToken) } : {}),
     };
   }
 

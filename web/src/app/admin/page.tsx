@@ -5,7 +5,10 @@
 import Link from 'next/link';
 import { DEFAULT_MODE, labels, plain } from '@/lib/i18n';
 
-const TOOLS = [{ href: '/admin/plans', key: 'plans.title' }] as const;
+const TOOLS = [
+  { href: '/admin/teachers', key: 'adminTeachers.title' },
+  { href: '/admin/plans', key: 'plans.title' },
+] as const;
 
 export default function AdminPage() {
   const mode = DEFAULT_MODE;

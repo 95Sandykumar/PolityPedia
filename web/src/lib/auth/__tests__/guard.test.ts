@@ -46,8 +46,13 @@ describe('guard', () => {
     });
   });
 
-  it('lets a teacher into a teacher page', () => {
-    expect(guard({ pathname: '/teacher/home', role: 'teacher' })).toEqual({ allow: true });
+  // Issue 05-teacher-invite-approval added the approved check, so a teacher
+  // session now carries a status. The pending cases live in
+  // src/lib/teachers/__tests__/teacher-approval-guard.test.ts.
+  it('lets an approved teacher into a teacher page', () => {
+    expect(
+      guard({ pathname: '/teacher/home', role: 'teacher', teacherStatus: 'approved' }),
+    ).toEqual({ allow: true });
   });
 
   it('lets an admin into both', () => {

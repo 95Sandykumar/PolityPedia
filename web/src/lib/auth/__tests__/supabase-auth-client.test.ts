@@ -79,8 +79,10 @@ describe('createSupabaseAuthClient', () => {
     expect(new Headers(calls[0].init.headers).get('apikey')).toBe('test-anon-key');
   });
 
+  // Issue 05-teacher-invite-approval: a teacher session also carries
+  // `teachers.status`, read with a second RLS-checked call.
   it('verifies a code and returns the session with the profile role', async () => {
-    const { fn, calls } = fakeFetch([TOKEN_BODY, [{ role: 'teacher' }]]);
+    const { fn, calls } = fakeFetch([TOKEN_BODY, [{ role: 'teacher' }], [{ status: 'approved' }]]);
     const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
 
     const session = await client.verifyEmailCode('student@politypedia.test', '123456');
@@ -96,7 +98,9 @@ describe('createSupabaseAuthClient', () => {
       refreshToken: 'r-1',
       userId: '11111111-1111-4111-8111-111111111111',
       role: 'teacher',
+      teacherStatus: 'approved',
     });
+    expect(calls[2].url).toBe('https://proj.supabase.test/rest/v1/teachers?select=status');
   });
 
   it('falls back to role student when the profile row is not readable yet', async () => {

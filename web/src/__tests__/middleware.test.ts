@@ -6,9 +6,14 @@ import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 import { config, middleware } from '../middleware';
 import { MIDDLEWARE_MATCHER } from '@/lib/auth/guard';
-import { SESSION_COOKIE, encodeSession, type Role } from '@/lib/auth/session';
+import {
+  SESSION_COOKIE,
+  encodeSession,
+  type Role,
+  type TeacherStatus,
+} from '@/lib/auth/session';
 
-function request(pathname: string, role?: Role) {
+function request(pathname: string, role?: Role, teacherStatus?: TeacherStatus) {
   const req = new NextRequest(new URL('https://politypedia.test' + pathname));
   if (role) {
     req.cookies.set(
@@ -18,6 +23,7 @@ function request(pathname: string, role?: Role) {
         refreshToken: 'r',
         userId: '11111111-1111-4111-8111-111111111111',
         role,
+        ...(teacherStatus ? { teacherStatus } : {}),
       }),
     );
   }
@@ -44,8 +50,9 @@ describe('middleware', () => {
     expect(location(middleware(request('/teacher/home')))).toBe('/sign-in');
   });
 
-  it('lets a teacher into /teacher/home', () => {
-    const res = middleware(request('/teacher/home', 'teacher'));
+  // Issue 05-teacher-invite-approval: a teacher also has to be approved.
+  it('lets an approved teacher into /teacher/home', () => {
+    const res = middleware(request('/teacher/home', 'teacher', 'approved'));
     expect(location(res)).toBeNull();
     expect(res.status).toBe(200);
   });
