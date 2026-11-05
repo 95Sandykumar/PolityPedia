@@ -281,13 +281,22 @@ export interface PapersClient {
   create(paper: NewPaper): Promise<Paper>;
 }
 
-/** Supabase Storage, narrowed to the two things this slice needs. */
+/** Supabase Storage, narrowed to the three things the app needs. */
 export interface FileStore {
   /** False when the Supabase env vars are missing. */
   isConfigured(): boolean;
   upload(input: { path: string; contentType: string; bytes: Uint8Array }): Promise<void>;
   /** A short-lived download URL, or null when there is no such object. */
   signedUrl(path: string, expiresInSeconds?: number): Promise<string | null>;
+  /**
+   * The object's BYTES, or null when there is no such object.
+   *
+   * Added by issue 12-pdf-split-worker: the split worker has to hand the whole
+   * PDF to Claude, and a signed URL is no use to it. A browser never calls
+   * this: a student gets `signedUrl` and downloads from Supabase directly, so
+   * a 30 MB file never passes through our own server for them.
+   */
+  download(path: string): Promise<Uint8Array | null>;
 }
 
 /** What the upload form sends. `File`s included, so this is browser only. */

@@ -107,5 +107,35 @@ export function createSupabaseFileStore(options: SupabaseFileStoreOptions): File
       const signed = body.signedURL.startsWith('/') ? body.signedURL : '/' + body.signedURL;
       return `${found.url}/storage/v1${signed}`;
     },
+
+    /**
+     * The whole object as bytes (issue 12-pdf-split-worker).
+     *
+     * Only the split worker calls this, and it runs on the laptop, so the
+     * 30 MB cap from `MAX_PDF_BYTES` is the real bound on what lands in
+     * memory. A page never calls it: a student gets a signed URL instead, so
+     * their download never passes through our server.
+     */
+    async download(path: string) {
+      const found = env();
+      if (!found) return null;
+
+      const res = await doFetch(
+        `${found.url}/storage/v1/object/${PAPERS_BUCKET}/${encodePath(path)}`,
+        {
+          method: 'GET',
+          headers: {
+            apikey: found.anonKey,
+            authorization: 'Bearer ' + options.accessToken,
+          },
+          cache: 'no-store',
+        },
+      );
+      // A missing object is null, never an error: the row can point at a file
+      // somebody removed, and the worker turns that into a `no-pdf` job error.
+      if (!res.ok) return null;
+
+      return new Uint8Array(await res.arrayBuffer());
+    },
   };
 }

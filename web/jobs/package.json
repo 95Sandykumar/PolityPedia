@@ -1,0 +1,4 @@
+{
+  "//": "jobs/ is ESM. The resolve hook and the worker both use `import`, and web/package.json has no `type` field because Next.js owns that file. Scoping it here silences MODULE_TYPELESS_PACKAGE_JSON without touching the app (issue 12-pdf-split-worker).",
+  "type": "module"
+}

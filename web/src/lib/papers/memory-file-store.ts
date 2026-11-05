@@ -44,6 +44,13 @@ export function createMemoryFileStore(): MemoryFileStore {
       return `memory://${path}?signed=${expiresInSeconds}`;
     },
 
+    async download(path: string) {
+      const bytes = files.get(path);
+      // A COPY, so a caller that writes into the buffer (the split worker
+      // base64-encodes it) cannot change what the store holds.
+      return bytes ? new Uint8Array(bytes) : null;
+    },
+
     paths() {
       return [...files.keys()];
     },

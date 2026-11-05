@@ -30,6 +30,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { paperDownloadPath, type Paper } from '@/lib/papers/types';
+import { isSplitFailure } from '@/lib/split/types';
 import { createBrowserQuestionsClient } from '@/lib/questions/browser-questions-client';
 import { createMemoryLive } from '@/lib/questions/memory-live';
 import { createSupabaseLive } from '@/lib/questions/supabase-live';
@@ -69,6 +70,19 @@ const JOB_LABELS: Record<IngestJobStatus, MessageKey> = {
   done: 'job.done',
   failed: 'job.failed',
 };
+
+/**
+ * Why the split failed, in the teacher's own language
+ * (issue 12-pdf-split-worker).
+ *
+ * The worker stores a short stable CODE in `ingest_jobs.error`, so the line
+ * the teacher reads exists in English AND Hindi like every other label
+ * (DESIGN.md section 1). A value we do not know is shown AS-IS: an older row,
+ * or a reason from somewhere else, is still better than a blank space.
+ */
+function splitErrorLabel(error: string, mode: LangMode): string {
+  return isSplitFailure(error) ? plain(`splitError.${error}`, mode) : error;
+}
 
 /** Why Publish is off -> the line under the button. */
 const BLOCK_LABELS = {
@@ -318,8 +332,10 @@ function JobLine({ job, mode }: { job: IngestJob; mode: LangMode }) {
           {job.questionCount} {plain('job.found', mode)}
         </span>
       ) : null}
-      {/* The splitter's own words. The teacher can act on them; we cannot. */}
-      {job.error ? <span className="text-sm text-wrong">{job.error}</span> : null}
+      {/* One short line that says the fix, in the teacher's language. */}
+      {job.error ? (
+        <span className="text-sm text-wrong">{splitErrorLabel(job.error, mode)}</span>
+      ) : null}
     </div>
   );
 }
