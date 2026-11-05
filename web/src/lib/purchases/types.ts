@@ -197,6 +197,38 @@ export interface PaymentRecord {
   amountPaise: number;
   /** Razorpay's own word: `captured`, `authorized`, `failed` and so on. */
   status: string;
+  /**
+   * Razorpay's invoice id, present when this charge came off a SUBSCRIPTION
+   * (issue 35-reconcile-visible).
+   *
+   * A monthly plan charge (issue 28) is a real captured payment with an order
+   * id RAZORPAY made, not one of ours, so it can never be in `purchases`. The
+   * reconcile filed every one of them as `no_purchase` -- a false alert per
+   * subscriber per month, which is how a real alert becomes unfindable. Either
+   * of these two fields present means "this is a subscription charge, not a
+   * one-off set sale", and A6 skips it.
+   *
+   * Optional, because a one-off payment has neither and most of the suite
+   * builds a `PaymentRecord` by hand.
+   */
+  invoiceId?: string | null;
+  /** The subscription this charge belongs to, when Razorpay links one. */
+  subscriptionId?: string | null;
+}
+
+/**
+ * True for a captured payment that belongs to a monthly plan and NOT to a
+ * one-off set sale (issue 35-reconcile-visible).
+ *
+ * Here and not in the reconcile, because it is a fact about Razorpay's payload
+ * shape rather than a rule about our money.
+ *
+ * UNVERIFIED against live Razorpay (test mode only until ticket H5): the
+ * subscription payments we have seen carry `invoice_id`, and the docs also
+ * link `subscription_id`. Both are read, and either one is enough.
+ */
+export function isSubscriptionPayment(payment: PaymentRecord): boolean {
+  return Boolean(payment.invoiceId) || Boolean(payment.subscriptionId);
 }
 
 /**
@@ -294,6 +326,11 @@ export interface FakePaymentsOptions {
   /** What `listPayments` finds in the window. The reconcile's whole input. */
   listed?: readonly PaymentRecord[];
   /**
+   * Throw from `listPayments`, so the nightly job's "I could not check the
+   * gateway" exit code is testable (issue 35-reconcile-visible).
+   */
+  failList?: boolean;
+  /**
    * Which plans have a Razorpay plan id. Default: both (issue 28). Pass `[]`
    * to test the "keys are set up but the plan object is not" state.
    */
@@ -347,6 +384,9 @@ export function createFakePayments(options: FakePaymentsOptions = {}): FakePayme
     },
     async listPayments(window: PaymentsWindow) {
       listed.push(window);
+      // A half-read window is worse than no window: the real adapter throws
+      // for the same reason, so the fake must be able to as well.
+      if (options.failList) throw new Error('Razorpay payments list failed with status 500');
       return [...(options.listed ?? [])];
     },
     hasPlan(plan: Plan) {

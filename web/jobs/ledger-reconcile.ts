@@ -1,6 +1,6 @@
 /**
  * P10, the nightly reconcile. The PM2 entry point
- * (issue 29-ledger-reconcile-payouts).
+ * (issues 29-ledger-reconcile-payouts, 35-reconcile-visible).
  *
  * design.md A6: "Nightly reconcile: Razorpay payments vs `purchases`,
  * mismatch -> alert."
@@ -9,7 +9,8 @@
  * which is unit tested with a fake Razorpay and a fake store, because
  * `npm test` must run the whole of A6 with no network and no key
  * (web/CLAUDE.md), and a file that reads `process.env` at the top cannot be
- * imported by a test.
+ * imported by a test. The EXIT CODE is decided there too, by
+ * `runReconcileJob`, for exactly the same reason.
  *
  * IT RUNS ONCE AND EXITS. Unlike the PDF split worker, which listens, this is
  * a cron job: PM2 starts it at 2 AM, it compares the last 48 hours, it writes
@@ -33,60 +34,63 @@
  *   RAZORPAY_KEY_ID                the public half
  *   RAZORPAY_KEY_SECRET            a secret
  *
- * With any of them missing the job reports "not configured" and exits 0. It
- * does NOT invent an all-clear night: `runReconcile` reads neither side unless
- * both are configured, because reading one side alone would file every real
- * sale as a mismatch.
+ * With any of them missing the job reports what is missing BY NAME and exits
+ * NON-ZERO (issue 35-reconcile-visible). It does not invent an all-clear
+ * night: `runReconcile` reads neither side unless both are configured, because
+ * reading one side alone would file every real sale as a mismatch.
  *
- * WHAT IT LOGS. One line, counts only: payments seen, purchases seen,
- * mismatches, and how many of those were new. Never a payment id, never an
- * order id, never an email, never a key. The ids live in the alert row, which
- * only an admin can read.
+ * WHAT IT LOGS. One line, counts only: payments seen, subscription charges
+ * skipped, purchases seen, purchase rows it could not read, mismatches, and
+ * how many of those were new. Never a payment id, never an order id, never an
+ * email, never a key. The ids live in the alert row, which only an admin can
+ * read, on `/admin/alerts`.
  *
- * EXIT CODES. 0 for a finished night, however many alerts it wrote: an alert
- * is the job WORKING, not the job failing, and a non-zero exit would make PM2
- * treat a caught problem as a crash. 1 only when the run itself broke, so a
- * silent night of nothing is impossible to confuse with success.
+ * EXIT CODES, and this is the money part (issue 35-reconcile-visible).
+ *
+ *   0  THE TWO SIDES WERE COMPARED, however many alerts that found. An alert
+ *      is the job WORKING, not the job failing, and a non-zero exit would make
+ *      PM2 treat a caught money problem as a crash.
+ *   1  IT COULD NOT CHECK: a key is missing, the Razorpay read threw, or the
+ *      purchases read threw (which includes the 2,000-row cap).
+ *
+ * The old version exited 0 for "not configured" too. With
+ * `stop_exit_codes: [0]` that meant a rotated Razorpay key made every night
+ * check nothing while `pm2 list` showed a healthy, finished app. A silent
+ * all-clear is the one answer this job must never give by accident.
+ *
+ * WHAT IS NOT HERE: a Telegram or email push. No other `jobs/*.ts` has an
+ * admin notify path, and there is none anywhere under `web/`, so there was
+ * nothing to reuse. 0029 already says pushing an alert to Boss is the
+ * ClaudeClaw side, later. The alert row plus `/admin/alerts` is the delivery.
  */
 import { createRazorpayPayments } from '@/lib/purchases/razorpay-payments';
-import { runReconcile } from '@/lib/ledger/reconcile';
+import { runReconcileJob, type ReconcileJobResult } from '@/lib/ledger/reconcile';
 import { createSupabaseReconcileStore } from '@/lib/ledger/supabase-reconcile-store';
-import { RECONCILE_WINDOW_HOURS, type ReconcileOutcome } from '@/lib/ledger/types';
+import { EXIT_CANNOT_CHECK } from '@/lib/ledger/types';
 
-/** One short line per run. `console` is the PM2 log, which is the whole point. */
-function report(outcome: ReconcileOutcome): void {
-  if (outcome.type === 'idle') {
-    console.error('[ledger-reconcile] not configured, nothing checked');
-    return;
-  }
-  const line =
-    `[ledger-reconcile] window=${RECONCILE_WINDOW_HOURS}h` +
-    ` payments=${outcome.payments} purchases=${outcome.purchases}` +
-    ` alerts=${outcome.alerts} new=${outcome.fresh}`;
-  // A new mismatch goes to stderr so it stands out in `pm2 logs`. A repeat
-  // sighting is routine: Boss has already been told.
-  if (outcome.fresh > 0) console.error(line);
-  else console.log(line);
-}
+/**
+ * One night. Returns the exit code, so the caller owns `process` and a test
+ * never has to.
+ *
+ * The adapters are injectable for the same reason, but nothing injects them
+ * today: `runReconcileJob` is where the tests live.
+ */
+export async function main(
+  input: Partial<Parameters<typeof runReconcileJob>[0]> = {},
+): Promise<ReconcileJobResult> {
+  const result = await runReconcileJob({
+    payments: input.payments ?? createRazorpayPayments(),
+    store: input.store ?? createSupabaseReconcileStore(),
+    now: input.now,
+    windowHours: input.windowHours,
+  });
 
-export async function main(): Promise<ReconcileOutcome> {
-  const payments = createRazorpayPayments();
-  const store = createSupabaseReconcileStore();
+  // `console` is the PM2 log, which is the whole point. stderr for anything
+  // that needs Boss, stdout for a routine night.
+  if (result.loud) console.error(result.line);
+  else console.log(result.line);
 
-  // Every missing key by NAME, never by value: a key in a log file is a
-  // leaked key.
-  const missing = [
-    payments.isConfigured() ? null : 'RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET',
-    store.isConfigured() ? null : 'NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY',
-  ].filter(Boolean);
-
-  if (missing.length > 0) {
-    console.error(`[ledger-reconcile] not configured. Missing: ${missing.join(', ')}`);
-  }
-
-  const outcome = await runReconcile({ payments, store });
-  report(outcome);
-  return outcome;
+  return result;
 }
 
 /**
@@ -104,13 +108,18 @@ const isEntryPoint =
   /ledger-reconcile(\.[cm]?[jt]s)?$/.test(process.argv[1]);
 
 if (isEntryPoint) {
-  main().catch((error: unknown) => {
-    // The message only. A thrown error from the store carries an HTTP status
-    // and nothing else by design, but a future one might carry more.
-    console.error(
-      '[ledger-reconcile] run failed:',
-      error instanceof Error ? error.message : 'unknown error',
-    );
-    process.exitCode = 1;
-  });
+  main()
+    .then((result) => {
+      process.exitCode = result.exitCode;
+    })
+    .catch((error: unknown) => {
+      // `runReconcileJob` catches everything the reconcile throws, so reaching
+      // here means the WIRING broke: a bad import, or an adapter factory that
+      // threw. Still a night that checked nothing, so still non-zero.
+      console.error(
+        '[ledger-reconcile] could not start:',
+        error instanceof Error ? error.message : 'unknown error',
+      );
+      process.exitCode = EXIT_CANNOT_CHECK;
+    });
 }

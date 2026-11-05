@@ -483,6 +483,43 @@ export const dictionary = {
     'payouts.failed': 'Could not save. Try again.',
     'payouts.readFailed': 'Could not load the report. Reload the page.',
     'payouts.notConfigured': 'Payouts are not set up yet',
+    // Money alerts (issue 35-reconcile-visible). A6: what the nightly
+    // reconcile found, and the one button that says a human dealt with it.
+    'alerts.title': 'Money alerts',
+    'alerts.hint':
+      'What the nightly check found between Razorpay and our sales. Mark Resolved once you have dealt with it.',
+    'alerts.open': 'open',
+    'alerts.when': 'Found',
+    'alerts.kind': 'Problem',
+    'alerts.payment': 'Payment',
+    'alerts.order': 'Order',
+    'alerts.expected': 'We say',
+    'alerts.actual': 'Razorpay says',
+    'alerts.detail': 'What to do',
+    'alerts.resolve': 'Resolved',
+    'alerts.resolving': 'Saving...',
+    'alerts.resolvedOne': 'Marked resolved',
+    'alerts.alreadyResolved': 'Somebody already resolved that one',
+    'alerts.empty': 'Nothing open. Razorpay and our sales agree.',
+    'alerts.loading': 'Loading...',
+    'alerts.failed': 'Could not save. Try again.',
+    'alerts.readFailed': 'Could not load the alerts. Reload the page.',
+    'alerts.notConfigured': 'Money alerts are not set up yet',
+    'alerts.kindNoPurchase': 'Money taken, no sale of ours',
+    'alerts.detailNoPurchase':
+      'A student paid and got nothing. Refund the payment or open the set for them.',
+    'alerts.kindNotPaid': 'Our sale never turned paid',
+    'alerts.detailNotPaid':
+      'The webhook was lost. The money is in and the set is shut. Open the set for the student.',
+    'alerts.kindAmountMismatch': 'The two amounts disagree',
+    'alerts.detailAmountMismatch':
+      'Both sides say paid and the amounts differ. Check the price and the coupon used at checkout.',
+    'alerts.kindNoPayment': 'Our sale has no payment',
+    'alerts.detailNoPayment':
+      'We gave a set away, or this is a test-mode sale in the live database. Check the order at Razorpay.',
+    'alerts.kindUnreadablePurchase': 'Some of our own sale rows could not be read',
+    'alerts.detailUnreadablePurchase':
+      'The check skipped rows it could not read, so the rest of that night is unreliable. Check the purchases table, then run the check again.',
     // The screen (issue 23-revision-screen).
     'revision.aiWritten': 'Written by AI',
     'revision.thumbsUp': 'This helped',
@@ -925,6 +962,42 @@ export const dictionary = {
     'payouts.failed': 'सेव नहीं हो सका। फिर कोशिश करें।',
     'payouts.readFailed': 'रिपोर्ट लोड नहीं हो सकी। पेज फिर लोड करें।',
     'payouts.notConfigured': 'भुगतान अभी सेट नहीं है',
+    // Money alerts (issue 35-reconcile-visible).
+    'alerts.title': 'पैसे की चेतावनी',
+    'alerts.hint':
+      'रात की जाँच में Razorpay और हमारी बिक्री के बीच जो फर्क मिला। निपटाने के बाद "निपट गया" लगाएँ।',
+    'alerts.open': 'खुली',
+    'alerts.when': 'कब मिला',
+    'alerts.kind': 'दिक्कत',
+    'alerts.payment': 'पेमेंट',
+    'alerts.order': 'ऑर्डर',
+    'alerts.expected': 'हम कहते हैं',
+    'alerts.actual': 'Razorpay कहता है',
+    'alerts.detail': 'क्या करें',
+    'alerts.resolve': 'निपट गया',
+    'alerts.resolving': 'सेव कर रहे हैं...',
+    'alerts.resolvedOne': 'निपटा हुआ दर्ज कर दिया',
+    'alerts.alreadyResolved': 'इसे कोई पहले ही निपटा चुका है',
+    'alerts.empty': 'कुछ खुला नहीं। Razorpay और हमारी बिक्री मिलती है।',
+    'alerts.loading': 'लोड हो रहा है...',
+    'alerts.failed': 'सेव नहीं हो सका। फिर कोशिश करें।',
+    'alerts.readFailed': 'चेतावनी लोड नहीं हो सकी। पेज फिर लोड करें।',
+    'alerts.notConfigured': 'पैसे की चेतावनी अभी सेट नहीं है',
+    'alerts.kindNoPurchase': 'पैसा आया, हमारी बिक्री नहीं',
+    'alerts.detailNoPurchase':
+      'छात्र ने पैसे दिए और कुछ नहीं मिला। पैसा लौटाएँ या उसका सेट खोल दें।',
+    'alerts.kindNotPaid': 'हमारी बिक्री "पेड" नहीं हुई',
+    'alerts.detailNotPaid':
+      'वेबहुक खो गया। पैसा आ गया और सेट बंद है। छात्र के लिए सेट खोल दें।',
+    'alerts.kindAmountMismatch': 'दोनों रकम मेल नहीं खातीं',
+    'alerts.detailAmountMismatch':
+      'दोनों तरफ "पेड" है और रकम अलग है। चेकआउट का दाम और कूपन जाँचें।',
+    'alerts.kindNoPayment': 'हमारी बिक्री का कोई पेमेंट नहीं',
+    'alerts.detailNoPayment':
+      'सेट मुफ्त चला गया, या यह टेस्ट-मोड की बिक्री है। Razorpay पर ऑर्डर जाँचें।',
+    'alerts.kindUnreadablePurchase': 'हमारी ही कुछ बिक्री पंक्तियाँ पढ़ी नहीं गईं',
+    'alerts.detailUnreadablePurchase':
+      'जाँच ने वे पंक्तियाँ छोड़ दीं जो पढ़ी नहीं गईं, इसलिए उस रात का बाकी नतीजा भरोसे का नहीं। purchases टेबल जाँचें, फिर जाँच दोबारा चलाएँ।',
     // The screen (issue 23-revision-screen).
     'revision.aiWritten': 'AI ने लिखा है',
     'revision.thumbsUp': 'इससे मदद मिली',
