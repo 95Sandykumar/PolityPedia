@@ -1,6 +1,6 @@
 ---
 id: 20-batch-reports
-status: todo
+status: done
 type: afk
 depends_on: [19-batches, 18-exam-mode]
 ---
@@ -26,3 +26,5 @@ A teacher opens a batch and sees a score table per test and per student, for the
 No export, no charts.
 
 <!-- ralph 2026-11-05T18:44:34.418Z: upstream 15-mock-sets-authoring blocked -->
+
+<!-- ralph 2026-11-05T20:38:04.691Z: committed + tests pass -->

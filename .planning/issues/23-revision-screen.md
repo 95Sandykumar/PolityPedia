@@ -1,6 +1,6 @@
 ---
 id: 23-revision-screen
-status: todo
+status: blocked
 type: afk
 depends_on: [22-revision-api]
 ---
@@ -27,3 +27,5 @@ From a wrong answer, a student taps Revision (AI) and sees the explanation: Exam
 The upsell button can link to a placeholder plan page until issue 28.
 
 <!-- ralph 2026-11-05T18:52:21.334Z: upstream 22-revision-api blocked -->
+
+<!-- ralph 2026-11-05T19:18:13.762Z: merge conflict against integration branch -->
