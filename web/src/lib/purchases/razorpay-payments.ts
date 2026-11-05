@@ -24,7 +24,14 @@
  *  * No console call lives in this file, and every thrown error carries a
  *    fixed message plus the HTTP status, never a response body.
  */
-import { toPaise, type CreateOrderInput, type PaymentRecord, type Payments } from './types';
+import {
+  toPaise,
+  type CreateOrderInput,
+  type CreateSubscriptionInput,
+  type PaymentRecord,
+  type Payments,
+  type Plan,
+} from './types';
 
 const API = 'https://api.razorpay.com/v1';
 
@@ -33,6 +40,40 @@ const MAX_RECEIPT = 40;
 
 /** One page of payments against one order. A single order has very few. */
 const PAYMENTS_PER_PAGE = 20;
+
+/**
+ * How many cycles a subscription is opened for (issue 28).
+ *
+ * Razorpay WANTS a `total_count`; there is no "forever". Ten years of months
+ * is the practical reading of "monthly until cancelled": a student who really
+ * subscribes for ten years can resubscribe, and a smaller number would quietly
+ * end somebody's plan on a date nobody chose.
+ */
+const SUBSCRIPTION_TOTAL_COUNT = 120;
+
+/**
+ * The env var holding the RAZORPAY PLAN ID for each of V18's plans.
+ *
+ * A Razorpay plan is an object in its console with the amount on it, created
+ * once per price. Its id is NOT a secret (it names a public price), but it is
+ * environment-specific, so it is read lazily like everything else and is not
+ * prefixed `NEXT_PUBLIC_`: nothing in a browser needs it.
+ */
+const PLAN_ENV_VAR: Record<Plan, string> = {
+  ai: 'RAZORPAY_PLAN_AI_ID',
+  pro: 'RAZORPAY_PLAN_PRO_ID',
+};
+
+/** The Razorpay plan id for one of our plans, or null. */
+export function readRazorpayPlanId(
+  plan: Plan,
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const name = PLAN_ENV_VAR[plan];
+  if (!name) return null;
+  const id = env[name]?.trim();
+  return id && id.length > 0 ? id : null;
+}
 
 export interface RazorpayEnv {
   keyId: string;
@@ -68,6 +109,11 @@ interface OrderReply {
 
 interface PaymentsReply {
   items?: unknown;
+}
+
+interface SubscriptionReply {
+  id?: unknown;
+  status?: unknown;
 }
 
 function readText(value: unknown, max = 120): string | null {
@@ -153,6 +199,59 @@ export function createRazorpayPayments(options: RazorpayPaymentsOptions = {}): P
       }
 
       return { orderId, amountPaise, currency };
+    },
+
+    /**
+     * Separate from `isConfigured()` on purpose: the keys and the plan objects
+     * are set up at different times, so a page can offer AI while Pro's plan
+     * object is still being created in the console.
+     */
+    hasPlan(plan: Plan) {
+      return env() !== null && readRazorpayPlanId(plan, options.env ?? process.env) !== null;
+    },
+
+    async createSubscription({ plan, notes }: CreateSubscriptionInput) {
+      const keys = required();
+      const planId = readRazorpayPlanId(plan, options.env ?? process.env);
+      if (!planId) {
+        throw new Error('Razorpay has no plan id for ' + plan);
+      }
+
+      const res = await doFetch(API + '/subscriptions', {
+        method: 'POST',
+        headers: {
+          authorization: basic(keys),
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          plan_id: planId,
+          total_count: SUBSCRIPTION_TOTAL_COUNT,
+          // Razorpay collects the first month itself and then every cycle,
+          // and each collection arrives as `subscription.charged`, which is
+          // the one event that extends `entitlements.valid_until` (0028).
+          customer_notify: 1,
+          ...(notes ? { notes } : {}),
+        }),
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        throw new Error('Razorpay subscription failed with status ' + res.status);
+      }
+
+      const body = (await res.json()) as SubscriptionReply;
+      const subscriptionId = readText(body?.id, 80);
+      const status = readText(body?.status, 32);
+
+      // A reply we cannot read is a FAILURE. Inventing a subscription id would
+      // write a made-up value into a UNIQUE column and leave the webhook
+      // unable to find the row it is meant to extend.
+      if (!subscriptionId || !status) {
+        throw new Error('Razorpay subscription reply could not be read');
+      }
+
+      return { subscriptionId, status };
     },
 
     async fetchPayments(orderId: string) {

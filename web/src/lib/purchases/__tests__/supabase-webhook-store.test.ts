@@ -204,3 +204,50 @@ describe('refundPurchase and forgetEvent', () => {
     expect(calls[1].body).toEqual({ new_event_id: 'evt_1' });
   });
 });
+
+describe('chargeSubscription and markSubscription (issue 28-plan-subscriptions)', () => {
+  it('call 0028’s functions with the Razorpay subscription id', async () => {
+    const { calls, fetchImpl } = recorder([
+      { status: 200, body: true },
+      { status: 200, body: true },
+    ]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await store.chargeSubscription({ subscriptionId: ' sub_test_1 ' });
+    await store.markSubscription({ subscriptionId: 'sub_test_1', status: 'cancelled' });
+
+    expect(calls[0].url).toBe('https://example.supabase.co/rest/v1/rpc/charge_subscription');
+    // Trimmed, because 0028's CHECK refuses a padded id.
+    expect(calls[0].body).toEqual({ subscription_id: 'sub_test_1' });
+    expect(calls[1].url).toBe('https://example.supabase.co/rest/v1/rpc/mark_subscription');
+    expect(calls[1].body).toEqual({ subscription_id: 'sub_test_1', new_status: 'cancelled' });
+
+    // The SERVICE-ROLE key, in both headers: 0028 revokes both functions from
+    // `authenticated`, so the anon key cannot run them.
+    expect(calls[0].headers.apikey).toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+    expect(calls[0].headers.authorization).toBe('Bearer ' + ENV.SUPABASE_SERVICE_ROLE_KEY);
+  });
+
+  it('throws on a non-2xx, so the webhook answers 500 and Razorpay retries', async () => {
+    const { fetchImpl } = recorder([{ status: 500, body: { message: 'boom' } }]);
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    // The status and nothing else: a PostgREST body quotes constraint names.
+    await expect(store.chargeSubscription({ subscriptionId: 'sub_test_1' })).rejects.toThrow(
+      /charge_subscription failed with status 500/,
+    );
+  });
+
+  it('refuses an empty or over-long subscription id before any call', async () => {
+    const { calls, fetchImpl } = recorder();
+    const store = createSupabaseWebhookStore({ env: ENV, fetchImpl });
+
+    await expect(store.chargeSubscription({ subscriptionId: '  ' })).rejects.toThrow(
+      /subscription id/,
+    );
+    await expect(
+      store.markSubscription({ subscriptionId: 'x'.repeat(81), status: 'active' }),
+    ).rejects.toThrow(/subscription id/);
+    expect(calls).toHaveLength(0);
+  });
+});

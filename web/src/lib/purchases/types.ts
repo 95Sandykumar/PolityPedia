@@ -25,6 +25,9 @@
 /** Our own route the Unlock button posts to. Holds no key. */
 export const CHECKOUT_ORDER_PATH = '/api/checkout/order';
 
+/** Our own route the Subscribe button posts to (issue 28). Holds no key. */
+export const CHECKOUT_SUBSCRIPTION_PATH = '/api/checkout/subscription';
+
 /**
  * Razorpay's own checkout script. Loaded ONLY when Unlock is tapped
  * (DESIGN.md section 10: the student page budget is 150 KB gzipped, and a
@@ -59,6 +62,20 @@ export function normaliseCoupon(value: unknown): string | null {
   const code = value.trim().toUpperCase();
   if (code.length < COUPON_MIN || code.length > MAX_COUPON_LENGTH) return null;
   return code;
+}
+
+/**
+ * V18's two paid plans. Re-declared here rather than imported from
+ * `@/lib/plans/types` ON PURPOSE: this file is the payments contract and is
+ * imported by the browser bundle, and a one-way dependency is cheaper than a
+ * cycle between two contract files. `plans/types.ts` keeps the same two names
+ * and `src/lib/plans/__tests__/subscribe-route.test.ts` proves they agree.
+ */
+export type Plan = 'ai' | 'pro';
+export const PLANS: readonly Plan[] = ['ai', 'pro'];
+
+export function isPaidPlan(value: unknown): value is Plan {
+  return typeof value === 'string' && (PLANS as readonly string[]).includes(value);
 }
 
 /** `purchases.status`. Same list as `purchases_status_check`. */
@@ -145,6 +162,34 @@ export interface PaymentsOrder {
   currency: string;
 }
 
+// --------------------------------------------------------------------------
+// Subscriptions (issue 28-plan-subscriptions)
+// --------------------------------------------------------------------------
+
+/**
+ * What `createSubscription()` needs, and it is NOT a price.
+ *
+ * Razorpay bills a subscription against a PLAN OBJECT that lives in its own
+ * console, and the amount is attached to that plan there. So the only thing
+ * that travels is which of V18's two plans this is; the adapter maps it to the
+ * Razorpay plan id out of the environment, and the rupees in our own
+ * `subscriptions` row come from `plan_price_inr()` in Postgres. F-G2 holds
+ * without a single amount in this file.
+ */
+export interface CreateSubscriptionInput {
+  plan: Plan;
+  /** Short strings only. Razorpay shows them on the subscription. */
+  notes?: Record<string, string>;
+}
+
+/** What Razorpay hands back when a subscription is opened. */
+export interface PaymentsSubscription {
+  /** Razorpay's own id, e.g. `sub_xxx`. Our webhook's only key. */
+  subscriptionId: string;
+  /** Razorpay's own word: `created`, `authenticated`, `active`. */
+  status: string;
+}
+
 /** One payment against an order, for the nightly reconcile (A6, issue 27). */
 export interface PaymentRecord {
   paymentId: string;
@@ -154,7 +199,7 @@ export interface PaymentRecord {
   status: string;
 }
 
-/** Razorpay, behind four methods. Faked in every test. */
+/** Razorpay, behind six methods. Faked in every test. */
 export interface Payments {
   /** False when the Razorpay env vars are missing, so pages can say so. */
   isConfigured(): boolean;
@@ -163,6 +208,15 @@ export interface Payments {
   createOrder(input: CreateOrderInput): Promise<PaymentsOrder>;
   /** Reconcile (A6) and issue 27's webhook cross-check. */
   fetchPayments(orderId: string): Promise<PaymentRecord[]>;
+  /**
+   * False when the Razorpay PLAN ID for this plan is missing (issue 28).
+   * Separate from `isConfigured()` because the keys and the plan objects are
+   * set up at different times: keys first, then one plan per price. A page
+   * that knows the difference can offer AI while Pro is still being created.
+   */
+  hasPlan(plan: Plan): boolean;
+  /** Open one monthly subscription at Razorpay (issue 28). */
+  createSubscription(input: CreateSubscriptionInput): Promise<PaymentsSubscription>;
 }
 
 // --------------------------------------------------------------------------
@@ -219,6 +273,11 @@ export interface FakePaymentsOptions {
   /** Throw instead of answering, so the route's gateway path is testable. */
   failCreate?: boolean;
   payments?: readonly PaymentRecord[];
+  /**
+   * Which plans have a Razorpay plan id. Default: both (issue 28). Pass `[]`
+   * to test the "keys are set up but the plan object is not" state.
+   */
+  plans?: readonly Plan[];
 }
 
 export interface FakePayments {
@@ -227,6 +286,8 @@ export interface FakePayments {
   orders: CreateOrderInput[];
   /** Every `fetchPayments` call, in order. */
   fetched: string[];
+  /** Every `createSubscription` call, in order (issue 28). */
+  subscriptions: CreateSubscriptionInput[];
 }
 
 /**
@@ -236,7 +297,9 @@ export interface FakePayments {
 export function createFakePayments(options: FakePaymentsOptions = {}): FakePayments {
   const orders: CreateOrderInput[] = [];
   const fetched: string[] = [];
+  const subscriptions: CreateSubscriptionInput[] = [];
   const configured = options.configured ?? true;
+  const plans = options.plans ?? PLANS;
   const keyId = options.keyId === undefined ? 'rzp_test_fake' : options.keyId;
 
   const payments: Payments = {
@@ -259,7 +322,18 @@ export function createFakePayments(options: FakePaymentsOptions = {}): FakePayme
       fetched.push(orderId);
       return [...(options.payments ?? [])];
     },
+    hasPlan(plan: Plan) {
+      return configured && plans.includes(plan);
+    },
+    async createSubscription(input: CreateSubscriptionInput) {
+      subscriptions.push(input);
+      if (options.failCreate) throw new Error('Razorpay subscription failed with status 500');
+      return {
+        subscriptionId: 'sub_test_' + subscriptions.length,
+        status: 'created',
+      };
+    },
   };
 
-  return { payments, orders, fetched };
+  return { payments, orders, fetched, subscriptions };
 }

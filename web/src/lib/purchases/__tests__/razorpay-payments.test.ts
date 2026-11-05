@@ -12,7 +12,11 @@
  *  * a reply we cannot read is a failure, never a made-up order id.
  */
 import { describe, expect, it } from 'vitest';
-import { createRazorpayPayments, readRazorpayEnv } from '../razorpay-payments';
+import {
+  createRazorpayPayments,
+  readRazorpayEnv,
+  readRazorpayPlanId,
+} from '../razorpay-payments';
 
 const ENV = { RAZORPAY_KEY_ID: 'rzp_test_abc', RAZORPAY_KEY_SECRET: 'shhh_secret' };
 
@@ -148,5 +152,97 @@ describe('fetchPayments', () => {
     const { fetchImpl } = recorder({ count: 0, items: [] });
     const payments = createRazorpayPayments({ env: ENV, fetchImpl });
     await expect(payments.fetchPayments('order_1')).resolves.toEqual([]);
+  });
+});
+
+/**
+ * Subscriptions (issue 28-plan-subscriptions).
+ *
+ * The rule worth a test of its own: there is NO AMOUNT in the request. A
+ * Razorpay subscription bills against a PLAN OBJECT whose price lives in
+ * Razorpay's console, so an amount here would be a second place a price could
+ * disagree with `plan_price_inr()` (F-G2).
+ */
+const PLAN_ENV = {
+  ...ENV,
+  RAZORPAY_PLAN_AI_ID: 'plan_test_ai',
+  RAZORPAY_PLAN_PRO_ID: 'plan_test_pro',
+};
+
+describe('the Razorpay plan ids', () => {
+  it('are read lazily and are null when unset', () => {
+    expect(readRazorpayPlanId('ai', {})).toBeNull();
+    expect(readRazorpayPlanId('pro', { RAZORPAY_PLAN_PRO_ID: '  ' })).toBeNull();
+    expect(readRazorpayPlanId('ai', PLAN_ENV)).toBe('plan_test_ai');
+  });
+
+  it('are what `hasPlan()` answers on, not the keys', () => {
+    // Keys set, plan objects not made yet: a real state between two deploys.
+    const halfWay = createRazorpayPayments({
+      env: { ...ENV, RAZORPAY_PLAN_AI_ID: 'plan_test_ai' },
+    });
+    expect(halfWay.isConfigured()).toBe(true);
+    expect(halfWay.hasPlan('ai')).toBe(true);
+    expect(halfWay.hasPlan('pro')).toBe(false);
+
+    // No keys at all: neither plan can be sold, whatever the plan ids say.
+    const noKeys = createRazorpayPayments({
+      env: { RAZORPAY_PLAN_AI_ID: 'plan_test_ai' },
+    });
+    expect(noKeys.hasPlan('ai')).toBe(false);
+  });
+});
+
+describe('createSubscription', () => {
+  it('sends the plan id and NO amount, with the secret in a header', async () => {
+    const { calls, fetchImpl } = recorder({ id: 'sub_test_1', status: 'created' });
+    const payments = createRazorpayPayments({ env: PLAN_ENV, fetchImpl });
+
+    const made = await payments.createSubscription({
+      plan: 'pro',
+      notes: { subscription_id: 'row-1' },
+    });
+
+    expect(made).toEqual({ subscriptionId: 'sub_test_1', status: 'created' });
+    expect(calls[0].url).toBe('https://api.razorpay.com/v1/subscriptions');
+
+    const body = JSON.parse(String(calls[0].init?.body));
+    expect(body.plan_id).toBe('plan_test_pro');
+    expect(body.notes).toEqual({ subscription_id: 'row-1' });
+    // F-G2: nothing on the wire names a price.
+    expect(body.amount).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('500');
+
+    // The secret goes in a header, never in the URL.
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.authorization).toMatch(/^Basic /);
+    expect(calls[0].url).not.toContain('shhh');
+  });
+
+  it('refuses a plan with no Razorpay plan id, before any call', async () => {
+    const { calls, fetchImpl } = recorder({ id: 'sub_test_1', status: 'created' });
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    await expect(payments.createSubscription({ plan: 'ai' })).rejects.toThrow(/no plan id/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('throws the status and never the body on a non-2xx', async () => {
+    const { fetchImpl } = recorder({ error: { description: 'plan not found' } }, false, 400);
+    const payments = createRazorpayPayments({ env: PLAN_ENV, fetchImpl });
+
+    await expect(payments.createSubscription({ plan: 'ai' })).rejects.toThrow(
+      /Razorpay subscription failed with status 400/,
+    );
+  });
+
+  it('treats a reply it cannot read as a failure, never a made-up id', async () => {
+    for (const reply of [{}, { id: '' }, { id: 'sub_test_1' }, { status: 'created' }]) {
+      const { fetchImpl } = recorder(reply);
+      const payments = createRazorpayPayments({ env: PLAN_ENV, fetchImpl });
+      await expect(payments.createSubscription({ plan: 'ai' })).rejects.toThrow(
+        /could not be read/,
+      );
+    }
   });
 });

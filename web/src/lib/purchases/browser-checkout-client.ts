@@ -37,11 +37,19 @@ export const CHECKOUT_THEME_COLOR = '#4F46E5';
 /** The id on the one script tag, so a second tap reuses it. */
 const SCRIPT_ID = 'razorpay-checkout-js';
 
-/** What `new Razorpay(options).open()` needs. Razorpay's own option names. */
+/**
+ * What `new Razorpay(options).open()` needs. Razorpay's own option names.
+ *
+ * `order_id` and `subscription_id` are BOTH optional and exactly one is sent:
+ * a one-off mock-set sale uses the order (issue 26), a monthly plan uses the
+ * subscription (issue 28). `amount` goes with the order only, because a
+ * subscription's price lives on the Razorpay plan object.
+ */
 export interface RazorpayOptions {
   key: string;
-  order_id: string;
-  amount: number;
+  order_id?: string;
+  subscription_id?: string;
+  amount?: number;
   currency: string;
   name: string;
   description?: string;
@@ -87,9 +95,9 @@ export class CheckoutRequestError extends Error {
  * fast taps make one network request and never two gateway bundles.
  */
 export function loadRazorpayCheckout(
-  host: CheckoutScriptHost = defaultHost(),
+  host?: CheckoutScriptHost,
 ): Promise<RazorpayConstructor> {
-  const { doc, win } = host;
+  const { doc, win } = host ?? defaultHost();
 
   if (win.Razorpay) return Promise.resolve(win.Razorpay);
 
