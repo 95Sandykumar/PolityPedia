@@ -1,6 +1,6 @@
 ---
 id: 12-pdf-split-worker
-status: blocked
+status: done
 type: afk
 depends_on: [11-ingest-job-review-publish]
 ---

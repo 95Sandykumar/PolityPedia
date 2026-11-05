@@ -1,6 +1,6 @@
 ---
 id: 08-videos-tile
-status: blocked
+status: done
 type: afk
 depends_on: [06-portfolio-follow]
 ---

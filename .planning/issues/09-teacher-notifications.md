@@ -1,6 +1,6 @@
 ---
 id: 09-teacher-notifications
-status: blocked
+status: done
 type: afk
 depends_on: [06-portfolio-follow]
 ---

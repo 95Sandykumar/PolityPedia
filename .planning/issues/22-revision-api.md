@@ -1,6 +1,6 @@
 ---
 id: 22-revision-api
-status: blocked
+status: done
 type: afk
 depends_on: [21-plans-entitlements, 13-question-player]
 ---

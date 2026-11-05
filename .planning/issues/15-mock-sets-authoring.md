@@ -1,6 +1,6 @@
 ---
 id: 15-mock-sets-authoring
-status: blocked
+status: done
 type: afk
 depends_on: [11-ingest-job-review-publish]
 ---
