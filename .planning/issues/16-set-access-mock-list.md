@@ -1,6 +1,6 @@
 ---
 id: 16-set-access-mock-list
-status: blocked
+status: todo
 type: afk
 depends_on: [15-mock-sets-authoring]
 ---

@@ -1,6 +1,6 @@
 ---
 id: 26-razorpay-order-checkout
-status: blocked
+status: todo
 type: afk
 depends_on: [16-set-access-mock-list]
 ---

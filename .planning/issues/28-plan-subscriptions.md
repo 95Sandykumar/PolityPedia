@@ -1,6 +1,6 @@
 ---
 id: 28-plan-subscriptions
-status: blocked
+status: todo
 type: afk
 depends_on: [27-razorpay-webhook-ledger, 21-plans-entitlements]
 ---

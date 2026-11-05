@@ -1,6 +1,6 @@
 ---
 id: 18-exam-mode
-status: blocked
+status: todo
 type: afk
 depends_on: [17-practice-mode]
 ---

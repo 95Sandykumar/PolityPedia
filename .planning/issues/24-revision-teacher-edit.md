@@ -1,6 +1,6 @@
 ---
 id: 24-revision-teacher-edit
-status: blocked
+status: todo
 type: afk
 depends_on: [22-revision-api]
 ---

@@ -1,6 +1,6 @@
 ---
 id: 19-batches
-status: blocked
+status: todo
 type: afk
 depends_on: [16-set-access-mock-list]
 ---

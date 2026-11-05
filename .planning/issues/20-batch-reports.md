@@ -1,6 +1,6 @@
 ---
 id: 20-batch-reports
-status: blocked
+status: todo
 type: afk
 depends_on: [19-batches, 18-exam-mode]
 ---

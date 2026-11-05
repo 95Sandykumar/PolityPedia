@@ -1,6 +1,6 @@
 ---
 id: 27-razorpay-webhook-ledger
-status: blocked
+status: todo
 type: afk
 depends_on: [26-razorpay-order-checkout]
 ---

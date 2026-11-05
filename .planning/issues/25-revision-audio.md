@@ -1,6 +1,6 @@
 ---
 id: 25-revision-audio
-status: blocked
+status: todo
 type: afk
 depends_on: [23-revision-screen]
 ---

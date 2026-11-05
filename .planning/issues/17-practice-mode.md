@@ -1,6 +1,6 @@
 ---
 id: 17-practice-mode
-status: blocked
+status: todo
 type: afk
 depends_on: [16-set-access-mock-list, 13-question-player]
 ---
