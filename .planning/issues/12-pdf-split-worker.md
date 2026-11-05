@@ -1,6 +1,6 @@
 ---
 id: 12-pdf-split-worker
-status: todo
+status: blocked
 type: afk
 depends_on: [11-ingest-job-review-publish]
 ---
@@ -28,3 +28,5 @@ When a teacher uploads a paper, the worker takes the queued job, asks the AI to 
 
 ## Notes / scope guard
 No image cropping of questions. No solutions-PDF matching beyond what the model returns.
+
+<!-- ralph 2026-11-05T18:37:55.398Z: merge conflict against integration branch -->

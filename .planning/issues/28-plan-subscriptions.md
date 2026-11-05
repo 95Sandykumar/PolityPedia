@@ -1,6 +1,6 @@
 ---
 id: 28-plan-subscriptions
-status: todo
+status: blocked
 type: afk
 depends_on: [27-razorpay-webhook-ledger, 21-plans-entitlements]
 ---
@@ -25,3 +25,5 @@ A student opens Me > Plans, picks the AI plan (Rs 100/month) or Pro (Rs 500/mont
 
 ## Notes / scope guard
 No proration, no plan switching mid-cycle.
+
+<!-- ralph 2026-11-05T18:44:34.416Z: upstream 15-mock-sets-authoring blocked -->

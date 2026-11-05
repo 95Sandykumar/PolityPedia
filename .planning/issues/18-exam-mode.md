@@ -1,6 +1,6 @@
 ---
 id: 18-exam-mode
-status: todo
+status: blocked
 type: afk
 depends_on: [17-practice-mode]
 ---
@@ -26,3 +26,5 @@ A student starts a test in Exam mode. A timer runs (turns amber under 5 minutes)
 
 ## Notes / scope guard
 No proctoring, no tab-switch detection.
+
+<!-- ralph 2026-11-05T18:44:34.420Z: upstream 15-mock-sets-authoring blocked -->

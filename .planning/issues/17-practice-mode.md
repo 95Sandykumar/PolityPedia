@@ -1,6 +1,6 @@
 ---
 id: 17-practice-mode
-status: todo
+status: blocked
 type: afk
 depends_on: [16-set-access-mock-list, 13-question-player]
 ---
@@ -24,3 +24,5 @@ A student starts a mock test in Practice mode (full paper or one topic), sees ri
 
 ## Notes / scope guard
 Timed mode is issue 18.
+
+<!-- ralph 2026-11-05T18:44:34.419Z: upstream 15-mock-sets-authoring blocked -->

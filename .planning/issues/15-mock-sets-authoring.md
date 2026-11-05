@@ -1,6 +1,6 @@
 ---
 id: 15-mock-sets-authoring
-status: todo
+status: blocked
 type: afk
 depends_on: [11-ingest-job-review-publish]
 ---
@@ -25,3 +25,5 @@ A teacher creates a mock set for an exam, adds tests (Test 1 can be a free sampl
 
 ## Notes / scope guard
 No payments (issues 26, 27). No batch grants (issue 19).
+
+<!-- ralph 2026-11-05T18:44:34.407Z: merge conflict against integration branch -->

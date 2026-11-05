@@ -1,6 +1,6 @@
 ---
 id: 29-ledger-reconcile-payouts
-status: todo
+status: blocked
 type: afk
 depends_on: [27-razorpay-webhook-ledger]
 ---
@@ -25,3 +25,5 @@ Every night a job compares Razorpay payments with our purchases and records any 
 
 ## Notes / scope guard
 No Telegram alert wiring (ClaudeClaw side, later).
+
+<!-- ralph 2026-11-05T18:44:34.414Z: upstream 15-mock-sets-authoring blocked -->

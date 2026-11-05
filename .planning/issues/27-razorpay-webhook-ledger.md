@@ -1,6 +1,6 @@
 ---
 id: 27-razorpay-webhook-ledger
-status: todo
+status: blocked
 type: afk
 depends_on: [26-razorpay-order-checkout]
 ---
@@ -25,3 +25,5 @@ When Razorpay says a payment is captured, the set opens for the student and one 
 
 ## Notes / scope guard
 No payout UI (issue 29).
+
+<!-- ralph 2026-11-05T18:44:34.413Z: upstream 15-mock-sets-authoring blocked -->

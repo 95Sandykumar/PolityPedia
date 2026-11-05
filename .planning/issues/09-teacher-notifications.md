@@ -1,6 +1,6 @@
 ---
 id: 09-teacher-notifications
-status: todo
+status: blocked
 type: afk
 depends_on: [06-portfolio-follow]
 ---
@@ -24,3 +24,5 @@ A teacher posts a notice (priority, heading, link). Students see the teacher's p
 
 ## Notes / scope guard
 No images (V2), no push notifications.
+
+<!-- ralph 2026-11-05T17:28:57.258Z: merge conflict against integration branch -->

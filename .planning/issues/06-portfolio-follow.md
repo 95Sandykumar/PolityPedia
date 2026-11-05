@@ -1,6 +1,6 @@
 ---
 id: 06-portfolio-follow
-status: todo
+status: done
 type: afk
 depends_on: [04-exams-onboarding, 05-teacher-invite-approval]
 ---
@@ -25,3 +25,5 @@ A student opens the Teachers tab, sees approved teachers for their exams, opens 
 
 ## Notes / scope guard
 No videos, dates or posts content (issues 07 to 09).
+
+<!-- ralph 2026-11-05T17:12:05.814Z: committed + tests pass -->

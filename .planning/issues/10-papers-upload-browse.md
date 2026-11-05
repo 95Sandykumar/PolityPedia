@@ -1,6 +1,6 @@
 ---
 id: 10-papers-upload-browse
-status: todo
+status: done
 type: afk
 depends_on: [07-next-exam-date-teacher-shell]
 ---
@@ -25,3 +25,5 @@ A teacher uploads a past paper PDF (questions, solutions or both) with exam, yea
 
 ## Notes / scope guard
 No AI split (issues 11, 12). No publish button yet: publish comes in issue 11.
+
+<!-- ralph 2026-11-05T17:47:34.907Z: committed + tests pass -->

@@ -1,6 +1,6 @@
 ---
 id: 22-revision-api
-status: todo
+status: blocked
 type: afk
 depends_on: [21-plans-entitlements, 13-question-player]
 ---
@@ -27,3 +27,5 @@ A student on the AI plan or Pro asks for a revision of a question. If an explana
 
 ## Notes / scope guard
 No audio (issue 25). No UI beyond what the test needs (issue 23).
+
+<!-- ralph 2026-11-05T18:52:21.332Z: merge conflict against integration branch -->

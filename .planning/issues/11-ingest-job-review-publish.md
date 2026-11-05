@@ -1,6 +1,6 @@
 ---
 id: 11-ingest-job-review-publish
-status: todo
+status: done
 type: afk
 depends_on: [10-papers-upload-browse]
 ---
@@ -27,3 +27,5 @@ After upload, the teacher sees a live job status. When questions arrive as draft
 
 ## Notes / scope guard
 The split itself is issue 12. A manual 'Add question' button is allowed here so the screen is testable.
+
+<!-- ralph 2026-11-05T18:13:39.734Z: committed + tests pass -->

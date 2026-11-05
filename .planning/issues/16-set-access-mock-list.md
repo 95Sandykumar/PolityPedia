@@ -1,6 +1,6 @@
 ---
 id: 16-set-access-mock-list
-status: todo
+status: blocked
 type: afk
 depends_on: [15-mock-sets-authoring]
 ---
@@ -25,3 +25,5 @@ A student opens a teacher's Mock tests tile and sees each set: price or 'Unlocke
 
 ## Notes / scope guard
 No purchase flow.
+
+<!-- ralph 2026-11-05T18:44:34.410Z: upstream 15-mock-sets-authoring blocked -->

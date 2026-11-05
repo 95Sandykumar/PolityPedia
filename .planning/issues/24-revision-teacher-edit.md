@@ -1,6 +1,6 @@
 ---
 id: 24-revision-teacher-edit
-status: todo
+status: blocked
 type: afk
 depends_on: [22-revision-api]
 ---
@@ -24,3 +24,5 @@ A teacher opens an AI explanation of one of their questions, edits the text, and
 
 ## Notes / scope guard
 No version history.
+
+<!-- ralph 2026-11-05T18:52:21.333Z: upstream 22-revision-api blocked -->

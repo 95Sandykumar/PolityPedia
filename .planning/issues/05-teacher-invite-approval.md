@@ -1,6 +1,6 @@
 ---
 id: 05-teacher-invite-approval
-status: todo
+status: done
 type: afk
 depends_on: [03-sign-in]
 ---
@@ -27,3 +27,5 @@ A teacher with an invite code signs up and waits as pending. An admin approves t
 
 ## Notes / scope guard
 No portfolio page yet (issue 06).
+
+<!-- ralph 2026-11-05T16:57:34.293Z: committed + tests pass -->

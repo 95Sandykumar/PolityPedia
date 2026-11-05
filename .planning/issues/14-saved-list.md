@@ -1,6 +1,6 @@
 ---
 id: 14-saved-list
-status: todo
+status: done
 type: afk
 depends_on: [13-question-player]
 ---
@@ -24,3 +24,5 @@ Wrong answers save themselves with the tag Wrong. Mark for later saves with the 
 
 ## Notes / scope guard
 No spaced repetition.
+
+<!-- ralph 2026-11-05T18:47:49.496Z: committed + tests pass -->

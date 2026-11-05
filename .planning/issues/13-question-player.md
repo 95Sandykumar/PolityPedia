@@ -1,6 +1,6 @@
 ---
 id: 13-question-player
-status: todo
+status: done
 type: afk
 depends_on: [11-ingest-job-review-publish]
 ---
@@ -26,3 +26,5 @@ A student opens a live past paper and answers questions one by one: progress bar
 
 ## Notes / scope guard
 Practice and exam modes for mocks are issues 17 and 18.
+
+<!-- ralph 2026-11-05T18:32:58.375Z: committed + tests pass -->

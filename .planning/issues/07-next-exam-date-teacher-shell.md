@@ -1,6 +1,6 @@
 ---
 id: 07-next-exam-date-teacher-shell
-status: todo
+status: done
 type: afk
 depends_on: [06-portfolio-follow]
 ---
@@ -25,3 +25,5 @@ A teacher opens their dashboard (sidebar on laptop, bottom nav on phone: Home, P
 
 ## Notes / scope guard
 Placeholder pages for Papers, Mock sets, Batches.
+
+<!-- ralph 2026-11-05T17:28:09.036Z: committed + tests pass -->

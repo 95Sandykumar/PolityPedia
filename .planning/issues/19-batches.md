@@ -1,6 +1,6 @@
 ---
 id: 19-batches
-status: todo
+status: blocked
 type: afk
 depends_on: [16-set-access-mock-list]
 ---
@@ -24,3 +24,5 @@ A teacher creates batches, shares a join link or code, sees and removes students
 
 ## Notes / scope guard
 Reports are issue 20.
+
+<!-- ralph 2026-11-05T18:44:34.417Z: upstream 15-mock-sets-authoring blocked -->

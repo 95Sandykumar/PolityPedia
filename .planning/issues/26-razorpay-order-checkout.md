@@ -1,6 +1,6 @@
 ---
 id: 26-razorpay-order-checkout
-status: todo
+status: blocked
 type: afk
 depends_on: [16-set-access-mock-list]
 ---
@@ -27,3 +27,5 @@ A student taps 'Unlock Rs 399', a Razorpay order is made with the price from our
 
 ## Notes / scope guard
 Webhook and ledger are issue 27.
+
+<!-- ralph 2026-11-05T18:44:34.412Z: upstream 15-mock-sets-authoring blocked -->

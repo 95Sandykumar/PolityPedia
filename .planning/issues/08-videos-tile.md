@@ -1,6 +1,6 @@
 ---
 id: 08-videos-tile
-status: todo
+status: blocked
 type: afk
 depends_on: [06-portfolio-follow]
 ---
@@ -25,3 +25,5 @@ A teacher pastes YouTube links. Students see each video's thumbnail and title. I
 
 ## Notes / scope guard
 No YouTube Data API, no captions.
+
+<!-- ralph 2026-11-05T17:29:30.040Z: merge conflict against integration branch -->
