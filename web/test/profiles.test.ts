@@ -11,10 +11,16 @@ beforeAll(async () => {
   db = await createTestDb();
   userA = await db.createUser();
   userB = await db.createUser();
-  await db.admin.query(
-    `insert into public.profiles (id, display_name, lang) values ($1, $2, 'en'), ($3, $4, 'hi')`,
-    [userA, 'Asha', userB, 'Bharat'],
-  );
+  // 0003_profile_on_signup creates a profile row for every new auth user,
+  // so the rows already exist here. Fill in the fields the tests check.
+  await db.admin.query(`update public.profiles set display_name = $1, lang = 'en' where id = $2`, [
+    'Asha',
+    userA,
+  ]);
+  await db.admin.query(`update public.profiles set display_name = $1, lang = 'hi' where id = $2`, [
+    'Bharat',
+    userB,
+  ]);
 });
 
 afterAll(async () => {

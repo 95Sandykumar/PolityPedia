@@ -10,7 +10,7 @@
  * access-token JWT on every query.
  */
 import { NextResponse, type NextRequest } from 'next/server';
-import { MIDDLEWARE_MATCHER, guard } from '@/lib/auth/guard';
+import { guard } from '@/lib/auth/guard';
 import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
 
 export function middleware(request: NextRequest): NextResponse {
@@ -24,4 +24,6 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 // B7: skip `_next/static`, `_next/image` and any path with a file extension.
-export const config = { matcher: [MIDDLEWARE_MATCHER] };
+// Next reads `config` at build time, so the matcher must be a literal string here,
+// not an imported constant. A test keeps it equal to MIDDLEWARE_MATCHER in guard.ts.
+export const config = { matcher: ['/((?!_next/static|_next/image|.*\\.[^/]+$).*)'] };
