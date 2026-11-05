@@ -1,6 +1,6 @@
 ---
 id: 23-revision-screen
-status: blocked
+status: todo
 type: afk
 depends_on: [22-revision-api]
 ---
