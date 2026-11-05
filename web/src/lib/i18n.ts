@@ -325,6 +325,13 @@ export const dictionary = {
     'revision.notFound': 'Question not found',
     'revision.signIn': 'Sign in to use revision',
     'revision.notConfigured': 'Revision is not set up yet',
+    // The screen (issue 23-revision-screen).
+    'revision.aiWritten': 'Written by AI',
+    'revision.thumbsUp': 'This helped',
+    'revision.thumbsDown': 'This did not help',
+    'revision.feedbackThanks': 'Thanks. Your teacher will see this.',
+    'revision.retry': 'Try again',
+    'revision.plansSoon': 'Plans open soon. Ask your teacher for now.',
   },
   hi: {
     'nav.home': 'होम',
@@ -608,6 +615,13 @@ export const dictionary = {
     'revision.notFound': 'प्रश्न नहीं मिला',
     'revision.signIn': 'रिवीजन के लिए साइन इन करें',
     'revision.notConfigured': 'रिवीजन अभी सेट नहीं है',
+    // The screen (issue 23-revision-screen).
+    'revision.aiWritten': 'AI ने लिखा है',
+    'revision.thumbsUp': 'इससे मदद मिली',
+    'revision.thumbsDown': 'इससे मदद नहीं मिली',
+    'revision.feedbackThanks': 'धन्यवाद। आपके शिक्षक इसे देखेंगे।',
+    'revision.retry': 'फिर कोशिश करें',
+    'revision.plansSoon': 'प्लान जल्द खुलेंगे। अभी अपने शिक्षक से पूछें।',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

@@ -17,6 +17,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuestionPlayer } from '../question-player';
+import { createMemoryExplanationLive } from '@/lib/ai/memory-explanation-live';
 import { createAnswerQueue } from '@/lib/attempts/answer-queue';
 import type { AnswerUpsert } from '@/lib/attempts/types';
 import type { SavedTag } from '@/lib/saved/types';
@@ -199,14 +200,52 @@ describe('QuestionPlayer: the wrong answer', () => {
     );
   });
 
-  it('Revision (AI) answers "Coming soon" until issue 23', () => {
-    setup();
+  it('Revision (AI) opens the explanation on the same screen', async () => {
+    // The panel's two outside things are fakes, so this test makes no network
+    // call and opens no socket (issue 23-revision-screen).
+    const explain = vi.fn(async () => ({
+      kind: 'ready' as const,
+      explanation: {
+        questionId: Q1.id,
+        lang: 'en' as const,
+        status: 'ready' as const,
+        body: {
+          exam: 'UGC NET',
+          topic: 'Parliament',
+          question: 'Which house is the Council of States?',
+          sections: [{ heading: 'The answer', body: 'The Rajya Sabha.' }],
+          remember: 'Rajya Sabha = Council of States.',
+        },
+        sources: [],
+        audioPath: null,
+        editedByTeacher: false,
+      },
+    }));
+    const stream = createMemoryExplanationLive();
+    const queue = createAnswerQueue({ save: async () => {} });
+    render(
+      <QuestionPlayer
+        questions={[Q1, Q2]}
+        attemptId={ATTEMPT}
+        queue={queue}
+        revisionClient={{ explain, vote: vi.fn(async () => true) }}
+        revisionLive={stream.live}
+      />,
+    );
+
     clickOption(0);
+    // Nothing is asked for until the student taps: no call for a student who
+    // reads the teacher's words and moves on.
+    expect(explain).not.toHaveBeenCalled();
 
     fireEvent.click(button('player.revision'));
-    expect(screen.getByTestId('player-revision-soon')).toHaveTextContent(
-      dictionary.en['placeholder.soon'],
-    );
+
+    expect(await screen.findByTestId('revision-ready')).toBeInTheDocument();
+    expect(screen.getByTestId('revision-section')).toHaveTextContent('The answer');
+    expect(explain).toHaveBeenCalledTimes(1);
+    expect(explain).toHaveBeenCalledWith({ questionId: Q1.id, lang: 'en' });
+    // The placeholder from issue 13 is gone.
+    expect(screen.queryByTestId('player-revision-soon')).toBeNull();
   });
 });
 
