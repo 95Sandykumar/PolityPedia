@@ -1,16 +1,50 @@
 /**
- * Tile page `/t/<teacherId>/mocks` (issue 06-portfolio-follow).
+ * Student browse: `/t/<teacherId>/mocks` (issue 16-set-access-mock-list).
  *
- * A real page with a real URL, so the portfolio tile has somewhere to go and
- * back works (DESIGN.md section 7). The CONTENT is issue 10; this slice only
- * wires the tile up, so it shows the title plus "Coming soon".
+ * The teacher's LIVE mock sets, each with this student's own locks, ticks and
+ * scores (V12, F-E2). The tile itself came from issue 06; this slice fills it.
  *
- * The title is in the student's saved language, like every other label.
+ * Every read runs HERE, on the server, with the student's own access token out
+ * of the httpOnly session cookie, so Postgres RLS decides: a draft set never
+ * reaches this page, and a locked test's QUESTIONS are refused even to a page
+ * that asks for them, because of the restrictive policy in
+ * `0016_set_access.sql`.
+ *
+ * The list itself (topic dropdown, Practice | Exam switch, the Unlock button)
+ * is a client component, so the choices are state and not a page load.
  */
-import { PlaceholderPage } from '@/components/placeholder-page';
+import { MockList } from '@/components/mock-list';
 import { readStudentContext } from '@/lib/follows/student-page';
+import { readMockList } from '@/lib/set-access/student-page';
+import { labels } from '@/lib/i18n';
 
-export default async function TeacherMocksPage() {
-  const { mode } = await readStudentContext();
-  return <PlaceholderPage titleKey="tile.mocks" mode={mode} />;
+export default async function TeacherMocksPage({
+  params,
+}: {
+  params: Promise<{ teacherId: string }>;
+}) {
+  const { teacherId } = await params;
+  const { session, configured, mode } = await readStudentContext();
+
+  const sets = configured ? await readMockList(session, teacherId) : [];
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h1 className="text-[22px] leading-7 font-bold">
+        {labels('tile.mocks', mode).map((line, index) => (
+          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
+            {line}
+          </span>
+        ))}
+      </h1>
+
+      {configured ? (
+        <MockList sets={sets} teacherId={teacherId} mode={mode} />
+      ) : (
+        <p role="status" className="text-muted-foreground">
+          {labels('mockList.notConfigured', mode).join(' / ')}
+        </p>
+      )}
+    </section>
+  );
 }
