@@ -131,8 +131,16 @@ export interface Question {
   number: number;
   stem: string;
   options: QuestionOptions;
-  /** 0 to 3, an index into `options`. Never a letter. */
-  correctIdx: number;
+  /**
+   * 0 to 3, an index into `options`. Never a letter.
+   *
+   * NULL WHEN THE CALLER WAS NOT GIVEN THE KEY (issue 30-exam-key-lock). The
+   * column is not readable off the table any more, so a question arrives
+   * key-less and the key is merged in from `question_keys()` only when
+   * Postgres hands one over. That is F-E5 as a TYPE: an exam question cannot
+   * accidentally carry a right answer, because there is nothing to carry.
+   */
+  correctIdx: number | null;
   teacherExplanation: string | null;
   topicId: string | null;
   lang: Lang;
@@ -309,12 +317,31 @@ export function sortQuestions(questions: readonly Question[]): Question[] {
 // The interfaces every outside service hides behind
 // --------------------------------------------------------------------------
 
+/** What a question read wants beyond the ids (issue 30-exam-key-lock). */
+export interface QuestionReadOptions {
+  /**
+   * Ask `question_keys()` for the answer key too, and merge it in.
+   *
+   * Default false. A reader that does not need the key must not ask for it:
+   * asking is what gets REFUSED mid-exam, and a key that was never fetched
+   * cannot be shipped to a phone by a later bug.
+   */
+  keys?: boolean;
+}
+
 /** Server side. Carries the caller's own access token, so RLS decides. */
 export interface QuestionsClient {
   /** False when the Supabase env vars are missing, so pages can say so. */
   isConfigured(): boolean;
-  /** One paper's questions, in number order. Drafts included, for the owner. */
-  listForPaper(paperId: string): Promise<Question[]>;
+  /**
+   * One paper's questions, in number order. Drafts included, for the owner.
+   *
+   * `options.keys` asks for the ANSWER KEY as well (issue 30-exam-key-lock).
+   * It costs a second request to `question_keys()` and it can be REFUSED, so
+   * it is opt-in: a caller that does not say so gets `correctIdx: null` and
+   * can never leak a key it never held.
+   */
+  listForPaper(paperId: string, options?: QuestionReadOptions): Promise<Question[]>;
   /**
    * One mock test's questions, in number order
    * (issue 15-mock-sets-authoring).
@@ -328,7 +355,25 @@ export interface QuestionsClient {
    * the read, so "one topic" is one small request and not the whole paper
    * thrown away in the browser. Null or missing means the full paper.
    */
-  listForTest?(testId: string, topicId?: string | null): Promise<Question[]>;
+  listForTest?(
+    testId: string,
+    topicId?: string | null,
+    options?: QuestionReadOptions,
+  ): Promise<Question[]>;
+  /**
+   * `question_keys()`: the answer key for questions the caller has already
+   * read, and the only route to it since `0030_exam_key_lock.sql` took the
+   * column privilege away (issue 30-exam-key-lock).
+   *
+   * Returns question id -> key, with any question the caller may not have
+   * simply missing. THROWS an error named `ExamKeyLocked` while the caller
+   * has an open exam sitting for that test, which is the one refusal the UI
+   * has to put into words (F-E5).
+   *
+   * OPTIONAL, so every fake written before this issue is still a whole
+   * `QuestionsClient`.
+   */
+  readKeys?(questionIds: readonly string[]): Promise<Map<string, number>>;
   /**
    * Store one question. The owner is the session user, never a field of the
    * input, and the row is always a DRAFT. Throws an error named

@@ -36,6 +36,7 @@ import type {
   IngestJobsClient,
   Question,
   QuestionEdit,
+  QuestionReadOptions,
   QuestionsClient,
 } from './types';
 
@@ -44,6 +45,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const QUESTIONS = '/rest/v1/questions';
 const JOBS = '/rest/v1/ingest_jobs';
 const PUBLISH = '/rest/v1/rpc/publish_paper';
+/**
+ * The ONE route to `questions.correct_idx` since `0030_exam_key_lock.sql`
+ * revoked the column privilege (issue 30-exam-key-lock).
+ */
+const KEYS = '/rest/v1/rpc/question_keys';
 
 /**
  * The Postgres error codes `publish_paper()` raises -> the NAME the route
@@ -124,22 +130,28 @@ export function createSupabaseQuestionsClient(
       return env() !== null;
     },
 
-    async listForPaper(paperId: string) {
+    async listForPaper(paperId: string, read: QuestionReadOptions = {}) {
       // The id goes into a URL, so it is checked against the UUID shape first.
       if (!UUID_RE.test(paperId)) return [];
-      return listByParent('paper_id', paperId);
+      return listByParent('paper_id', paperId, null, read);
     },
 
     // Issue 15-mock-sets-authoring: the same read with the other parent.
     // `topicId` is F-E4's topic filter (issue 17-practice-mode).
-    async listForTest(testId: string, topicId: string | null = null) {
+    async listForTest(
+      testId: string,
+      topicId: string | null = null,
+      read: QuestionReadOptions = {},
+    ) {
       if (!UUID_RE.test(testId)) return [];
       // A topic we cannot trust is never put in a URL. EMPTY, not the full
       // paper: a filter the student chose and did not get is a wrong list,
       // and a wrong list is worse than a short one.
       if (topicId !== null && !UUID_RE.test(topicId)) return [];
-      return listByParent('test_id', testId, topicId);
+      return listByParent('test_id', testId, topicId, read);
     },
+
+    readKeys,
 
     async save(edit: QuestionEdit) {
       const { url } = required();
@@ -217,7 +229,12 @@ export function createSupabaseQuestionsClient(
       // An empty array from a PATCH means RLS hid the row: somebody else's
       // question. Treated as a failure, so the screen never shows "saved".
       if (!stored) throw new Error('Supabase question save returned no row');
-      return stored;
+
+      // The representation cannot carry `correct_idx` any more (issue
+      // 30-exam-key-lock), and the teacher does not need a round trip to
+      // learn what they themselves just wrote: the write SUCCEEDED, so the
+      // stored key is the one in the edit. Not a guess, an echo.
+      return { ...stored, correctIdx: edit.correctIdx };
     },
 
     async publishPaper(paperId: string) {
@@ -270,6 +287,7 @@ export function createSupabaseQuestionsClient(
     column: 'paper_id' | 'test_id',
     id: string,
     topicId: string | null = null,
+    read: QuestionReadOptions = {},
   ): Promise<Question[]> {
     const raw = await rows<QuestionRow>(
       QUESTIONS,
@@ -288,6 +306,62 @@ export function createSupabaseQuestionsClient(
       // (Risk 1).
       const question = readQuestionRow(one);
       if (question) out.push(question);
+    }
+
+    // THE KEY, SECOND AND ONLY IF ASKED (issue 30-exam-key-lock). It is no
+    // longer a column of the read above, so it comes from `question_keys()`,
+    // which is also the thing that refuses mid-exam. `ExamKeyLocked` is left
+    // to escape on purpose: the page has to be able to say why.
+    if (read.keys !== true || out.length === 0) return out;
+
+    const keys = await readKeys(out.map((one) => one.id));
+    return out.map((one) => ({ ...one, correctIdx: keys.get(one.id) ?? null }));
+  }
+
+  /**
+   * `question_keys(question_ids)`: question id -> answer key.
+   *
+   * A question the caller may not have the key for is simply MISSING from the
+   * map, which is how every other read in this schema behaves. The one loud
+   * refusal is an open exam sitting: Postgres raises `insufficient_privilege`,
+   * PostgREST turns that into 403, and this turns it into an error named
+   * `ExamKeyLocked` so a page can print a sentence instead of "load failed".
+   *
+   * The ids are checked against the UUID shape before they go into a body, so
+   * a stray value cannot widen the call.
+   */
+  async function readKeys(questionIds: readonly string[]): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    const ids = questionIds.filter((one) => UUID_RE.test(one));
+    if (ids.length === 0) return out;
+
+    const { url } = required();
+    const res = await doFetch(`${url}${KEYS}`, {
+      method: 'POST',
+      headers: headers({ accept: 'application/json' }),
+      body: JSON.stringify({ question_ids: ids }),
+      cache: 'no-store',
+    });
+
+    if (res.status === 403) {
+      throw Object.assign(new Error('the answer key is locked during an exam'), {
+        name: 'ExamKeyLocked',
+      });
+    }
+    if (!res.ok) throw new Error('Supabase question keys failed with status ' + res.status);
+
+    const body = (await res.json()) as unknown;
+    if (!Array.isArray(body)) return out;
+
+    for (const row of body) {
+      if (typeof row !== 'object' || row === null) continue;
+      const { question_id: questionId, correct_idx: key } = row as Record<string, unknown>;
+      if (typeof questionId !== 'string') continue;
+      // A key outside 0 to 3 is not a key. Dropped rather than guessed at:
+      // `questions_correct_idx_check` makes it impossible in the table, so
+      // seeing one means the shape changed under us.
+      if (typeof key !== 'number' || !Number.isInteger(key) || key < 0 || key > 3) continue;
+      out.set(questionId, key);
     }
     return out;
   }

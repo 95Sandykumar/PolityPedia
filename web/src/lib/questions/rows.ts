@@ -24,8 +24,15 @@ import {
 export const JOB_COLUMNS =
   'id,teacher_id,paper_id,pdf_path,status,attempts,error,question_count';
 
+/**
+ * NO `correct_idx` (issue 30-exam-key-lock). The column privilege on it was
+ * revoked from `anon` and `authenticated` in `0030_exam_key_lock.sql`, so a
+ * select that asked for it would be refused 403 for EVERY caller, teacher
+ * included. The key arrives separately, through `question_keys()`, which
+ * refuses it while the caller has an open exam sitting (F-E5).
+ */
 export const QUESTION_COLUMNS =
-  'id,teacher_id,paper_id,test_id,number,stem,options,correct_idx,' +
+  'id,teacher_id,paper_id,test_id,number,stem,options,' +
   'teacher_explanation,topic_id,lang,image_path,checked,status';
 
 export interface JobRow {
@@ -101,9 +108,16 @@ export function readQuestionRow(raw: QuestionRow | null | undefined): Question |
   if (!id || !teacherId || !stem) return null;
 
   const number = whole(raw.number);
+  if (number === null) return null;
+
+  // THE KEY IS OPTIONAL (issue 30-exam-key-lock). It is not in
+  // `QUESTION_COLUMNS` any more, so a plain row read has none and the caller
+  // merges one in from `question_keys()` when it is allowed one. A row
+  // WITHOUT a key is a complete question for exam mode, which is the whole
+  // point of F-E5, so it must not be dropped. A key that IS there and is out
+  // of range still fails closed.
   const correctIdx = whole(raw.correct_idx);
-  if (number === null || correctIdx === null) return null;
-  if (correctIdx < 0 || correctIdx > 3) return null;
+  if (correctIdx !== null && (correctIdx < 0 || correctIdx > 3)) return null;
 
   // Realtime can hand over a jsonb column as its JSON TEXT, so parse first.
   let rawOptions = raw.options;

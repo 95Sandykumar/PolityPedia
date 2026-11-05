@@ -203,16 +203,24 @@ export function QuestionPlayer({
   const isCorrect = answer?.isCorrect === true;
   const last = index >= total - 1;
 
+  // THE ANSWER KEY, or -1 (issue 30-exam-key-lock). `Question.correctIdx` is
+  // nullable now, because the column is only readable through
+  // `question_keys()` and that refuses it mid-exam. It CANNOT be null here:
+  // the practice page never renders this player without the keys. -1 is not
+  // an option index, so even then nothing is painted right and nothing is
+  // marked correct, which is the safe way round.
+  const key = question.correctIdx ?? -1;
+
   function optionState(optionIdx: number): OptionState {
     // Nothing is coloured until the student has answered or asked to see it.
     if (!answered && !isRevealed) return 'idle';
-    if (optionIdx === question.correctIdx) return 'right';
+    if (optionIdx === key) return 'right';
     if (answered && optionIdx === answer?.chosenIdx) return 'wrong';
     return 'idle';
   }
 
   function choose(optionIdx: number): void {
-    const right = verdictOf(question.correctIdx, optionIdx);
+    const right = verdictOf(key, optionIdx);
     store(question.id, { chosenIdx: optionIdx, isCorrect: right, marked });
     // F-E8: a wrong answer saves itself under the tag Wrong. A right answer
     // saves nothing, and it does NOT take an earlier Wrong row away: the

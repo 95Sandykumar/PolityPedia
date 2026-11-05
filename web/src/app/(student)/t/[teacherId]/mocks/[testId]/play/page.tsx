@@ -72,9 +72,18 @@ export default async function MockPlayerPage({
         ))}
       </h1>
 
-      {/* No keys, a locked test, or no sitting to write into: say so rather
-          than take answers the player cannot store. */}
-      {!sitting ? (
+      {/* Scenario B of the 2026-11-05 review (issue 30-exam-key-lock): this
+          student is still sitting the SAME test under a clock, and practice
+          mode shows the right answer after every tap. Postgres refuses both
+          the answer key and the practice sitting; this line is only how the
+          student is told WHY, in their own language. */}
+      {practice?.examOpen ? (
+        <p role="status" className="text-muted-foreground">
+          {plain('player.examOpen', mode)}
+        </p>
+      ) : /* No keys, a locked test, or no sitting to write into: say so rather
+             than take answers the player cannot store. */
+      !sitting ? (
         <p role="status" className="text-muted-foreground">
           {plain(attemptMode === 'exam' ? 'exam.notConfigured' : 'player.notConfigured', mode)}
         </p>

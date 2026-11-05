@@ -61,6 +61,7 @@ const EMPTY: MockPracticeData = {
   answers: [],
   marking: DEFAULT_MARKING,
   heading: '',
+  examOpen: false,
 };
 
 export interface MockPracticeOptions {
@@ -96,10 +97,20 @@ export async function readMockPracticeData(
     () => null as MockTest | null,
   );
 
+  // WITH THE KEY, and that is the gate (issue 30-exam-key-lock). D3 shows the
+  // result after every tap, so practice cannot work without the key, and
+  // `question_keys()` REFUSES it while an exam sitting of this same test is
+  // open. `ExamKeyLocked` is caught apart from every other failure, because
+  // "finish your exam first" and "not set up yet" are different sentences.
+  let examOpen = false;
   const [questions, exams, set] = await Promise.all([
-    (questionsClient(session).listForTest?.(testId, topicId) ?? Promise.resolve([])).catch(
-      () => [] as Question[],
-    ),
+    (
+      questionsClient(session).listForTest?.(testId, topicId, { keys: true }) ??
+      Promise.resolve([])
+    ).catch((cause: unknown) => {
+      if ((cause as Error)?.name === 'ExamKeyLocked') examOpen = true;
+      return [] as Question[];
+    }),
     readExamCatalogue(session).catch(() => [] as Exam[]),
     test ? mocks.readOne(test.setId).catch(() => null) : Promise.resolve(null),
   ]);
@@ -108,12 +119,26 @@ export async function readMockPracticeData(
   const marking = markingOf(exam ?? null);
   const heading = practiceHeading(test, exam ?? null, langMode);
 
+  // No sitting is even attempted while the exam is open: Postgres would
+  // refuse the insert (`attempts_no_practice_during_exam`), and a request we
+  // already know the answer to is a request not worth making.
+  if (examOpen) return { ...EMPTY, marking, heading, examOpen: true };
+
   const client = attemptsClient(session);
   const attempt = await (
     client.openOrStartForTest?.({ testId, mode, topicId }) ?? Promise.resolve(null)
   ).catch(() => null);
-  if (!attempt) return { questions, attempt: null, answers: [], marking, heading };
+  if (!attempt) {
+    return { questions, attempt: null, answers: [], marking, heading, examOpen: false };
+  }
 
   const answers = await client.listAnswers(attempt.id).catch(() => new Map());
-  return { questions, attempt, answers: [...answers.entries()], marking, heading };
+  return {
+    questions,
+    attempt,
+    answers: [...answers.entries()],
+    marking,
+    heading,
+    examOpen: false,
+  };
 }

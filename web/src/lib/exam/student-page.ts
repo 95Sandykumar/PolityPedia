@@ -12,11 +12,13 @@
  *
  * TWO RULES THIS FILE EXISTS FOR:
  *
- *  1. F-E5. The question list leaves here through `examQuestions`, which
- *     strips `correct_idx` and `teacher_explanation` for every state except
- *     "submitted". The key is read from Postgres (the student's own policies
- *     allow it) and dropped before it can reach a response, so there is
- *     nothing on the device to read with the developer tools.
+ *  1. F-E5. The key is NEVER READ while the sitting is open (issue
+ *     30-exam-key-lock). `0030_exam_key_lock.sql` revoked the column
+ *     privilege on `questions.correct_idx`, so the question read here has no
+ *     key in it at all, and `question_keys()` is asked for one only once
+ *     Postgres says the sitting is submitted. `examQuestions` still strips
+ *     the payload, so the rule is stated twice: one is the rule, the other is
+ *     the proof.
  *  2. THE CLOCK STARTS HERE. Opening this read creates the sitting with
  *     `deadline_at = now + duration`, or RESUMES the open one, so a refresh
  *     walks back into the same clock instead of buying another hour.
@@ -80,10 +82,14 @@ export async function readExamLoad(
   );
   const durationMin = readDurationMin(test?.durationMin ?? DEFAULT_DURATION_MIN);
 
+  const questionsClient = createSupabaseQuestionsClient(clientOptions(session));
+
   const [questions, exams, set] = await Promise.all([
+    // NO KEYS. Not "keys that are thrown away later": none are fetched, so
+    // there is no moment at which this server holds the answer key of a
+    // paper somebody is still sitting (F-E5).
     (
-      createSupabaseQuestionsClient(clientOptions(session)).listForTest?.(testId, topicId) ??
-      Promise.resolve([])
+      questionsClient.listForTest?.(testId, topicId, { keys: false }) ?? Promise.resolve([])
     ).catch(() => [] as Question[]),
     readExamCatalogue(session).catch(() => [] as Exam[]),
     test ? mocks.readOne(test.setId).catch(() => null) : Promise.resolve(null),
@@ -106,12 +112,27 @@ export async function readExamLoad(
   // the browser sent is part of that decision.
   const revealed = attempt.submittedAt !== null;
 
-  const answers = await createSupabaseAttemptsClient(clientOptions(session))
-    .listAnswers(attempt.id)
-    .catch(() => new Map());
+  const [answers, keys] = await Promise.all([
+    createSupabaseAttemptsClient(clientOptions(session))
+      .listAnswers(attempt.id)
+      .catch(() => new Map()),
+    // THE REVIEW, and only the review, asks for the key. Postgres agrees
+    // twice over: the sitting is submitted, so `question_keys()` no longer
+    // refuses (issue 30-exam-key-lock). A failure here costs the green ticks
+    // on the review, never the score, so it fails soft.
+    revealed && questions.length > 0
+      ? (questionsClient.readKeys?.(questions.map((one) => one.id)) ??
+          Promise.resolve(new Map<string, number>())
+        ).catch(() => new Map<string, number>())
+      : Promise.resolve(new Map<string, number>()),
+  ]);
+
+  const reviewed = revealed
+    ? questions.map((one) => ({ ...one, correctIdx: keys.get(one.id) ?? null }))
+    : questions;
 
   return {
-    questions: examQuestions(questions, revealed),
+    questions: examQuestions(reviewed, revealed),
     attempt,
     answers: [...answers.entries()],
     marking,

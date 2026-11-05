@@ -196,4 +196,14 @@ export interface MockPracticeData {
   marking: Marking;
   /** The line above the progress bar. Empty when nothing could be read. */
   heading: string;
+  /**
+   * True when this student has an EXAM sitting of this same test still open,
+   * so practice is shut (issue 30-exam-key-lock).
+   *
+   * Scenario B of the 2026-11-05 review: practice mode ships the answer key
+   * by design, so a second tab in practice mode was a way to read the key of
+   * the paper being sat. Postgres refuses both the key and the sitting; this
+   * flag is only how the page says WHY instead of "not set up yet".
+   */
+  examOpen: boolean;
 }

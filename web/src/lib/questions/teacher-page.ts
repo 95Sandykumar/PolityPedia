@@ -33,14 +33,22 @@ export function ingestJobsClient(session: AuthSession | null) {
   return createSupabaseIngestJobsClient(clientOptions(session));
 }
 
-/** One paper's questions, in number order. Drafts included, for the owner. */
+/**
+ * One paper's questions, in number order. Drafts included, for the owner.
+ *
+ * WITH THE KEY. This is the review screen: the teacher has to see which
+ * option the splitter marked correct in order to check it (F-D3). The key is
+ * a second read through `question_keys()` since `0030_exam_key_lock.sql` took
+ * the column privilege away, and that function always hands a teacher their
+ * own questions' keys, exam sitting or not (issue 30-exam-key-lock).
+ */
 export async function readPaperQuestions(
   session: AuthSession | null,
   paperId: string,
 ): Promise<Question[]> {
   if (!session) return [];
   return questionsClient(session)
-    .listForPaper(paperId)
+    .listForPaper(paperId, { keys: true })
     .catch(() => []);
 }
 

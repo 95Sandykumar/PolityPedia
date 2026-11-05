@@ -55,7 +55,8 @@ interface StoredRow {
 interface StoredQuestion {
   stem?: unknown;
   options?: unknown;
-  correct_idx?: unknown;
+  // No `correct_idx`: it is not selectable off the table any more and arrives
+  // through `question_keys()` instead (issue 30-exam-key-lock).
   teacher_explanation?: unknown;
   topic_id?: unknown;
   exams?: unknown;
@@ -129,6 +130,34 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
     return (await res.json()) as unknown;
   }
 
+  /**
+   * One question's answer key through `question_keys()`, or null
+   * (issue 30-exam-key-lock).
+   *
+   * NULL, never a throw, for every refusal including the exam lock: the
+   * caller's next line is "no key, no explanation", and the revision route
+   * already knows how to give the claim back without charging anybody.
+   */
+  async function keyFor(questionId: string): Promise<number | null> {
+    const found = env();
+    if (!found) return null;
+
+    const res = await doFetch(found.url + RPC + 'question_keys', {
+      method: 'POST',
+      headers: restHeaders({ accept: 'application/json' }),
+      body: JSON.stringify({ question_ids: [questionId] }),
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+
+    const rows = (await res.json()) as unknown;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    const key = (rows[0] as { correct_idx?: unknown }).correct_idx;
+    if (typeof key !== 'number' || !Number.isInteger(key) || key < 0 || key > 3) return null;
+    return key;
+  }
+
   return {
     isConfigured() {
       return env() !== null;
@@ -177,10 +206,12 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       const found = env();
       if (!found) return null;
 
-      // One request, with the paper's exam name embedded, so the prompt has
-      // the exam without a second round trip. RLS still applies to both.
+      // NO `correct_idx` IN THIS SELECT (issue 30-exam-key-lock). The column
+      // privilege is gone, so asking for it would make the whole request 403.
+      // One request still, with the paper's exam name embedded, so the prompt
+      // has the exam without a second round trip. RLS applies to both.
       const res = await doFetch(
-        `${found.url}${QUESTIONS}?select=stem,options,correct_idx,teacher_explanation,topic_id,` +
+        `${found.url}${QUESTIONS}?select=stem,options,teacher_explanation,topic_id,` +
           `papers(exams(name_en))&id=eq.${encodeURIComponent(questionId)}`,
         { method: 'GET', headers: restHeaders({ accept: 'application/json' }), cache: 'no-store' },
       );
@@ -192,9 +223,15 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       const row = rows[0] as StoredQuestion;
       const stem = typeof row.stem === 'string' ? row.stem.trim() : '';
       const options: QuestionOptions | null = readOptions(row.options);
-      const correctIdx = row.correct_idx;
       if (stem.length === 0 || !options) return null;
-      if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx > 3) return null;
+
+      // THE KEY, through the one route to it. An explanation of a question
+      // whose right answer we do not know would be a guess, so no key means
+      // NO EXPLANATION: the route turns this null into 404 and releases the
+      // claim without charging the student. That is also what happens mid
+      // exam, which is the point (F-E5).
+      const correctIdx = await keyFor(questionId);
+      if (correctIdx === null) return null;
 
       return {
         exam: readExamName(row.papers),

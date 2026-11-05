@@ -233,6 +233,9 @@ export const dictionary = {
     'player.revision': 'Revision (AI)',
     'player.offline': 'No internet. Answers are saved and sent when back.',
     'player.notConfigured': 'Practice is not set up yet',
+    // Issue 30-exam-key-lock: practice shows the right answer, so it stays
+    // shut while the same test's exam sitting is still open.
+    'player.examOpen': 'Finish and submit your exam first. Practice opens after that.',
     // Timed exam mode (issue 18-exam-mode). F-E5: nothing here names a right
     // answer, because no answer is on the phone until the paper is submitted.
     'exam.title': 'Exam',
@@ -696,6 +699,7 @@ export const dictionary = {
     'player.revision': 'रिवीजन (AI)',
     'player.offline': 'इंटरनेट नहीं है। उत्तर सहेजे गए हैं और नेट आने पर भेज दिए जाएँगे।',
     'player.notConfigured': 'अभ्यास अभी सेट नहीं है',
+    'player.examOpen': 'पहले परीक्षा पूरी करें और जमा करें। उसके बाद अभ्यास खुलेगा।',
     // परीक्षा मोड (issue 18-exam-mode).
     'exam.title': 'परीक्षा',
     'exam.timeLeft': 'बाकी समय',

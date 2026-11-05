@@ -355,3 +355,123 @@ describe('createSupabaseIngestJobsClient', () => {
     expect(await broken.readLatestForPaper(PAPER)).toBeNull();
   });
 });
+
+/**
+ * The answer key is a SECOND read now (issue 30-exam-key-lock).
+ *
+ * `0030_exam_key_lock.sql` revoked `select` on `questions.correct_idx` from
+ * `anon` and `authenticated`, so a row read cannot carry the key and asking
+ * for the column would make the whole request 403. The key comes from
+ * `question_keys()`, which refuses it while the caller has an open exam
+ * sitting. Three things have to be true here:
+ *
+ *  * the row read NEVER names the column, for any caller;
+ *  * no key is fetched unless the caller asked for one;
+ *  * the exam refusal is a NAMED error, so the page can say why.
+ */
+describe('the answer key route', () => {
+  function keysReply(rows: unknown[]) {
+    return json(rows);
+  }
+
+  it('never asks the table for correct_idx', async () => {
+    const fetchImpl = vi.fn(async () => json([questionRow()]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    await client.listForPaper(PAPER);
+
+    const [url] = fetchImpl.mock.calls[0] as unknown as [string];
+    expect(url).not.toContain('correct_idx');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives a null key, and fetches none, when the caller did not ask', async () => {
+    // The row the REAL database sends has no `correct_idx` in it at all.
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+
+    const fetchImpl = vi.fn(async () => json([bare]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].correctIdx).toBeNull();
+    // A key that was never fetched cannot be shipped to a phone by a later bug.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('merges the key in from question_keys() when asked', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+
+    const fetchImpl = vi.fn(async (input: unknown) =>
+      String(input).includes('rpc/question_keys')
+        ? keysReply([{ question_id: QUESTION, correct_idx: 2 }])
+        : json([bare]),
+    );
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER, { keys: true });
+
+    const [url, init] = fetchImpl.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url).toContain('/rest/v1/rpc/question_keys');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ question_ids: [QUESTION] });
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer caller-token');
+
+    expect(rows[0].correctIdx).toBe(2);
+  });
+
+  it('names the exam refusal ExamKeyLocked, so a page can say why (F-E5)', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+
+    // 403 is what PostgREST makes of the function's `insufficient_privilege`.
+    const fetchImpl = vi.fn(async (input: unknown) =>
+      String(input).includes('rpc/question_keys') ? json({ code: '42501' }, 403) : json([bare]),
+    );
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    await expect(client.listForPaper(PAPER, { keys: true })).rejects.toMatchObject({
+      name: 'ExamKeyLocked',
+    });
+  });
+
+  it('leaves a question key-less rather than guessing, when the key is out of range', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+
+    const fetchImpl = vi.fn(async (input: unknown) =>
+      String(input).includes('rpc/question_keys')
+        ? keysReply([{ question_id: QUESTION, correct_idx: 9 }])
+        : json([bare]),
+    );
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER, { keys: true });
+    expect(rows[0].correctIdx).toBeNull();
+  });
+
+  it('echoes the key the teacher just saved, without a second read', async () => {
+    const bare = questionRow({ checked: true });
+    delete (bare as Record<string, unknown>).correct_idx;
+
+    const fetchImpl = vi.fn(async () => json([bare]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const saved = await client.save(EDIT);
+
+    // The write succeeded, so the stored key IS the one in the edit.
+    expect(saved.correctIdx).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for no keys at all when there are no questions', async () => {
+    const fetchImpl = vi.fn(async () => json([]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    expect(await client.listForPaper(PAPER, { keys: true })).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
