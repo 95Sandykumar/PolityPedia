@@ -23,6 +23,10 @@ const VERCEL_ORG_ID = 'team_69fQMR09JMP0ps5RLIUe9e8T';
 const VERCEL_PROJECT_ID = 'prj_2W4QiJuP5kS2CWPu45rVR3XBU2tz';
 const NOTIFY = 'C:/Users/95san/Documents/AI & Business/builder/claudeclaw/scripts/notify.sh';
 const DRY = process.argv.includes('--dry-run');
+// Full paths: under PM2, a bare "bash" can resolve to WSL (System32\bash.exe).
+const pick = (p, fallback) => (fs.existsSync(p) ? p : fallback);
+const BASH = pick('C:/Program Files/Git/usr/bin/bash.exe', 'bash');
+const VERCEL = pick('C:/Users/95san/AppData/Roaming/npm/vercel.cmd', 'vercel');
 
 const log = (msg) => console.log(`[polity-preview ${new Date().toISOString()}] ${msg}`);
 const git = (...args) => execFileSync('git', ['-C', REPO, ...args], { encoding: 'utf8' }).trim();
@@ -50,7 +54,7 @@ function readState() {
 }
 
 function notify(text) {
-  const r = spawnSync('bash', [NOTIFY, text], { encoding: 'utf8' });
+  const r = spawnSync(BASH, [NOTIFY, text], { encoding: 'utf8' });
   log(`telegram: exit ${r.status} ${(r.stdout || r.stderr || '').trim()}`);
 }
 
@@ -68,7 +72,7 @@ function main() {
   try {
     git('worktree', 'add', '--detach', tmp, sha);
     log(`deploying ${branch} ${sha.slice(0, 7)} from ${tmp}`);
-    const r = spawnSync('vercel', ['deploy', '--yes', '--target=preview'], {
+    const r = spawnSync(`"${VERCEL}"`, ['deploy', '--yes', '--target=preview'], {
       cwd: tmp,
       encoding: 'utf8',
       shell: true,
