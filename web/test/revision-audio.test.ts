@@ -48,7 +48,16 @@ const BODY = JSON.stringify({
   remember: 'Rajya Sabha = Council of States.',
 });
 
-const PATH = 'explanations/one/en.mp3';
+/**
+ * Where the audio for one explanation is allowed to live.
+ *
+ * `explanationAudioPath()` in `src/lib/ai/audio.ts` builds exactly this, and
+ * since issue 32-ai-claim-tokens `finish_explanation_audio()` refuses
+ * anything outside the explanation's own folder.
+ */
+function audioPath(questionId: string, lang = 'en'): string {
+  return `explanations/${questionId}/${lang}.mp3`;
+}
 
 interface AudioRow {
   status: string;
@@ -70,13 +79,13 @@ function claimAudio(userId: string, questionId: string, lang = 'en'): Promise<st
 function finishAudio(
   userId: string,
   questionId: string,
-  path = PATH,
+  path?: string,
   lang = 'en',
 ): Promise<boolean> {
   return db.asUser(userId, async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       'select public.finish_explanation_audio($1, $2, $3) as saved',
-      [questionId, lang, path],
+      [questionId, lang, path ?? audioPath(questionId, lang)],
     );
     return r.rows[0].saved;
   });
@@ -232,7 +241,7 @@ describe('finish_explanation_audio: saved once and reused', () => {
     expect(await finishAudio(student, liveQuestion)).toBe(true);
 
     const row = await storedAudio(liveQuestion);
-    expect(row?.audio_path).toBe(PATH);
+    expect(row?.audio_path).toBe(audioPath(liveQuestion));
     expect(row?.audio_status).toBe('ready');
 
     // The second student opening the same explanation makes no audio.

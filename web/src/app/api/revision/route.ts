@@ -39,6 +39,18 @@ export const runtime = 'nodejs';
 /** A model call is never cached and never statically analysed. */
 export const dynamic = 'force-dynamic';
 
+/**
+ * How long this function may run (issue 32-ai-claim-tokens).
+ *
+ * A Claude call with two web searches is slow, and the platform default would
+ * kill the function mid-call: the row is then left on `generating` with
+ * nobody to finish or fail it, and the student has paid 1 of their 30 for
+ * nothing. 60 seconds covers the call, and
+ * `claim_ai_explanation()` takes a claim over after 2 minutes
+ * (`ai_claim_timeout()`), so even a hard kill costs one retry and no money.
+ */
+export const maxDuration = 60;
+
 /** Read our one session cookie off the raw header. Never throws. */
 function readSession(request: Request): AuthSession | null {
   const header = request.headers.get('cookie');

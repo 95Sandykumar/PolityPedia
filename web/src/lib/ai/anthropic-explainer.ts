@@ -32,6 +32,7 @@ import { buildExplainPrompt, explainSystemPrompt } from './prompt';
 import {
   EXPLAINER_MODEL,
   MAX_WEB_SEARCHES,
+  readSourceUrl,
   type ExplainRequest,
   type ExplainResult,
   type Explainer,
@@ -121,18 +122,15 @@ function readString(value: unknown, max = 4_000): string | null {
   return trimmed;
 }
 
-/** Only http(s). A `javascript:` "source" would be a link we render. */
-function readUrl(value: unknown): string | null {
-  const raw = readString(value, 2_000);
-  if (!raw) return null;
-  try {
-    const parsed = new URL(raw);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
+/**
+ * Only http(s). A `javascript:` "source" would be a link we render.
+ *
+ * `readSourceUrl` from `types.ts` is the ONE definition of that rule (issue
+ * 32-ai-claim-tokens): the stored-row readers and the SQL CHECK in
+ * `0032_ai_claim_tokens.sql` apply the same one, so a url that got past the
+ * model path cannot be rejected later and leave a blank Sources list.
+ */
+const readUrl = readSourceUrl;
 
 function readSections(value: unknown): ExplanationSection[] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
