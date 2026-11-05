@@ -72,5 +72,79 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+
+    // -----------------------------------------------------------------------
+    // P10, the nightly reconcile (issue 29-ledger-reconcile-payouts).
+    //
+    // design.md A6: Razorpay payments versus our `purchases`, and a row in
+    // `reconcile_alerts` for anything that does not line up.
+    //
+    // THIS IS NOT STARTED BY THIS ISSUE. To start it by hand later:
+    //
+    //   npx pm2 start web/ecosystem.config.cjs --only polity-ledger
+    //   npx pm2 logs polity-ledger
+    //   npx pm2 stop polity-ledger
+    //
+    // Or run one night in the foreground, without PM2:
+    //
+    //   npm run job:ledger-reconcile
+    //
+    // Its four secrets are NOT in this file. PM2 reads them from the shell
+    // that starts it, or from `web/.env.local`, so no key is ever committed.
+    // -----------------------------------------------------------------------
+    {
+      name: 'polity-ledger',
+      // Same interpreter and alias loader as the split worker, so the job runs
+      // exactly the files the tests cover: no build step, no second copy.
+      interpreter: 'node',
+      interpreter_args: '--import ./jobs/register-alias.mjs',
+      script: 'jobs/ledger-reconcile.ts',
+      cwd: __dirname,
+
+      instances: 1,
+      exec_mode: 'fork',
+
+      // design.md D5: "P10 at 2 AM CST". PM2's cron follows the clock of the
+      // laptop PM2 runs on, so `0 2 * * *` is 2 AM CST exactly as long as that
+      // laptop is on CST, which is Boss's. NOT pinned to a timezone here on
+      // purpose: an hour the job thinks is 2 AM and the laptop thinks is
+      // something else is a job that fires while Boss is using the machine.
+      //
+      // The HOUR barely matters anyway, and that is the point of the 48-hour
+      // window: it does not have to catch a boundary, it just has to run.
+      cron_restart: '0 2 * * *',
+
+      // IT IS A CRON JOB, NOT A LISTENER, and that is the whole reason for
+      // the next three lines. The job compares 48 hours, writes what it found
+      // and exits 0.
+      //
+      //  * `autorestart: false` -- a finished night must not be started again
+      //    a second later. The cron is what brings it back.
+      //  * `stop_exit_codes: [0]` -- tells PM2 that exit 0 is the job DONE,
+      //    so the app shows as `stopped` and not as `errored`. Without it
+      //    every clean night looks like a crash in `pm2 list`.
+      //  * no `min_uptime` / `max_restarts` -- those are restart-loop guards,
+      //    and there is no restart to guard.
+      //
+      // A non-zero exit (the run itself broke, not "it found alerts") is left
+      // alone on purpose: tomorrow's 2 AM retries it, and the 48-hour window
+      // means one skipped night loses nothing.
+      autorestart: false,
+      stop_exit_codes: [0],
+
+      // It holds one night of payments and purchases as plain objects. 256 MB
+      // is already generous; a number this low catches a runaway page loop
+      // instead of letting the laptop swap.
+      max_memory_restart: '256M',
+
+      env: {
+        NODE_ENV: 'production',
+        // D2. See the note at the top of this file.
+        CLAUDECODE: '',
+      },
+
+      merge_logs: true,
+      time: true,
+    },
   ],
 };

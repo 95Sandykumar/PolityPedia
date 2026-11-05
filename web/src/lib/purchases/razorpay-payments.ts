@@ -24,7 +24,13 @@
  *  * No console call lives in this file, and every thrown error carries a
  *    fixed message plus the HTTP status, never a response body.
  */
-import { toPaise, type CreateOrderInput, type PaymentRecord, type Payments } from './types';
+import {
+  toPaise,
+  type CreateOrderInput,
+  type PaymentRecord,
+  type Payments,
+  type PaymentsWindow,
+} from './types';
 
 const API = 'https://api.razorpay.com/v1';
 
@@ -33,6 +39,21 @@ const MAX_RECEIPT = 40;
 
 /** One page of payments against one order. A single order has very few. */
 const PAYMENTS_PER_PAGE = 20;
+
+/**
+ * Razorpay's own ceiling on `count` for the payments list. The nightly
+ * reconcile (A6) pages until it has everything, so this is a page size and
+ * never a cap on what it checks: a night that silently stopped at 100
+ * payments would hide exactly the mismatch it is looking for.
+ */
+const LIST_PER_PAGE = 100;
+
+/**
+ * How many pages the reconcile will walk before giving up. 100 pages is
+ * 10,000 payments in 48 hours, which is far past anything v1 can sell, so
+ * reaching it means the loop is wrong and not that the night was busy.
+ */
+const MAX_LIST_PAGES = 100;
 
 export interface RazorpayEnv {
   keyId: string;
@@ -174,20 +195,71 @@ export function createRazorpayPayments(options: RazorpayPaymentsOptions = {}): P
       }
 
       const body = (await res.json()) as PaymentsReply;
-      const items = Array.isArray(body?.items) ? body.items : [];
+      return readPayments(body);
+    },
+
+    /**
+     * Every payment in a window, paged (A6, issue 29).
+     *
+     * `from` and `to` are WHOLE SECONDS, which is what Razorpay's payments
+     * list takes; `skip` walks the pages. The loop stops on a short page, so
+     * a quiet night is one request.
+     *
+     * A page that fails THROWS rather than returning what it has so far. A
+     * half-read window would make every unseen payment look like a `paid`
+     * purchase the gateway never captured, and the job would file a pile of
+     * invented alerts about real sales.
+     */
+    async listPayments({ fromSeconds, toSeconds }: PaymentsWindow) {
+      const keys = required();
+      const from = Math.floor(fromSeconds);
+      const to = Math.floor(toSeconds);
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) {
+        throw new Error('Razorpay needs a from/to window in seconds');
+      }
 
       const out: PaymentRecord[] = [];
-      for (const raw of items) {
-        const one = raw as { id?: unknown; order_id?: unknown; amount?: unknown; status?: unknown };
-        const paymentId = readText(one?.id);
-        const amountPaise = readPaise(one?.amount);
-        const status = readText(one?.status, 32);
-        // A row we cannot read is DROPPED, not guessed. The nightly reconcile
-        // (A6) would rather see a mismatch than a made-up `captured`.
-        if (!paymentId || amountPaise === null || !status) continue;
-        out.push({ paymentId, orderId: readText(one?.order_id), amountPaise, status });
+      for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
+        const res = await doFetch(
+          `${API}/payments?from=${from}&to=${to}` +
+            `&count=${LIST_PER_PAGE}&skip=${page * LIST_PER_PAGE}`,
+          {
+            method: 'GET',
+            headers: { authorization: basic(keys), accept: 'application/json' },
+            cache: 'no-store',
+          },
+        );
+        if (!res.ok) {
+          throw new Error('Razorpay payments list failed with status ' + res.status);
+        }
+
+        const body = (await res.json()) as PaymentsReply;
+        const items = Array.isArray(body?.items) ? body.items : [];
+        out.push(...readPayments(body));
+        // A page shorter than the page size is the last page.
+        if (items.length < LIST_PER_PAGE) return out;
       }
-      return out;
+      throw new Error('Razorpay payments list did not end');
     },
   };
+}
+
+/**
+ * Razorpay's `items` array as our own records.
+ *
+ * A row we cannot read is DROPPED, not guessed. The nightly reconcile (A6)
+ * would rather see a mismatch than a made-up `captured`.
+ */
+function readPayments(body: PaymentsReply): PaymentRecord[] {
+  const items = Array.isArray(body?.items) ? body.items : [];
+  const out: PaymentRecord[] = [];
+  for (const raw of items) {
+    const one = raw as { id?: unknown; order_id?: unknown; amount?: unknown; status?: unknown };
+    const paymentId = readText(one?.id);
+    const amountPaise = readPaise(one?.amount);
+    const status = readText(one?.status, 32);
+    if (!paymentId || amountPaise === null || !status) continue;
+    out.push({ paymentId, orderId: readText(one?.order_id), amountPaise, status });
+  }
+  return out;
 }
