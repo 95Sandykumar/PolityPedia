@@ -196,6 +196,22 @@ export interface AttemptsClient {
     mode: AttemptMode;
     topicId?: string | null;
   }): Promise<Attempt>;
+  /**
+   * The same thing for a MOCK TEST (issue 17-practice-mode).
+   *
+   * The topic is part of what is resumed, not just stored: a sitting of the
+   * full paper holds different questions from a sitting of one topic, so
+   * switching the Topic dropdown starts a NEW sitting instead of resuming one
+   * whose answers belong to other questions.
+   *
+   * OPTIONAL, so every fake written for issue 13 is still a whole
+   * `AttemptsClient`. Call it as `client.openOrStartForTest?.(...)`.
+   */
+  openOrStartForTest?(input: {
+    testId: string;
+    mode: AttemptMode;
+    topicId?: string | null;
+  }): Promise<Attempt>;
   /** The answers already in that sitting, so the player opens where it was. */
   listAnswers(attemptId: string): Promise<Map<string, AttemptAnswer>>;
   /** The idempotent upsert. Safe to call with the same answer twice (A1). */

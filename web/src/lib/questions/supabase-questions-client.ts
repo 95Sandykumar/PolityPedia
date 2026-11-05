@@ -131,9 +131,14 @@ export function createSupabaseQuestionsClient(
     },
 
     // Issue 15-mock-sets-authoring: the same read with the other parent.
-    async listForTest(testId: string) {
+    // `topicId` is F-E4's topic filter (issue 17-practice-mode).
+    async listForTest(testId: string, topicId: string | null = null) {
       if (!UUID_RE.test(testId)) return [];
-      return listByParent('test_id', testId);
+      // A topic we cannot trust is never put in a URL. EMPTY, not the full
+      // paper: a filter the student chose and did not get is a wrong list,
+      // and a wrong list is worse than a short one.
+      if (topicId !== null && !UUID_RE.test(topicId)) return [];
+      return listByParent('test_id', testId, topicId);
     },
 
     async save(edit: QuestionEdit) {
@@ -264,11 +269,15 @@ export function createSupabaseQuestionsClient(
   async function listByParent(
     column: 'paper_id' | 'test_id',
     id: string,
+    topicId: string | null = null,
   ): Promise<Question[]> {
     const raw = await rows<QuestionRow>(
       QUESTIONS,
       `select=${QUESTION_COLUMNS}` +
         `&${column}=eq.${encodeURIComponent(id)}` +
+        // F-E4's topic filter (issue 17-practice-mode). Postgres does the
+        // filtering, so one topic is one small request.
+        (topicId === null ? '' : `&topic_id=eq.${encodeURIComponent(topicId)}`) +
         '&order=number.asc',
     );
 

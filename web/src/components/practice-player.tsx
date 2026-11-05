@@ -21,6 +21,7 @@ import { createAnswerQueue } from '@/lib/attempts/answer-queue';
 import { createBrowserAttemptsClient } from '@/lib/attempts/browser-attempts-client';
 import type { AttemptAnswer } from '@/lib/attempts/types';
 import type { LangMode } from '@/lib/i18n';
+import type { Marking } from '@/lib/practice/types';
 import type { Question } from '@/lib/questions/types';
 import { createBrowserSavedClient } from '@/lib/saved/browser-saved-client';
 import type { SavedTag } from '@/lib/saved/types';
@@ -30,12 +31,18 @@ export function PracticePlayer({
   attemptId,
   mode,
   examName,
+  marking,
   startedAnswers,
 }: {
   questions: readonly Question[];
   attemptId: string;
   mode: LangMode;
   examName?: string;
+  /**
+   * F-E6's marking (issue 17-practice-mode). Left out for a past paper, which
+   * is scored one mark a question with no negative marking.
+   */
+  marking?: Marking;
   /** Pairs, not a Map: a plain array crosses the server boundary unchanged. */
   startedAnswers?: readonly (readonly [string, AttemptAnswer])[];
 }) {
@@ -66,6 +73,7 @@ export function PracticePlayer({
       queue={queue}
       mode={mode}
       examName={examName}
+      marking={marking}
       startedAnswers={answers}
       onTag={(questionId: string, tag: SavedTag, saved: boolean) => {
         // Never awaited and never thrown: the Saved list is a side effect of

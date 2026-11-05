@@ -30,13 +30,18 @@
 import { Bookmark, BookmarkCheck, Check, Eye, Sparkles, WifiOff, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  countCorrect,
   optionLetter,
   progressLabel,
   verdictOf,
   type AnswerQueue,
   type AttemptAnswer,
 } from '@/lib/attempts/types';
+import {
+  DEFAULT_MARKING,
+  scoreAnswers,
+  totalMarks,
+  type Marking,
+} from '@/lib/practice/types';
 import { DEFAULT_MODE, labels, plain, type LangMode } from '@/lib/i18n';
 import type { Question } from '@/lib/questions/types';
 import type { SavedTag } from '@/lib/saved/types';
@@ -74,6 +79,7 @@ export function QuestionPlayer({
   queue,
   mode = DEFAULT_MODE,
   examName,
+  marking = DEFAULT_MARKING,
   startedAnswers,
   onFinish,
   onTag,
@@ -86,6 +92,15 @@ export function QuestionPlayer({
   mode?: LangMode;
   /** The exam name above the progress bar, 14 px muted (DESIGN.md section 8). */
   examName?: string;
+  /**
+   * F-E6, marking per exam (issue 17-practice-mode). The score is MARKS, so
+   * CUET PG at +4 and -1 turns 10 right and 5 wrong into 35, not 10.
+   *
+   * Defaults to one mark a question with no negative marking, which is what a
+   * past paper and an exam with no published scheme get, and is exactly what
+   * this player showed before that slice.
+   */
+  marking?: Marking;
   /** Answers already in this sitting, so re-opening resumes where it was. */
   startedAnswers?: ReadonlyMap<string, AttemptAnswer>;
   /** Called once, with the score, when the student finishes. */
@@ -212,7 +227,10 @@ export function QuestionPlayer({
   }
 
   function finish(): void {
-    const score = countCorrect(answers);
+    // Marks, not a count of right answers (F-E6). The same number goes on the
+    // screen and into `attempts.score`, so the student and the mock list can
+    // never disagree.
+    const score = scoreAnswers(answers, marking);
     setFinished(true);
     void Promise.resolve(onFinish?.(score)).catch(() => {
       // The score is on screen either way. A failed submit is retried by the
@@ -425,7 +443,8 @@ export function QuestionPlayer({
               role="status"
               className="grow text-right text-base font-bold tabular-nums"
             >
-              {plain('player.score', mode)} {countCorrect(answers)} / {total}
+              {plain('player.score', mode)} {scoreAnswers(answers, marking)} /{' '}
+              {totalMarks(total, marking)}
             </p>
           ) : (
             <button type="button" onClick={finish} className={`${PRIMARY} grow`}>
