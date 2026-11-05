@@ -16,7 +16,27 @@ import { isRole, type AuthSession, type Role, type ServerAuthClient } from './ty
 interface TokenResponse {
   access_token?: unknown;
   refresh_token?: unknown;
+  /** Seconds from now (issue 33-session-refresh). */
+  expires_in?: unknown;
+  /** Epoch seconds. Preferred, because it does not trust our clock twice. */
+  expires_at?: unknown;
   user?: { id?: unknown } | null;
+}
+
+/**
+ * When the access token dies, in epoch seconds, or undefined when Supabase
+ * did not say (issue 33-session-refresh). Undefined is read as "stale" by
+ * `needsRefresh`, so the worst case is one extra renewal, never a dead token
+ * treated as live.
+ */
+function expiryOf(body: TokenResponse, nowMs: number): number | undefined {
+  if (typeof body.expires_at === 'number' && Number.isFinite(body.expires_at)) {
+    return body.expires_at;
+  }
+  if (typeof body.expires_in === 'number' && Number.isFinite(body.expires_in)) {
+    return Math.floor(nowMs / 1000) + body.expires_in;
+  }
+  return undefined;
 }
 
 export interface SupabaseAuthClientOptions {
@@ -37,13 +57,18 @@ export function createSupabaseAuthClient(
     return found;
   }
 
-  async function authPost(path: string, body: unknown): Promise<unknown> {
+  /**
+   * `accessToken` replaces the anon key in the Authorization header, which is
+   * what `/auth/v1/logout` needs: it revokes THIS session, so it has to be
+   * told which one by the token itself.
+   */
+  async function authPost(path: string, body: unknown, accessToken?: string): Promise<unknown> {
     const { url, anonKey } = required();
     const res = await doFetch(url + path, {
       method: 'POST',
       headers: {
         apikey: anonKey,
-        authorization: 'Bearer ' + anonKey,
+        authorization: 'Bearer ' + (accessToken ?? anonKey),
         'content-type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -106,11 +131,13 @@ export function createSupabaseAuthClient(
       throw new Error('Supabase auth returned no session');
     }
     const role = await readRole(accessToken);
+    const expiresAt = expiryOf(body, Date.now());
     return {
       accessToken,
       refreshToken: typeof body.refresh_token === 'string' ? body.refresh_token : '',
       userId,
       role,
+      ...(expiresAt === undefined ? {} : { expiresAt }),
       ...(role === 'teacher' ? { teacherStatus: await readTeacherStatus(accessToken) } : {}),
     };
   }
@@ -135,6 +162,24 @@ export function createSupabaseAuthClient(
           code_verifier: verifier,
         }),
       );
+    },
+
+    /**
+     * Issue 33-session-refresh. Supabase ROTATES the refresh token, so the one
+     * passed in is dead after this call: the caller must store what comes back
+     * or the session is lost.
+     */
+    async refreshSession(refreshToken) {
+      return toSession(
+        await authPost('/auth/v1/token?grant_type=refresh_token', {
+          refresh_token: refreshToken,
+        }),
+      );
+    },
+
+    /** Issue 33-session-refresh. Revokes this one session, not every device. */
+    async signOut(accessToken) {
+      await authPost('/auth/v1/logout?scope=local', {}, accessToken);
     },
 
     googleAuthorizeUrl(redirectTo, challenge) {

@@ -155,3 +155,46 @@ describe('createSupabaseAuthClient', () => {
     expect((error as Error).message).not.toContain('a.b.c');
   });
 });
+
+// Issue 33-session-refresh: renew and revoke.
+describe('refreshSession and signOut', () => {
+  it('swaps the refresh token for a new session and records the expiry', async () => {
+    const { fn, calls } = fakeFetch([
+      { ...TOKEN_BODY, access_token: 'a2.b2.c2', refresh_token: 'r-2', expires_at: 1_800_003_600 },
+      [{ role: 'student' }],
+    ]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1');
+
+    expect(calls[0].url).toBe('https://proj.supabase.test/auth/v1/token?grant_type=refresh_token');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ refresh_token: 'r-1' });
+    expect(session.accessToken).toBe('a2.b2.c2');
+    expect(session.refreshToken).toBe('r-2');
+    expect(session.expiresAt).toBe(1_800_003_600);
+  });
+
+  it('turns expires_in into a clock time, so the cookie can be checked later', async () => {
+    const { fn } = fakeFetch([{ ...TOKEN_BODY, expires_in: 3600 }, [{ role: 'student' }]]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const before = Math.floor(Date.now() / 1000);
+    const session = await client.refreshSession('r-1');
+
+    expect(session.expiresAt).toBeGreaterThanOrEqual(before + 3600);
+    expect(session.expiresAt).toBeLessThanOrEqual(before + 3601);
+  });
+
+  it('revokes the session with the user own token, not the anon key', async () => {
+    const { fn, calls } = fakeFetch([{}]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    await client.signOut('a.b.c');
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://proj.supabase.test/auth/v1/logout?scope=local');
+    const headers = new Headers(calls[0].init.headers);
+    expect(headers.get('authorization')).toBe('Bearer a.b.c');
+    expect(headers.get('apikey')).toBe('test-anon-key');
+  });
+});

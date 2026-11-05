@@ -34,6 +34,18 @@ export interface AuthSession {
    * as pending, so an old cookie fails closed.
    */
   teacherStatus?: TeacherStatus;
+  /**
+   * When `accessToken` stops working, in epoch SECONDS
+   * (issue 33-session-refresh).
+   *
+   * A Supabase access token lasts about an hour, while this cookie lasts a
+   * week, so without this we could not tell a live token from a dead one and
+   * every call made inside a long mock test failed with 401 after minute 60.
+   *
+   * Optional: a cookie written before issue 33 has no expiry, and that is read
+   * as "assume it is stale", so the next request renews it.
+   */
+  expiresAt?: number;
 }
 
 /** Server side. Holds the Supabase key, so it never ships to the browser. */
@@ -46,6 +58,13 @@ export interface ServerAuthClient {
   verifyEmailCode(email: string, code: string): Promise<AuthSession>;
   /** Swap a Google `?code=` for a session (PKCE). */
   exchangeCodeForSession(code: string, verifier: string): Promise<AuthSession>;
+  /**
+   * Swap a refresh token for a fresh access token (issue 33-session-refresh).
+   * Throws when the refresh token was revoked or already spent.
+   */
+  refreshSession(refreshToken: string): Promise<AuthSession>;
+  /** Revoke this session at Supabase (issue 33-session-refresh). */
+  signOut(accessToken: string): Promise<void>;
   /** Where to send the browser to start Google sign-in. */
   googleAuthorizeUrl(redirectTo: string, challenge: string): string;
 }

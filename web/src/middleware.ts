@@ -1,31 +1,15 @@
 /**
- * Route guards (issue 03-sign-in).
+ * Route guards plus token renewal (issue 03-sign-in, 33-session-refresh).
  *
- * Thin adapter: read the session cookie, ask the pure `guard()` for a verdict,
- * redirect or continue. All the rules live in `src/lib/auth/guard.ts`, which
- * the tests drive directly.
- *
- * This is a routing guard, not the security boundary. A forged cookie can
- * reach a page shell; it reads no data, because Postgres RLS checks the real
- * access-token JWT on every query.
+ * Thin adapter. Every rule lives in `@/lib/auth/session-middleware`, which the
+ * tests drive directly with a fake auth client.
  */
-import { NextResponse, type NextRequest } from 'next/server';
-import { guard } from '@/lib/auth/guard';
-import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
+import { type NextRequest, type NextResponse } from 'next/server';
+import { respondToRequest } from '@/lib/auth/session-middleware';
+import { createSupabaseAuthClient } from '@/lib/auth/supabase-auth-client';
 
-export function middleware(request: NextRequest): NextResponse {
-  const session = decodeSession(request.cookies.get(SESSION_COOKIE)?.value);
-  const verdict = guard({
-    pathname: request.nextUrl.pathname,
-    role: session?.role ?? null,
-    // Issue 05: a teacher must be approved, not only a teacher.
-    teacherStatus: session?.teacherStatus ?? null,
-  });
-
-  if (verdict.allow) return NextResponse.next();
-
-  const target = new URL(verdict.redirectTo, request.nextUrl.origin);
-  return NextResponse.redirect(target);
+export function middleware(request: NextRequest): Promise<NextResponse> {
+  return respondToRequest({ request, client: createSupabaseAuthClient() });
 }
 
 // B7: skip `_next/static`, `_next/image` and any path with a file extension.
