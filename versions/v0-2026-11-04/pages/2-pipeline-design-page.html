@@ -1,0 +1,457 @@
+<title>PolityPedia Pipeline Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: gazette column; each part = one piece of the platform with a diagram; checks and decisions at the end */
+:root{
+  --bg:#f6f7f4; --surface:#ffffff; --fg:#1b2420; --muted:#5b6862; --line:#d9dfdb;
+  --green:#1f5c4a; --green-soft:#dcebe4; --red:#8c2f2f; --red-soft:#f3e1df; --amber:#9a6a12; --amber-soft:#f5ead2;
+  --display:"Spectral",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1a221e; --fg:#e6ece8; --muted:#9aa8a1; --line:#2c3833;
+  --green:#6fc2a3; --green-soft:#1d3a30; --red:#e48a80; --red-soft:#3b2220; --amber:#e0b35c; --amber-soft:#3a2f17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1a221e; --fg:#e6ece8; --muted:#9aa8a1; --line:#2c3833;
+  --green:#6fc2a3; --green-soft:#1d3a30; --red:#e48a80; --red-soft:#3b2220; --amber:#e0b35c; --amber-soft:#3a2f17; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,5vw,42px)} h2{font-size:clamp(22px,3.4vw,28px)} h3{font-size:18px}
+p{margin:0;max-width:68ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:16px}
+.part{display:flex;gap:10px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px}
+.part .eyebrow{color:var(--green)}
+.verdict{background:var(--green-soft);border:1px solid var(--green);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.warn{background:var(--red-soft);border:1px solid var(--red);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.warn strong{color:var(--red)}
+ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:600px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.y{color:var(--green);font-weight:600}.n{color:var(--red);font-weight:600}.q{color:var(--amber);font-weight:600}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
+pre.mermaid{margin:0;background:transparent;font-family:var(--body)}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:560px;height:auto}
+.chart text{font-family:var(--mono);font-size:12px;fill:var(--muted)}
+.chart .lbl{fill:var(--fg);font-family:var(--body);font-size:13px}
+.chart .val{fill:var(--fg);font-weight:500}
+.note{font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+.chip.a{background:var(--amber-soft);color:var(--amber)}
+.chip.r{background:var(--red-soft);color:var(--red)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:680px){.grid2,.grid3{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.pick{border:2px solid var(--green)}
+.nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 6px}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:6px 2px;border-radius:6px;min-width:0}
+.nav div span{font-family:var(--mono);font-size:18px;color:var(--green)}
+.nav .new{background:var(--amber-soft)}
+.console{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:18px}
+.dec{display:flex;flex-direction:column;gap:8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{font:inherit;font-size:14px;text-align:left;padding:10px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;flex:1 1 260px;display:flex;flex-direction:column;gap:2px}
+.opt:hover{border-color:var(--green)}
+.opt:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.opt[aria-pressed="true"]{border:2px solid var(--green);background:var(--green-soft)}
+.opt .rec{font-family:var(--mono);font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.05em}
+.opt small{color:var(--muted)}
+label{font-size:14px;font-weight:500;display:flex;flex-direction:column;gap:4px}
+input[type=text]{font:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.btn{font:inherit;font-weight:600;padding:10px 16px;border-radius:6px;border:0;background:var(--green);color:var(--bg);cursor:pointer;align-self:flex-start}
+textarea{font-family:var(--mono);font-size:13px;width:100%;box-sizing:border-box;min-height:160px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);padding:10px}
+.status{font-size:13px;color:var(--green);min-height:1.2em}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:72ch}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:12px">
+  <span class="eyebrow">System design · draft 5 · 4 Nov 2026</span>
+  <h1>PolityPedia: one platform for teachers and students</h1>
+  <p>Students learn here. Teachers build their own audience here, with or without showing who they are. Seven night and hourly jobs keep everything fresh.</p>
+</header>
+
+<div class="verdict">
+  <span class="eyebrow" style="color:var(--green)">Locked by Boss</span>
+  <div class="chips">
+    <span class="chip">Free V1 + AI tutor + newsletter</span><span class="chip">NET · CUET PG · PGT · TGT</span><span class="chip">हिं + EN</span>
+    <span class="chip">Separate free Vercel account</span><span class="chip a">Transcripts pulled from YouTube</span><span class="chip">6 tabs, Teachers is its own tab</span>
+    <span class="chip">Supabase + Sheet copy</span><span class="chip">News once a night</span><span class="chip">Teacher profiles + communities</span><span class="chip">Teachers: invite only, admin approves</span><span class="chip">Instagram: links in V1</span><span class="chip">100 students/day at start</span><span class="chip">politypedia.vercel.app</span><span class="chip">Newsletter: site + Telegram</span><span class="chip">10 notes PDFs</span><span class="chip a">Free for early users, then ₹500/month</span>
+  </div>
+</div>
+
+<div class="warn">
+  <span class="eyebrow" style="color:var(--red)">Know before we build</span>
+  <p><strong>Transcripts:</strong> you accepted the YouTube rules risk and the teacher's contract risk. YouTube may also block the job. If that happens, it stops for the night and tries again the next night.</p>
+  <p><strong>Second Vercel account:</strong> you create it with a new email. I have not checked whether Vercel's terms allow a second free account per person. We check this before launch.</p>
+  <p><strong>Alias mode:</strong> a teacher's real name must never reach a student's phone. We block it in the database itself, not only on screen, and a test proves it.</p>
+</div>
+
+<section>
+  <div class="part"><span class="eyebrow">Part I</span><h2>The whole system</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph IN[Sources]
+    YT[Adda247 channel]
+    TL[Teacher's own links<br/>3 YouTube · 2 Instagram]
+    NF[News feeds]
+    TU[Teacher notes]
+  end
+  subgraph JOBS[Jobs on Boss's laptop · PM2]
+    P1[P1 Video sync · hourly]
+    P2[P2 Tagger · Haiku]
+    P3[P3 Transcripts · nightly]
+    P4[P4 Notes ingest]
+    P5[P5 News · nightly]
+    P6[P6 Newsletter · weekly]
+    P7[P7 Sheet copy · nightly]
+  end
+  YT --> P1
+  TL --> P1
+  P1 --> P2
+  P1 --> P3
+  TU --> P4
+  NF --> P5
+  P2 --> DB[(Supabase Mumbai)]
+  P3 --> DB
+  P4 --> DB
+  P5 --> DB
+  DB --> P6
+  DB --> P7
+  DB --> APP[Web app · own Vercel account]
+  APP --> ST[Students]
+  APP --> TD[Teacher dashboard]
+  ST <-->|group chat, live| RT[Supabase Realtime]
+  TD <--> RT
+  </pre></div>
+  <p class="note">Group chat goes straight from the phone to Supabase. It never counts against the Vercel cap.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part II</span><h2>The app: 6 tabs + a teacher dashboard</h2></div>
+  <div class="nav">
+    <div><span>⌂</span>Home</div>
+    <div><span>▶</span>Videos</div>
+    <div class="new"><span>☺</span>Teachers</div>
+    <div><span>◉</span>News</div>
+    <div><span>✓</span>Practice</div>
+    <div><span>?</span>Ask</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><span class="eyebrow">Student sees</span><p>Videos, teachers they follow, the teachers' groups, the daily news, practice, and the AI tutor.</p></div>
+    <div class="card"><span class="eyebrow">Teacher sees (same app, extra screen)</span><p>Profile and links, identity switch, groups and who can post, newsletter approval, video tag fixes, follower count.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part III</span><h2>Teacher profile</h2></div>
+  <div class="grid3">
+    <div class="card"><span class="eyebrow">Links</span>
+      <div class="chips"><span class="chip">YouTube 1</span><span class="chip">YouTube 2</span><span class="chip">YouTube 3</span><span class="chip a">Instagram: work</span><span class="chip a">Instagram: personal</span></div>
+      <p class="note">The database holds at most 3 YouTube and 2 Instagram links per teacher.</p></div>
+    <div class="card pick"><span class="eyebrow">Identity switch</span>
+      <p><strong>Public:</strong> name, photo, all links.</p>
+      <p><strong>Alias:</strong> an alias name and an avatar. Real name, photo and links are hidden.</p>
+      <p class="note">He can switch to Public later and keep every follower.</p></div>
+    <div class="card"><span class="eyebrow">Instagram, the real limit</span>
+      <p>Instagram shut its API for personal accounts on 4 Dec 2024. Only professional accounts can show posts, and only after Meta reviews our app.</p>
+      <p class="note">V1: both Instagram accounts appear as link buttons. V2: the work account can show a live feed.</p></div>
+  </div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  I[Admin makes an invite link] --> T1[Teacher 1 joins]
+  T1 -->|forwards the link| A[Teacher 2 signs up<br/>with the link]
+  A --> B{Admin approves<br/>in one tap}
+  B -->|yes| C[Adds links + picks Public or Alias]
+  C --> D[His YouTube channels join<br/>the hourly video sync]
+  C --> E[Students find him<br/>in the Teachers tab]
+  E --> F[Follow]
+  F --> G[Join his group]
+  </pre></div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part IV</span><h2>Community: the teacher controls who can talk</h2></div>
+  <div class="grid3">
+    <div class="card pick"><span class="eyebrow">Broadcast · default</span><p>Only the teacher posts. Students read and react.</p><p class="note">Like a Telegram channel.</p></div>
+    <div class="card"><span class="eyebrow">Allow-list</span><p>The teacher picks which students can post.</p><p class="note">For toppers or helpers.</p></div>
+    <div class="card"><span class="eyebrow">Open</span><p>Every member can post.</p><p class="note">Like a Discord room.</p></div>
+  </div>
+  <ul class="clean">
+    <li>The database checks every message before it saves it. A student who is not allowed to post cannot post, even with a hacked app.</li>
+    <li>The teacher can delete a message, mute a student or remove a student. Students can report a message.</li>
+    <li>Limits: 1 message every 5 seconds, 2,000 characters. Only the teacher can attach files (5 MB max).</li>
+    <li>V1 has no private messages, between students or between teacher and student. This keeps everyone safe.</li>
+    <li>Live chat uses Supabase Realtime. Your plan includes 500 users online at the same time. Each extra 1,000 costs $10. A phone connects only while that group screen is open.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part V</span><h2>Videos (P1, P2)</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  A[Every hour: RSS of Adda channel<br/>+ every teacher channel] --> B{New?}
+  B -->|no| X[stop]
+  B -->|yes| C[Save by video ID]
+  C --> D[Length: 1 API unit per 50 videos]
+  D --> E[Haiku tags unit, topic,<br/>exam, type, language]
+  E --> F[Videos tab + teacher page]
+  </pre></div>
+  <div class="chips"><span class="chip">Unit 1-10</span><span class="chip">Topic</span><span class="chip">Thinker</span><span class="chip">Exam</span><span class="chip">Concept · PYQ · Revision · CA</span><span class="chip">हिं · EN</span><span class="chip">Length</span><span class="chip">Teacher</span><span class="chip">Not watched</span></div>
+  <p class="note">About 26 of the 10,000 free YouTube API units a day, including the daily catch-up. Thumbnails load straight from YouTube.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VI</span><h2>News: once a night (P5)</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  T[2:00 AM IST every night] --> F[Read 5 feeds]
+  F --> D{Seen before?}
+  D -->|yes| S[skip]
+  D -->|no| H[Haiku: relevant? unit? exam?]
+  H --> W[2 lines in our own words<br/>हिं + EN]
+  W --> N[Top 10 ready when<br/>students wake up]
+  N --> NL[Feeds Sunday newsletter]
+  </pre></div>
+  <p class="note">Feeds that work (tested): PIB, MEA, The Hindu national and international, Indian Express Explained. The PRS link returned 404, so we need the right link.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VII</span><h2>Transcripts into the knowledge base (P3, P4)</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  V[New video of an<br/>onboarded teacher] --> C{YouTube captions?}
+  C -->|yes| T[Take captions]
+  C -->|no| A[Audio to text]
+  T --> CL[Class record<br/>series · class no · unit · exams]
+  A --> CL
+  CL --> CH[Small pieces + time stamps]
+  N[Notes PDFs] --> CH
+  P[PYQs] --> CH
+  CH --> KB[(Knowledge base<br/>tagged by teacher)]
+  B[YouTube blocks] -.-> STOP[Stop until next night]
+  </pre></div>
+  <ul class="clean">
+    <li>Runs at 2 AM on your laptop. YouTube blocks most cloud servers, but usually allows a home connection.</li>
+    <li>Max 5 videos a night. It stops the first time YouTube blocks it.</li>
+    <li>Only videos from teachers who joined PolityPedia. We never transcribe other teachers' videos.</li>
+    <li>Everything is tagged by teacher, so later each teacher can have a tutor that knows only their own content.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VIII</span><h2>AI tutor + newsletter</h2></div>
+  <div class="grid2">
+    <div class="card"><span class="eyebrow">Tutor</span><p>It searches the notes, classes and PYQs for the student's exam. Haiku answers from those pieces only and shows source cards, like "Class 14, jump to 12:30". If the answer is not there, it says "not in notes". Free: 5 questions a day. Pro: fair use, 100 a day.</p></div>
+    <div class="card"><span class="eyebrow">Newsletter</span><p>Saturday: Sonnet drafts it from the week's news, new classes and a PYQ. The teacher approves it. Sunday 7 AM IST it goes out, and a "sent" marker stops any double send.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part IX</span><h2>Where the data lives</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Table</th><th>Holds</th></tr></thead>
+    <tbody>
+      <tr><td>profiles</td><td>Every user, role (student / teacher / admin), exams, language</td></tr>
+      <tr><td>teachers · teacher_links</td><td>Public or Alias mode, alias, bio, up to 3 YouTube + 2 Instagram</td></tr>
+      <tr><td>follows</td><td>Which student follows which teacher</td></tr>
+      <tr><td>groups · group_members · messages · reports</td><td>Communities, who can post, chat, reports</td></tr>
+      <tr><td>channels · videos</td><td>Adda + teacher channels, every video with tags</td></tr>
+      <tr><td>classes · documents · chunks</td><td>Transcribed classes, notes, PYQs as searchable pieces, tagged by teacher</td></tr>
+      <tr><td>news_sources · news_items</td><td>Feeds and the nightly news cards</td></tr>
+      <tr><td>pyqs · attempts · tutor_logs</td><td>Practice and tutor history</td></tr>
+      <tr><td>subscribers · newsletter_issues · job_runs</td><td>Newsletter list, each issue, last run of each job</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Every table has row-level security, so each user only reads what they are allowed to read. The new Supabase project goes in Mumbai.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part X</span><h2>Limits on the new Vercel account</h2></div>
+  <div class="chart" role="img" aria-label="Estimated Vercel requests per 30 days by daily students on PolityPedia's own 1 million cap">
+    <svg viewBox="0 0 700 236">
+      <text x="0" y="16" class="lbl" style="font-weight:600">Own account, Vercel requests per 30 days</text>
+      <g stroke="var(--line)" stroke-width="1">
+        <line x1="170" y1="30" x2="170" y2="196"/><line x1="490" y1="30" x2="490" y2="196"/><line x1="650" y1="30" x2="650" y2="196"/>
+      </g>
+      <line x1="330" y1="26" x2="330" y2="196" stroke="var(--amber)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="334" y="38" style="fill:var(--amber)">50% = go Pro</text>
+      <line x1="490" y1="44" x2="490" y2="196" stroke="var(--red)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="494" y="56" style="fill:var(--red)">1M cap</text>
+      <text x="170" y="214" text-anchor="middle">0</text><text x="330" y="214" text-anchor="middle">0.5M</text><text x="490" y="214" text-anchor="middle">1M</text><text x="650" y="214" text-anchor="middle">1.5M</text>
+      <text x="160" y="76" text-anchor="end" class="lbl">100 students/day</text><rect x="170" y="64" width="96" height="18" fill="var(--green)"/><text x="273" y="78" class="val">0.3M</text>
+      <text x="160" y="112" text-anchor="end" class="lbl">167 students/day</text><rect x="170" y="100" width="160" height="18" fill="var(--amber)"/><text x="337" y="114" class="val">0.5M</text>
+      <text x="160" y="148" text-anchor="end" class="lbl">300 students/day</text><rect x="170" y="136" width="288" height="18" fill="var(--amber)"/><text x="465" y="150" class="val">0.9M</text>
+      <text x="160" y="184" text-anchor="end" class="lbl">500 students/day</text><rect x="170" y="172" width="480" height="18" fill="var(--red)"/><text x="644" y="186" text-anchor="end" style="fill:var(--surface);font-weight:500">1.5M</text>
+    </svg>
+  </div>
+  <p class="note">Estimate: 20 page views per student a day × 5 requests each. Once the first version is built, we measure the real number and replace this guess. Your old team stays at 446,699 of 1M and is now safe from PolityPedia.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Limit</th><th>Cap</th><th>We add</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Vercel requests (own account)</td><td class="num">1M / 30 days</td><td class="num">~3,000 per student</td><td class="q">Go Pro at ~167 students/day</td></tr>
+      <tr><td>Supabase Realtime</td><td class="num">500 online at once</td><td>Only open group screens</td><td class="y">Safe at launch</td></tr>
+      <tr><td>YouTube API</td><td class="num">10,000 / day</td><td class="num">~24 / day</td><td class="y">Safe</td></tr>
+      <tr><td>Instagram API</td><td>Professional accounts only</td><td>V1 links only</td><td class="y">Safe</td></tr>
+      <tr><td>Claude API</td><td>Pay per use</td><td>Tutor 20/day/student</td><td class="q">Bounded</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part XI</span><h2>Design checks</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Check</th><th>Status</th><th>Proof or plan</th></tr></thead>
+    <tbody>
+      <tr><td>B1 Live quota numbers</td><td class="y">PASS</td><td>Old team: 446,699 (Vercel CLI, today). Realtime and Instagram limits from vendor docs.</td></tr>
+      <tr><td>B8 Load vs cap</td><td class="y">PASS</td><td>100 students/day × 3,000 = 300k = 30% of the own-account cap. Re-measure after the first build. Go Pro before 50% (~167 students/day).</td></tr>
+      <tr><td>B4 Image quota</td><td class="y">PASS</td><td>Thumbnails come from YouTube.</td></tr>
+      <tr><td>B6 No polling</td><td class="y">PASS</td><td>Chat uses Realtime push.</td></tr>
+      <tr><td>C Untrusted text</td><td class="q">Plan</td><td>News, titles, transcripts and messages are wrapped as untrusted before AI reads them.</td></tr>
+      <tr><td>D4 Re-run safety</td><td class="y">PASS</td><td>Saves use fixed keys. Newsletter writes its marker first.</td></tr>
+      <tr><td>F4 Caps</td><td class="q">Plan</td><td>P1 200 videos, P3 5 videos, P5 300 items per run.</td></tr>
+      <tr><td>Privacy: alias</td><td class="q">Plan</td><td>Real name is hidden in a database view. A test proves a student can never read it.</td></tr>
+      <tr><td>Chat permissions</td><td class="q">Plan</td><td>The database checks each message against the group's mode and the student's permission.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="links">
+  <div class="part"><span class="eyebrow">Part XII</span><h2>Our teacher's videos</h2></div>
+  <p>An agent found 5 of his videos. All 5 links are in the research file. His name stays off this page.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Finding</th><th>What it means for the design</th></tr></thead>
+    <tbody>
+      <tr><td>4 Pol Sci long videos in the last 4 weeks (2 Nov, 14 Oct, 13 Oct, 9 Oct). Topics: Unit 5 IR, Unit 6 Foreign Policy, Comparative Politics, Indian thinkers.</td><td>About 1 a week, not 1 a day. Plan the transcript load and the RAG for about 4-6 classes a month.</td></tr>
+      <tr><td>The channel RSS feed holds only the last 15 uploads, which is about 10 hours of this channel.</td><td>The hourly sync is enough. If the laptop is off longer than that, a daily API catch-up reads the last 100 uploads for 2 units.</td></tr>
+      <tr><td>Another teacher on the same channel has a similar name and teaches Hindi.</td><td>The filter needs "Political Science" AND his name, in the title OR the description. Name alone gives wrong matches.</td></tr>
+      <tr><td>Shorts often have no name, only hashtags.</td><td>Shorts cannot be matched to him automatically. The teacher marks them in one tap, or we skip them.</td></tr>
+      <tr><td>He has a professional Instagram (352 followers, 35 posts) and a Telegram channel.</td><td>Ready for his profile links. Alias mode keeps both hidden.</td></tr>
+      <tr><td>No YouTube channel of his own found.</td><td>His 3 YouTube slots start with the Adda channel. He adds more if he has any.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part XIII</span><h2>Domain: free first, paid later</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Address</th><th>Cost</th><th>Checked today</th></tr></thead>
+    <tbody>
+      <tr><td>politypedia.vercel.app</td><td class="y">₹0</td><td class="y">Not in use (Vercel says DEPLOYMENT_NOT_FOUND). We claim it when we create the project.</td></tr>
+      <tr><td>politypedia.app</td><td class="q">$9.99 first year, then $15/year</td><td class="y">Available (Vercel)</td></tr>
+      <tr><td>politypedia.com</td><td>-</td><td class="n">Taken</td></tr>
+      <tr><td>politypedia.org</td><td>-</td><td class="n">Taken</td></tr>
+      <tr><td>politypedia.in</td><td>-</td><td class="q">Vercel cannot check .in. Unverified.</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>The catch:</strong> the app runs fine on the free address. Email does not. Resend, our email sender, needs a domain we own before it can email students. So on the free plan, the newsletter goes out as a web page plus a Telegram post. The teacher already runs a Telegram channel. We still collect emails, and we start emailing the day we buy a domain.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part XIV</span><h2>Pricing: free for early users, then ₹500/month</h2></div>
+  <div class="grid2">
+    <div class="card"><span class="eyebrow">Free, always</span>
+      <div class="chips"><span class="chip">Videos</span><span class="chip">Teachers</span><span class="chip">News</span><span class="chip">Community</span><span class="chip">Daily quiz</span><span class="chip">5 AI questions a day</span></div></div>
+    <div class="card pick"><span class="eyebrow">Pro · ₹500 / month</span>
+      <div class="chips"><span class="chip">AI tutor, fair-use 100 a day</span><span class="chip">Full mocks</span><span class="chip">Notes PDFs</span><span class="chip">Score vs cut-off analysis</span></div></div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Compared with</th><th>Price</th><th>PolityPedia Pro over a 6-month prep</th></tr></thead>
+    <tbody>
+      <tr><td>Unacademy UGC NET</td><td class="num">from ₹1,547 / month</td><td rowspan="3">₹3,000 for 6 months. That is a third of Unacademy per month, and close to one Adda247 course.</td></tr>
+      <tr><td>Adda247 Pol Sci courses</td><td class="num">₹2,617 - ₹6,825 one-time</td></tr>
+      <tr><td>Testbook NET Pol Sci</td><td class="num">₹14,499</td></tr>
+    </tbody>
+  </table></div>
+  <div class="warn">
+    <span class="eyebrow" style="color:var(--red)">What changes the day we charge money</span>
+    <p><strong>Vercel Pro needed.</strong> The free plan is for non-commercial use only. Upgrade before the first paid student.</p>
+    <p><strong>Payment checks turn on.</strong> Razorpay subscriptions with UPI autopay. Every payment event gets a duplicate check and a signature check, and a daily job compares Razorpay with our database.</p>
+    <p><strong>The teacher's contract.</strong> A paid rival to Adda247 is the real contract risk. Check it before launch day.</p>
+  </div>
+  <p class="note">Built now, used later: a plan table (free / early / pro) and one database check for "can this student use this feature". Switching on Pro means changing a row, not rewriting code.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part XV</span><h2>Decisions left</h2></div>
+  <div class="console">
+    <div class="dec" data-q="Early users after free period">
+      <h3>1. When the free period ends, what do early users get?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d1a" aria-pressed="true" data-v="Early users keep a locked discount price (e.g. ₹299/month for life)"><span class="rec">Recommended</span><strong>Locked early price</strong><small>For example ₹299/month for life. Rewards them, and still brings in revenue.</small></button>
+        <button class="opt" type="button" id="d1b" aria-pressed="false" data-v="Early users stay free forever"><strong>Free forever</strong><small>Most goodwill. No revenue from your first and most loyal students.</small></button>
+      </div>
+    </div>
+    <div class="dec" data-q="When paid starts">
+      <h3>2. When does Pro start?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d2a" aria-pressed="true" data-v="After the UGC NET Dec 2026 exam (about 3 months)"><span class="rec">Recommended</span><strong>After the December NET exam</strong><small>Free while students prepare. Start charging for the June 2027 cycle.</small></button>
+        <button class="opt" type="button" id="d2b" aria-pressed="false" data-v="When we reach 500 signups"><strong>At 500 signups</strong><small>Charge once there is proof of demand. The date is unknown.</small></button>
+      </div>
+    </div>
+    <label for="i1">Teacher's share of Pro revenue (if any)<input type="text" id="i1" placeholder="e.g. 50% of his students' payments"></label>
+    <label for="i4">Anything else for the teacher side?<input type="text" id="i4" placeholder="optional"></label>
+    <button class="btn" type="button" id="copy">Copy decisions</button>
+    <textarea id="out" aria-label="Decisions text" readonly></textarea>
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part XVI</span><h2>How we move forward</h2></div>
+  <ol class="steps">
+    <li><strong>You:</strong> create the new Vercel account with a new email, send the 2 pricing picks above, and get the 10 notes PDFs from the teacher.</li>
+    <li><strong>Me:</strong> turn design.md into a PRD and split it into build slices.</li>
+    <li><strong>Me:</strong> wireframes on the Design canvas: the 6 tabs, the teacher page, a group, the teacher dashboard and sign up.</li>
+    <li><strong>You:</strong> approve the wireframes.</li>
+    <li><strong>Build with /dev-work:</strong> sign up + roles → teacher profile + Teachers tab → Videos → groups → News → notes + tutor → practice → transcripts → newsletter.</li>
+    <li><strong>Ship.</strong> Sentinel QA checks each slice. Reality Checker re-runs the checks.</li>
+  </ol>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var decs=document.querySelectorAll('.dec');
+  var inputs=[['i1','Teacher revenue share'],['i4','Teacher side extra']];
+  function render(){
+    var lines=['PolityPedia design draft 5 decisions (4 Nov 2026)'];
+    decs.forEach(function(d){
+      var on=d.querySelector('.opt[aria-pressed="true"]');
+      lines.push('- '+d.getAttribute('data-q')+': '+(on?on.getAttribute('data-v'):'not chosen'));
+    });
+    inputs.forEach(function(p){var v=document.getElementById(p[0]).value.trim();lines.push('- '+p[1]+': '+(v||'not given yet'));});
+    document.getElementById('out').value=lines.join('\n');
+  }
+  decs.forEach(function(d){
+    d.querySelectorAll('.opt').forEach(function(b){
+      b.addEventListener('click',function(){
+        d.querySelectorAll('.opt').forEach(function(x){x.setAttribute('aria-pressed','false')});
+        b.setAttribute('aria-pressed','true');render();
+      });
+    });
+  });
+  inputs.forEach(function(p){document.getElementById(p[0]).addEventListener('input',render);});
+  document.getElementById('copy').addEventListener('click',function(){
+    var t=document.getElementById('out'),s=document.getElementById('status');
+    render();
+    try{
+      navigator.clipboard.writeText(t.value).then(function(){s.textContent='Copied. Paste it to Claude.';},function(){t.select();s.textContent='Select the text above and copy it.';});
+    }catch(e){t.select();s.textContent='Select the text above and copy it.';}
+  });
+  render();
+})();
+</script>

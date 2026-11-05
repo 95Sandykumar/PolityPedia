@@ -1,0 +1,298 @@
+<title>PolityPedia Design Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;700&family=Hind:wght@400;500;700&family=Mukta:wght@400;500;700&family=Poppins:wght@400;500;700&family=Baloo+2:wght@400;500;700&family=Anek+Devanagari:wght@400;500;700&family=Tiro+Devanagari+Hindi&display=swap">
+<style>
+/* Layout: controls column left (sticky on desktop), one live phone preview right. Page chrome has its own neutral tokens; the preview takes the picked tokens. */
+:root{
+  --pg:#f4f5f8; --panel:#ffffff; --ink:#151a2d; --sub:#5b6377; --line:#dfe2ea; --sel:#3b3fd8; --selsoft:#ecebff;
+  --ui:"Noto Sans Devanagari", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg:#0e111a;--panel:#161b28;--ink:#e6e8f0;--sub:#9aa1b5;--line:#2a3142;--sel:#9c9ff7;--selsoft:#24264a;color-scheme:dark}}
+:root[data-theme="dark"]{--pg:#0e111a;--panel:#161b28;--ink:#e6e8f0;--sub:#9aa1b5;--line:#2a3142;--sel:#9c9ff7;--selsoft:#24264a;color-scheme:dark}
+body{background:var(--pg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px;display:flex;flex-direction:column;gap:24px}
+h1{margin:0;font-size:clamp(24px,3.6vw,32px);line-height:1.2;text-wrap:balance}
+h2{margin:0;font-size:15px}
+p{margin:0;max-width:70ch}
+.sub{color:var(--sub)}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sel);font-weight:500}
+.lab{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:1fr}.stage{order:-1}}
+.controls{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ctl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ctl h2 span{color:var(--sub);font-weight:400;font-size:13px;margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--pg);color:var(--ink);border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--sel);background:var(--selsoft);color:var(--sel);font-weight:500}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.preset{font:inherit;text-align:left;border:1px solid var(--line);background:var(--pg);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.preset[aria-pressed="true"]{border:2px solid var(--sel);padding:9px}
+.preset i{display:block;height:26px;border-radius:6px}
+.preset b{font-size:14px}
+.preset small{color:var(--sub);font-size:12px;line-height:1.35}
+.sw{width:36px;height:36px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--sel)}
+input[type=color]{width:44px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--pg);padding:2px;cursor:pointer}
+input[type=range]{width:100%;accent-color:var(--sel)}
+.rowx{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.val{font-variant-numeric:tabular-nums;color:var(--sel);font-weight:500}
+.checks{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.checks span{font-variant-numeric:tabular-nums}
+.ok{color:#2f8f5b}.warn{color:#c2410c}
+:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.stage{position:sticky;top:max(12px,env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:10px}
+.slots{display:flex;gap:8px;flex-wrap:wrap}
+.slot{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:40px}
+.slot i{width:14px;height:14px;border-radius:4px;background:var(--line)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.go{font:inherit;font-weight:700;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--sel);cursor:pointer}
+.go.main{background:var(--sel);color:var(--panel)}
+.go.ghost{background:transparent;color:var(--sel)}
+textarea,input[type=text]{font:inherit;color:var(--ink);background:var(--pg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%;box-sizing:border-box}
+#copyText{font-family:ui-monospace,Consolas,monospace;font-size:12px;min-height:160px}
+.choice{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--pg);font-size:14px}
+.choice:has(input:checked){border:2px solid var(--sel);padding:7px 9px}
+.choice input{margin-top:3px;accent-color:var(--sel)}
+.choice small{display:block;color:var(--sub);font-size:12.5px}
+.rec{font-size:11px;background:#e3f4ea;color:#1f6b43;padding:1px 6px;border-radius:4px;margin-left:6px}
+
+/* ---------- Preview phone: driven by --p tokens ---------- */
+.ph{--fs:16px;--r:10px;--g:12px;font-family:var(--font);font-size:var(--fs);line-height:1.55;background:var(--bg);color:var(--fg);border:8px solid #1b1f2b;border-radius:34px;overflow:hidden;display:flex;flex-direction:column;height:min(760px,82vh);transition:background .2s}
+.ph .scr{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:var(--g);padding:0 0 var(--g)}
+.ph .in{display:flex;flex-direction:column;gap:var(--g);padding:0 var(--g)}
+.top{padding:calc(var(--g) + 4px) var(--g) var(--g);display:flex;flex-direction:column;gap:8px;background:var(--card);border-bottom:1px solid var(--bd)}
+.hdr-grad .top{background:linear-gradient(135deg,var(--p),var(--p2));color:var(--onhdr);border-bottom:0}
+.top .t1{display:flex;justify-content:space-between;align-items:center;font-size:.85em;opacity:.9}
+.top .pg{height:6px;border-radius:99px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden}
+.top .pg span{display:block;width:12%;height:100%;background:var(--p);border-radius:99px}
+.hdr-grad .top .pg span{background:var(--onhdr)}
+.top .t2{display:flex;justify-content:space-between;font-size:.82em;font-variant-numeric:tabular-nums}
+.cardx{background:var(--card);border-radius:var(--r);padding:var(--g)}
+.surf-border .cardx{border:1px solid var(--bd)}
+.surf-shadow .cardx{box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07)}
+.surf-flat .cardx{background:color-mix(in srgb,var(--p) 5%,var(--card))}
+.qt{font-size:1.07em;font-weight:500}
+.opts{display:flex;flex-direction:column;gap:8px}
+.op{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 12px;border-radius:var(--r);font-size:.95em;border:1px solid var(--bd);background:var(--card)}
+.op .L{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:.8em;font-weight:700;border:1px solid var(--bd)}
+.opt-soft .op{border-color:transparent;background:color-mix(in srgb,var(--p) 7%,var(--card))}
+.opt-bubble .op{border-color:transparent;background:transparent;padding-left:4px}
+.opt-bubble .op .L{border:1.5px solid var(--p);color:var(--ptext)}
+.opt-card .op{border-color:transparent;box-shadow:0 1px 2px rgba(0,0,0,.08),0 3px 10px rgba(0,0,0,.06)}
+.op.bad{border:2px solid var(--bad);background:var(--badbg);color:var(--badt)}
+.op.good{border:2px solid var(--ok);background:var(--okbg);color:var(--okt)}
+.op.bad .L{background:var(--bad);color:#fff;border-color:var(--bad)}
+.op.good .L{background:var(--ok);color:#fff;border-color:var(--ok)}
+.res{display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--bad)}
+.rh{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--badt)}
+.acc{font-size:.9em;border:1px solid var(--bd);border-radius:var(--r);padding:10px}
+.acc b{display:block;margin-bottom:2px}
+.bt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:var(--r);font-weight:700;font-size:.95em;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+.bt.pri{background:var(--p);color:var(--onp);border-color:transparent}
+.btn-grad .bt.pri{background:linear-gradient(135deg,var(--p),var(--p2));color:var(--ongrad)}
+.chipx{display:inline-flex;font-size:.75em;font-weight:500;padding:3px 10px;border-radius:999px;background:color-mix(in srgb,var(--p) 12%,var(--card));color:var(--ptext)}
+.ai h4{margin:0;font-size:1em}
+.ai ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px;font-size:.95em}
+.mem{border-left:3px solid var(--p);padding:8px 10px;background:color-mix(in srgb,var(--p) 6%,var(--card));border-radius:0 var(--r) var(--r) 0;font-size:.92em}
+.src{font-size:.8em;color:var(--mut)}
+.aud{display:flex;align-items:center;gap:10px;font-size:.82em}
+.aud .pl{width:38px;height:38px;border-radius:50%;background:var(--p);color:var(--onp);display:grid;place-items:center;flex:0 0 38px}
+.btn-grad .aud .pl{background:linear-gradient(135deg,var(--p),var(--p2));color:var(--ongrad)}
+.aud .tr{flex:1;height:5px;border-radius:9px;background:var(--bd);overflow:hidden}.aud .tr span{display:block;width:35%;height:100%;background:var(--p)}
+.mut{color:var(--mut)}
+.nav{display:flex;justify-content:space-around;border-top:1px solid var(--bd);background:var(--card);padding:8px 4px 10px;font-size:.68em;color:var(--mut)}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:2px}
+.nav .on{color:var(--ptext);font-weight:700}
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.both .hi{display:block;font-size:.88em;color:var(--mut);margin-top:2px}
+.lang-en .hi{display:none}
+.lang-hi .en{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 16 0v1"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <div class="eyebrow">PolityPedia · design lab · v1</div>
+    <h1>Pick your look. The phone changes live.</h1>
+    <p class="sub">The phone shows the busiest screen in the app: a question, a wrong answer, the teacher's note and the AI explanation. Start from one of 7 styles, then change any part. Save up to 3 favourites to compare. When you like one, press <b>Copy my design</b> and paste it in the chat.</p>
+  </header>
+
+  <div class="lab">
+    <div class="controls">
+      <div class="ctl"><h2>1. Start from a style <span>7 options</span></h2><div class="presets" id="presets"></div></div>
+      <div class="ctl"><h2>2. Main colour <span>buttons, progress, links</span></h2><div class="rowx" id="pcol"></div></div>
+      <div class="ctl"><h2>3. Colour gradient</h2>
+        <div class="chips" data-k="grad"><button class="chip" data-v="off">Off</button><button class="chip" data-v="header">Top bar</button><button class="chip" data-v="all">Top bar + buttons</button></div>
+        <div class="rowx" id="p2col"><span class="sub" style="font-size:13px">Second colour:</span></div>
+      </div>
+      <div class="ctl"><h2>4. Font <span>all support Hindi</span></h2><div class="chips" data-k="font" id="fonts"></div></div>
+      <div class="ctl"><h2>5. Text size <span class="val" id="fsv">16 px</span></h2><input type="range" id="fs" min="14" max="20" step="1" aria-label="Text size"></div>
+      <div class="ctl"><h2>6. Corner roundness <span class="val" id="rv">10 px</span></h2><input type="range" id="rr" min="0" max="24" step="2" aria-label="Corner roundness"></div>
+      <div class="ctl"><h2>7. Spacing</h2><div class="chips" data-k="gap"><button class="chip" data-v="8">Compact</button><button class="chip" data-v="12">Normal</button><button class="chip" data-v="16">Roomy</button></div></div>
+      <div class="ctl"><h2>8. Answer buttons</h2><div class="chips" data-k="opt"><button class="chip" data-v="outline">Outline</button><button class="chip" data-v="soft">Soft fill</button><button class="chip" data-v="bubble">OMR bubble</button><button class="chip" data-v="card">Raised card</button></div></div>
+      <div class="ctl"><h2>9. Cards</h2><div class="chips" data-k="surf"><button class="chip" data-v="border">Thin border</button><button class="chip" data-v="shadow">Soft shadow</button><button class="chip" data-v="flat">Flat tint</button></div></div>
+      <div class="ctl"><h2>10. Light or dark</h2><div class="chips" data-k="theme"><button class="chip" data-v="light">Light</button><button class="chip" data-v="dark">Dark</button></div></div>
+      <div class="ctl"><h2>11. Right / wrong colours</h2><div class="chips" data-k="ans"><button class="chip" data-v="std">Green / red</button><button class="chip" data-v="cb">Colour-blind safe (blue / orange)</button></div></div>
+      <div class="ctl"><h2>12. Preview language</h2><div class="chips" data-k="lang"><button class="chip" data-v="en">English</button><button class="chip" data-v="hi">हिंदी</button><button class="chip" data-v="both">Both</button></div></div>
+      <div class="ctl"><h2>Readability check <span>live, needs 4.5 or more</span></h2><div class="checks" id="checks"></div></div>
+
+      <div class="ctl"><h2>Layout picks <span>not about colour</span></h2>
+        <div id="layout" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+      <div class="ctl"><h2>Anything else?</h2><textarea id="general" rows="3" placeholder="Write here"></textarea></div>
+    </div>
+
+    <div class="stage">
+      <div class="ph" id="ph" aria-label="Live preview of the question screen">
+        <div class="top">
+          <div class="t1"><span>UGC NET 2025 · Paper 2</span><span style="font-variant-numeric:tabular-nums">42:10 left</span></div>
+          <div class="pg"><span></span></div>
+          <div class="t2"><span>12 / 100</span><span><span class="en">Practice</span><span class="hi">अभ्यास</span></span></div>
+        </div>
+        <div class="scr"><div class="in">
+          <div class="cardx qt"><span class="en">Which Article of the Constitution provides for the Finance Commission?</span><span class="hi">संविधान का कौन सा अनुच्छेद वित्त आयोग का प्रावधान करता है?</span></div>
+          <div class="opts">
+            <div class="op bad"><span class="L">A</span><span>Article 270</span></div>
+            <div class="op"><span class="L">B</span><span>Article 275</span></div>
+            <div class="op good"><span class="L">C</span><span>Article 280</span></div>
+            <div class="op"><span class="L">D</span><span>Article 300A</span></div>
+          </div>
+          <div class="cardx res">
+            <div class="rh"><svg class="ic"><use href="#i-x"/></svg><span class="en">Wrong · Right answer: C</span><span class="hi">गलत · सही उत्तर: C</span></div>
+            <div class="acc"><b><span class="en">Teacher explanation</span><span class="hi">शिक्षक की व्याख्या</span></b><span class="en">Article 280: President sets up a Finance Commission every 5 years.</span><span class="hi">अनुच्छेद 280: राष्ट्रपति हर 5 साल में वित्त आयोग बनाते हैं।</span></div>
+            <div class="bt pri"><svg class="ic"><use href="#i-spark"/></svg><span class="en">Revision (AI)</span><span class="hi">रिवीजन (AI)</span></div>
+          </div>
+          <div class="cardx ai" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chipx">UGC NET</span><span class="chipx">Indian Constitution</span><span class="chipx">Fiscal federalism</span></div>
+            <h4><span class="en">Why Article 280</span><span class="hi">अनुच्छेद 280 क्यों</span></h4>
+            <div><span class="en">Article 280 creates the Finance Commission. It advises how tax money is shared between the Centre and the States. Article 270 only lists which taxes are shared.</span><span class="hi">अनुच्छेद 280 वित्त आयोग बनाता है। यह केंद्र और राज्यों के बीच कर के बंटवारे पर सलाह देता है। अनुच्छेद 270 केवल बताता है कि कौन से कर बांटे जाते हैं।</span></div>
+            <ul>
+              <li><span class="en">Set up every 5 years by the President</span><span class="hi">हर 5 साल में राष्ट्रपति द्वारा गठित</span></li>
+              <li><span class="en">Chairman + 4 members</span><span class="hi">अध्यक्ष + 4 सदस्य</span></li>
+              <li><span class="en">16th Finance Commission: Arvind Panagariya</span><span class="hi">16वां वित्त आयोग: अरविंद पनगढ़िया</span></li>
+            </ul>
+            <div class="mem"><b class="en">Remember: </b><b class="hi">याद रखें: </b><span class="en">280 = Finance Commission. 270 = tax sharing list.</span><span class="hi">280 = वित्त आयोग। 270 = कर बंटवारा सूची।</span></div>
+            <div class="aud"><div class="pl"><svg class="ic" style="width:16px;height:16px"><use href="#i-play"/></svg></div><div class="tr"><span></span></div><span class="mut">1:12 · 1.25x</span></div>
+            <div class="src">Sources: Constitution of India · PRS Legislative Research</div>
+          </div>
+          <div style="display:flex;gap:8px"><div class="bt" style="flex:1"><svg class="ic"><use href="#i-book"/></svg><span class="en">Mark</span><span class="hi">सेव</span></div><div class="bt pri" style="flex:2"><span class="en">Next</span><span class="hi">अगला</span></div></div>
+        </div></div>
+        <div class="nav"><div><svg class="ic"><use href="#i-home"/></svg>Home</div><div><svg class="ic"><use href="#i-users"/></svg>Teachers</div><div class="on"><svg class="ic"><use href="#i-clip"/></svg>Practice</div><div><svg class="ic"><use href="#i-book"/></svg>Saved</div><div><svg class="ic"><use href="#i-user"/></svg>Me</div></div>
+      </div>
+      <div class="slots" id="slots"></div>
+      <div class="btnrow"><button class="go ghost" id="reset" type="button">Back to style</button><button class="go main" id="copy" type="button">Copy my design</button></div>
+      <span class="sub" id="status" style="font-size:13px"></span>
+      <textarea id="copyText" hidden readonly aria-label="Design text"></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS=[
+ {id:"swiss",name:"Clean Swiss",note:"Calm, serious. My first pick.",p:"#4F46E5",p2:"#7C3AED",grad:"off",font:"Noto Sans Devanagari",fs:16,r:10,gap:12,opt:"outline",surf:"border",theme:"light",ans:"std"},
+ {id:"pop",name:"Gradient Pop",note:"Bright gradient, young feel.",p:"#7C3AED",p2:"#DB2777",grad:"all",font:"Poppins",fs:16,r:16,gap:12,opt:"soft",surf:"shadow",theme:"light",ans:"std"},
+ {id:"hall",name:"Exam Hall",note:"Close to the real NTA screen.",p:"#1D4ED8",p2:"#1E40AF",grad:"off",font:"Hind",fs:15,r:4,gap:8,opt:"bubble",surf:"border",theme:"light",ans:"std"},
+ {id:"night",name:"Night Study",note:"Dark, easy on eyes at night.",p:"#6366F1",p2:"#0EA5E9",grad:"header",font:"Noto Sans Devanagari",fs:17,r:12,gap:12,opt:"outline",surf:"border",theme:"dark",ans:"std"},
+ {id:"saffron",name:"Saffron Desk",note:"Warm Indian colours.",p:"#C2410C",p2:"#B45309",grad:"header",font:"Mukta",fs:17,r:12,gap:16,opt:"card",surf:"shadow",theme:"light",ans:"cb"},
+ {id:"round",name:"Friendly Round",note:"Soft and rounded.",p:"#0F766E",p2:"#0369A1",grad:"all",font:"Baloo 2",fs:17,r:20,gap:16,opt:"soft",surf:"shadow",theme:"light",ans:"cb"},
+ {id:"book",name:"Classic Book",note:"Serif text, like a guide book.",p:"#1E3A8A",p2:"#3730A3",grad:"off",font:"Tiro Devanagari Hindi",fs:17,r:6,gap:12,opt:"bubble",surf:"flat",theme:"light",ans:"std"}
+];
+const COLORS=["#4F46E5","#1D4ED8","#0F766E","#7C3AED","#BE185D","#C2410C","#1E3A8A","#0E7490"];
+const COLORS2=["#7C3AED","#DB2777","#0EA5E9","#0369A1","#B45309","#3730A3","#059669","#E11D48"];
+const FONTS=["Noto Sans Devanagari","Hind","Mukta","Poppins","Baloo 2","Anek Devanagari","Tiro Devanagari Hindi"];
+const LAYOUT=[
+ {id:"d1",q:"Student bottom tabs",o:[["5 tabs","Home, Teachers, Practice, Saved, Me",1],["6 tabs (v0)","Home, Videos, Teachers, News, Practice, Ask",0]]},
+ {id:"d2",q:"Exam mode: jump between questions",o:[["Bar + number grid","Like the real NTA screen",1],["Bar only","Next and back only",0]]},
+ {id:"d3",q:"Right / wrong result",o:[["Same screen (as in the phone)","No loading on 4G",1],["Separate page","As in your sketch",0]]}
+];
+const KEY="pp-design-lab-v1";
+let S={...PRESETS[0],preset:"swiss"};let saved=[null,null,null];let lay={};let general="";
+try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){S=d.S||S;saved=d.saved||saved;lay=d.lay||{};general=d.general||""}}catch(e){}
+const store=()=>{try{localStorage.setItem(KEY,JSON.stringify({S,saved,lay,general}))}catch(e){}};
+
+/* colour maths */
+const hex2=h=>{h=h.replace("#","");return[0,2,4].map(i=>parseInt(h.substr(i,2),16))};
+const lum=h=>{const c=hex2(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+const cr=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const mix=(a,b,t)=>{const A=hex2(a),B=hex2(b);return"#"+A.map((v,i)=>Math.round(v*(1-t)+B[i]*t).toString(16).padStart(2,"0")).join("")};
+const bestOn=(...bgs)=>{const w=Math.min(...bgs.map(b=>cr("#FFFFFF",b))),d=Math.min(...bgs.map(b=>cr("#0F172A",b)));return w>=d?"#FFFFFF":"#0F172A"};
+
+function apply(){
+  const ph=document.getElementById("ph");const dark=S.theme==="dark";
+  const bg=dark?"#0B1120":mix("#F8FAFC",S.p,.03), card=dark?"#111827":"#FFFFFF", fg=dark?"#E2E8F0":"#0F172A", mut=dark?"#94A3B8":"#475569", bd=dark?"#263042":"#E2E8F0";
+  const ptext=dark?mix(S.p,"#FFFFFF",.45):S.p;
+  const A=S.ans==="cb"?{ok:dark?"#60A5FA":"#1D4ED8",okt:dark?"#93C5FD":"#1D4ED8",bad:dark?"#FB923C":"#C2410C",badt:dark?"#FDBA74":"#C2410C"}:{ok:dark?"#4ADE80":"#16A34A",okt:dark?"#4ADE80":"#15803D",bad:dark?"#F87171":"#DC2626",badt:dark?"#F87171":"#B91C1C"};
+  const onp=bestOn(S.p), ongrad=bestOn(S.p,S.p2);
+  const v={"--p":S.p,"--p2":S.p2,"--bg":bg,"--card":card,"--fg":fg,"--mut":mut,"--bd":bd,"--ptext":ptext,"--onp":onp,"--ongrad":ongrad,"--onhdr":ongrad,
+    "--ok":A.ok,"--okt":A.okt,"--okbg":dark?mix("#111827",A.ok,.16):mix("#FFFFFF",A.ok,.08),"--bad":A.bad,"--badt":A.badt,"--badbg":dark?mix("#111827",A.bad,.16):mix("#FFFFFF",A.bad,.08),
+    "--font":`"${S.font}", "Noto Sans Devanagari", sans-serif`,"--fs":S.fs+"px","--r":S.r+"px","--g":S.gap+"px"};
+  for(const k in v)ph.style.setProperty(k,v[k]);
+  ph.className="ph opt-"+S.opt+" surf-"+S.surf+(S.grad!=="off"?" hdr-grad":"")+(S.grad==="all"?" btn-grad":"")+" lang-"+S.lang+(S.lang==="both"?" both":"");
+  if(!S.lang){S.lang="both";}
+  document.getElementById("fs").value=S.fs;document.getElementById("fsv").textContent=S.fs+" px";
+  document.getElementById("rr").value=S.r;document.getElementById("rv").textContent=S.r+" px";
+  document.querySelectorAll(".chips[data-k]").forEach(g=>{const k=g.dataset.k;g.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",String(String(S[k])===b.dataset.v)))});
+  document.querySelectorAll("#pcol .sw").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v.toLowerCase()===S.p.toLowerCase())));
+  document.querySelectorAll("#p2col .sw").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v.toLowerCase()===S.p2.toLowerCase())));
+  document.getElementById("pc").value=S.p;document.getElementById("p2c").value=S.p2;
+  document.querySelectorAll(".preset").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.id===S.preset)));
+  const chk=[["Button text on main colour",cr(onp,S.p)],["Main colour as text",cr(ptext,card)],["Body text",cr(fg,card)],["Grey text",cr(mut,card)],["Wrong answer text",cr(A.badt,dark?mix("#111827",A.bad,.16):mix("#FFFFFF",A.bad,.08))],["Right answer text",cr(A.okt,dark?mix("#111827",A.ok,.16):mix("#FFFFFF",A.ok,.08))]];
+  if(S.grad!=="off")chk.splice(1,0,["Text on gradient (weakest end)",Math.min(cr(ongrad,S.p),cr(ongrad,S.p2))]);
+  document.getElementById("checks").innerHTML=chk.map(([n,x])=>`<span class="${x>=4.5?"ok":"warn"}">${x>=4.5?"✓":"⚠"} ${n}: ${x.toFixed(2)}</span>`).join("");
+  renderSlots();store();
+}
+function set(k,v,keepPreset){S[k]=v;if(!keepPreset)S.preset="custom";apply()}
+
+/* build controls */
+const pr=document.getElementById("presets");
+PRESETS.forEach(p=>{const b=document.createElement("button");b.type="button";b.className="preset";b.dataset.id=p.id;
+ b.innerHTML=`<i style="background:${p.grad!=="off"?`linear-gradient(135deg,${p.p},${p.p2})`:p.p}"></i><b style="font-family:'${p.font}',sans-serif">${p.name}</b><small>${p.note}</small>`;
+ b.onclick=()=>{S={...p,preset:p.id,lang:S.lang||"both"};apply()};pr.appendChild(b)});
+const mkSw=(wrap,list,key)=>{list.forEach(c=>{const b=document.createElement("button");b.type="button";b.className="sw";b.style.background=c;b.dataset.v=c;b.setAttribute("aria-label","Colour "+c);b.onclick=()=>set(key,c);wrap.appendChild(b)});
+ const i=document.createElement("input");i.type="color";i.id=key==="p"?"pc":"p2c";i.setAttribute("aria-label","Custom colour");i.oninput=e=>set(key,e.target.value.toUpperCase());wrap.appendChild(i)};
+mkSw(document.getElementById("pcol"),COLORS,"p");mkSw(document.getElementById("p2col"),COLORS2,"p2");
+const fw=document.getElementById("fonts");FONTS.forEach(f=>{const b=document.createElement("button");b.type="button";b.className="chip";b.dataset.v=f;b.style.fontFamily=`'${f}',sans-serif`;b.textContent=f+" · हिंदी";fw.appendChild(b)});
+document.querySelectorAll(".chips[data-k]").forEach(g=>g.addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const k=g.dataset.k;let v=b.dataset.v;if(k==="gap")v=+v;set(k,v,k==="lang")}));
+document.getElementById("fs").oninput=e=>set("fs",+e.target.value);
+document.getElementById("rr").oninput=e=>set("r",+e.target.value);
+document.getElementById("reset").onclick=()=>{const p=PRESETS.find(x=>x.id===S.preset)||PRESETS[0];S={...p,preset:p.id,lang:S.lang};apply()};
+
+/* favourites */
+function renderSlots(){const w=document.getElementById("slots");w.innerHTML="";
+ ["A","B","C"].forEach((n,i)=>{const s=saved[i];const b=document.createElement("button");b.type="button";b.className="slot";
+  b.innerHTML=s?`<i style="background:${s.grad!=="off"?`linear-gradient(135deg,${s.p},${s.p2})`:s.p}"></i>Open ${n}`:`Save as ${n}`;
+  b.onclick=()=>{if(s){S={...s};apply()}else{saved[i]={...S};apply()}};w.appendChild(b);
+  if(s){const x=document.createElement("button");x.type="button";x.className="slot";x.textContent="Save over "+n;x.onclick=()=>{saved[i]={...S};apply()};w.appendChild(x)}})}
+
+/* layout picks */
+const lw=document.getElementById("layout");
+LAYOUT.forEach(it=>{const d=document.createElement("div");d.innerHTML=`<div style="font-size:14px;font-weight:500;margin-bottom:6px">${it.q}</div>`+it.o.map((o,i)=>`<label class="choice" style="margin-bottom:6px"><input type="radio" name="${it.id}" value="${i}" ${lay[it.id]===i?"checked":""}><span>${o[0]}${o[2]?'<span class="rec">my pick</span>':''}<small>${o[1]}</small></span></label>`).join("");lw.appendChild(d)});
+lw.addEventListener("change",e=>{lay[e.target.name]=+e.target.value;store()});
+const gen=document.getElementById("general");gen.value=general;gen.oninput=e=>{general=e.target.value;store()};
+
+/* copy */
+const desc=s=>`style ${s.preset}; main ${s.p}; gradient ${s.grad}${s.grad!=="off"?" to "+s.p2:""}; font ${s.font}; text ${s.fs}px; corners ${s.r}px; spacing ${s.gap===8?"compact":s.gap===16?"roomy":"normal"}; answers ${s.opt}; cards ${s.surf}; ${s.theme}; right/wrong ${s.ans==="cb"?"blue/orange":"green/red"}`;
+document.getElementById("copy").onclick=()=>{
+ const L=["PolityPedia design lab picks","","Chosen: "+desc(S)];
+ saved.forEach((s,i)=>{if(s)L.push("Favourite "+"ABC"[i]+": "+desc(s))});
+ L.push("");LAYOUT.forEach(it=>L.push(`${it.q}: ${lay[it.id]!=null?it.o[lay[it.id]][0]:"not picked"}`));
+ if(general)L.push("","Other: "+general);
+ L.push("","Tokens: "+JSON.stringify({p:S.p,p2:S.p2,grad:S.grad,font:S.font,fs:S.fs,r:S.r,gap:S.gap,opt:S.opt,surf:S.surf,theme:S.theme,ans:S.ans}));
+ const t=L.join("\n"),ta=document.getElementById("copyText"),st=document.getElementById("status");ta.value=t;
+ const fb=()=>{ta.hidden=false;ta.focus();ta.select();st.textContent="Copy blocked. Text is selected below: press Ctrl+C."};
+ try{navigator.clipboard.writeText(t).then(()=>{st.textContent="Copied. Paste it in the chat."},fb)}catch(e){fb()}
+};
+if(!S.lang)S.lang="both";
+apply();
+</script>

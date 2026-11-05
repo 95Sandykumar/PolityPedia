@@ -1,0 +1,322 @@
+<title>PolityPedia Research Brief</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column like a gazette, numbered "Parts" because the brief is a real sequence; Lok Sabha green + Rajya Sabha red as the two accents */
+:root{
+  --bg:#f6f7f4; --surface:#ffffff; --fg:#1b2420; --muted:#5b6862; --line:#d9dfdb;
+  --green:#1f5c4a; --green-soft:#dcebe4; --red:#8c2f2f; --red-soft:#f3e1df; --amber:#9a6a12; --amber-soft:#f5ead2;
+  --display:"Spectral",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1a221e; --fg:#e6ece8; --muted:#9aa8a1; --line:#2c3833;
+  --green:#6fc2a3; --green-soft:#1d3a30; --red:#e48a80; --red-soft:#3b2220; --amber:#e0b35c; --amber-soft:#3a2f17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1a221e; --fg:#e6ece8; --muted:#9aa8a1; --line:#2c3833;
+  --green:#6fc2a3; --green-soft:#1d3a30; --red:#e48a80; --red-soft:#3b2220; --amber:#e0b35c; --amber-soft:#3a2f17; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,5vw,42px)}
+h2{font-size:clamp(22px,3.4vw,28px)}
+h3{font-size:18px}
+p{margin:0;max-width:68ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:16px}
+.part{display:flex;gap:10px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px}
+.part .eyebrow{color:var(--green)}
+.verdict{background:var(--green-soft);border:1px solid var(--green);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.verdict strong{color:var(--green)}
+ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.us td{background:var(--green-soft)}
+.y{color:var(--green);font-weight:600}.n{color:var(--muted)}.q{color:var(--amber)}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:560px;height:auto}
+.chart text{font-family:var(--mono);font-size:12px;fill:var(--muted)}
+.chart .lbl{fill:var(--fg);font-family:var(--body);font-size:13px}
+.chart .val{fill:var(--fg);font-weight:500}
+.note{font-size:13px;color:var(--muted)}
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:center}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.node.main{border-color:var(--green)}
+.arrow{font-family:var(--mono);color:var(--muted);text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:12px;padding:2px 8px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+.chip.r{background:var(--red-soft);color:var(--red)}
+.chip.a{background:var(--amber-soft);color:var(--amber)}
+@media (max-width:640px){.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.tiers{grid-template-columns:1fr}}
+.tier{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.tier.now{border:2px solid var(--green)}
+.tier ul{margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.risk{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:start}
+.sev{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.sev.hi{background:var(--red-soft);color:var(--red)}.sev.md{background:var(--amber-soft);color:var(--amber)}
+.console{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:18px}
+.dec{display:flex;flex-direction:column;gap:8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{font:inherit;font-size:14px;text-align:left;padding:10px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;flex:1 1 260px;display:flex;flex-direction:column;gap:2px}
+.opt:hover{border-color:var(--green)}
+.opt:focus-visible,.btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.opt[aria-pressed="true"]{border:2px solid var(--green);background:var(--green-soft)}
+.opt .rec{font-family:var(--mono);font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.05em}
+.opt small{color:var(--muted)}
+.btn{font:inherit;font-weight:600;padding:10px 16px;border-radius:6px;border:0;background:var(--green);color:var(--bg);cursor:pointer;align-self:flex-start}
+textarea{font-family:var(--mono);font-size:13px;width:100%;box-sizing:border-box;min-height:120px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);padding:10px}
+.status{font-size:13px;color:var(--green);min-height:1.2em}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:12px">
+  <span class="eyebrow">Phase 1 research · 4 Nov 2026 · India · Political Science</span>
+  <h1>PolityPedia: what to build first</h1>
+  <p>A student web app for Political Science aspirants preparing for UGC NET, CUET PG and TGT/PGT. The teacher partner stays private.</p>
+</header>
+
+<div class="verdict">
+  <span class="eyebrow" style="color:var(--green)">Verdict</span>
+  <p><strong>Do not clone the reference app.</strong> It is a generic AppX white-label tutor app (attendance, fees, homework). AppX already sells that.</p>
+  <p><strong>Build V1 as a free "one subject, three exams" hub.</strong> Syllabus explorer, PYQ bank tagged by exam, daily quiz, mocks, AI tutor that answers only from the teacher's notes, and a weekly AI-drafted newsletter. Paid courses come in V2.</p>
+  <p><strong>Deadline that matters:</strong> UGC NET December 2026 cycle and CUET PG 2027 registration. Aim to go live by mid-December 2026.</p>
+</div>
+
+<section>
+  <div class="part"><span class="eyebrow">Part I</span><h2>What I checked</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Source</th><th>Result</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Play Store page of the shared app</td><td>"Commerce By Bushra Ma'am", 10K+ downloads, 4.3 stars, 16 reviews, built on AppX</td><td class="y">Verified (HTTP 200)</td></tr>
+      <tr><td>appx.co.in</td><td>Feature list: live stream, DRM video, test series, e-books, web + Android + iOS</td><td class="y">Verified</td></tr>
+      <tr><td>Adda247, Testbook, Unacademy, PW listings</td><td>Political Science course prices and features</td><td class="q">Search snippets, not full pages</td></tr>
+      <tr><td>NTA CUET PG syllabus page</td><td>Political Science = HUQP18, 75 MCQ, 300 marks, +4/-1, 90 min</td><td class="y">Verified</td></tr>
+      <tr><td>Testbook cut-off news (18 Sept 2026)</td><td>UGC NET June 2026 Political Science cut-offs</td><td class="y">Verified</td></tr>
+      <tr><td>Newsletter search</td><td>No dedicated Pol Sci exam newsletter found. PW does weekly current affairs on YouTube.</td><td class="q">One search only</td></tr>
+      <tr><td>Your screenshot</td><td>Not attached to the message</td><td class="n">Missing</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part II</span><h2>The market: big players sell exams, nobody owns the subject</h2></div>
+  <p>Your teacher is right. Every big platform sells a course per exam. A NET student and a PGT student study the same Kautilya, Rawls and Federalism, but buy two different products.</p>
+  <div class="chart" role="img" aria-label="Bar chart of Political Science course sale prices in rupees">
+    <svg viewBox="0 0 760 250">
+      <text x="0" y="16" class="lbl" style="font-weight:600">Political Science course price, sale price in ₹ (Nov 2026)</text>
+      <g stroke="var(--line)" stroke-width="1">
+        <line x1="190" y1="34" x2="190" y2="214"/><line x1="363.3" y1="34" x2="363.3" y2="214"/><line x1="536.7" y1="34" x2="536.7" y2="214"/><line x1="710" y1="34" x2="710" y2="214"/>
+      </g>
+      <text x="190" y="232" text-anchor="middle">0</text><text x="363.3" y="232" text-anchor="middle">5,000</text><text x="536.7" y="232" text-anchor="middle">10,000</text><text x="710" y="232" text-anchor="middle">15,000</text>
+      <text x="180" y="56" text-anchor="end" class="lbl">Adda247 crash course</text><rect x="190" y="44" width="90.7" height="18" fill="var(--green)"/><text x="288" y="58" class="val">2,617</text>
+      <text x="180" y="91" text-anchor="end" class="lbl">Adda247 video course</text><rect x="190" y="79" width="91" height="18" fill="var(--green)"/><text x="288" y="93" class="val">2,625</text>
+      <text x="180" y="126" text-anchor="end" class="lbl">Adda247 foundation</text><rect x="190" y="114" width="116.5" height="18" fill="var(--green)"/><text x="314" y="128" class="val">3,359</text>
+      <text x="180" y="161" text-anchor="end" class="lbl">Adda247 3X + 3 months</text><rect x="190" y="149" width="236.6" height="18" fill="var(--green)"/><text x="434" y="163" class="val">6,825</text>
+      <text x="180" y="196" text-anchor="end" class="lbl">Testbook NET Pol Sci</text><rect x="190" y="184" width="502.7" height="18" fill="var(--red)"/><text x="686" y="198" text-anchor="end" style="fill:var(--surface);font-weight:500">14,499</text>
+    </svg>
+  </div>
+  <p class="note">Unacademy UGC NET subscription starts at ₹1,547 per month (all subjects). PW "Mission JRF 2.0 Pol Sci + Paper 1" runs 26 Aug 2026 to 31 Jan 2027, price not checked. List prices are 4 to 5 times higher; everyone shows ~79% off.</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>Player</th><th>Live / video</th><th>Mocks + PYQ</th><th>Covers NET + CUET PG + PGT in one place</th><th>Pol Sci newsletter</th><th>Free tier</th></tr></thead>
+    <tbody>
+      <tr><td>Adda247</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No, separate products</td><td class="n">Not found</td><td class="q">Partial</td></tr>
+      <tr><td>Testbook</td><td class="y">Yes</td><td class="y">Yes, 2,058+ NET tests</td><td class="n">No, separate products</td><td class="n">Not found</td><td class="y">Free tests</td></tr>
+      <tr><td>PW</td><td class="y">Yes, Hinglish</td><td class="y">Yes</td><td class="n">No</td><td class="q">YouTube weekly CA only</td><td class="q">YouTube</td></tr>
+      <tr><td>BHU Student Club app</td><td class="n">No</td><td class="y">Yes + leaderboard</td><td class="n">NET only</td><td class="n">No</td><td class="y">Yes, 1K+ installs</td></tr>
+      <tr><td>AppX teacher apps (reference)</td><td class="y">Yes</td><td class="y">Yes</td><td class="q">Depends on teacher</td><td class="n">No</td><td class="n">Paid</td></tr>
+      <tr class="us"><td><strong>PolityPedia V1</strong></td><td class="q">Links to teacher's videos</td><td class="y">Yes, tagged by exam</td><td class="y">Yes, core idea</td><td class="y">Yes, weekly</td><td class="y">Yes</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">AI doubt solving at the big platforms: not checked. Confirm before we claim it as a differentiator.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part III</span><h2>The three exams</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Exam</th><th>Pattern</th><th>When</th><th>Fit</th></tr></thead>
+    <tbody>
+      <tr><td>UGC NET Pol Sci (code 02)</td><td>Paper 1 (50 Q) + Paper 2 (100 Q), 300 marks, 10 units</td><td>Twice a year. June 2026 held 22-30 June. December cycle next.</td><td class="y">Core</td></tr>
+      <tr><td>CUET PG Pol Sci (HUQP18)</td><td>75 MCQ, 300 marks, +4 / -1, 90 min</td><td>Yearly, March. 2027 registration expected Dec-Jan (unverified).</td><td class="y">Core, big overlap with NET</td></tr>
+      <tr><td>PGT Pol Sci</td><td>Subject + pedagogy + GK. KVS, NVS, DSSSB, RPSC School Lecturer, UP PGT and others</td><td>Irregular, by state and body</td><td class="y">Good</td></tr>
+      <tr><td>TGT</td><td>Mostly one combined Social Science paper. Pol Sci is only a part.</td><td>Irregular</td><td class="q">Weak fit (unverified per exam)</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="chart" role="img" aria-label="Dot chart of UGC NET June 2026 Political Science cut-offs by category">
+    <svg viewBox="0 0 720 230">
+      <text x="0" y="16" class="lbl" style="font-weight:600">UGC NET June 2026 Pol Sci cut-off, marks out of 300</text>
+      <g stroke="var(--line)" stroke-width="1">
+        <line x1="200" y1="28" x2="200" y2="196"/><line x1="306.7" y1="28" x2="306.7" y2="196"/><line x1="413.3" y1="28" x2="413.3" y2="196"/><line x1="520" y1="28" x2="520" y2="196"/><line x1="626.7" y1="28" x2="626.7" y2="196"/>
+      </g>
+      <text x="200" y="214" text-anchor="middle">140</text><text x="306.7" y="214" text-anchor="middle">160</text><text x="413.3" y="214" text-anchor="middle">180</text><text x="520" y="214" text-anchor="middle">200</text><text x="626.7" y="214" text-anchor="middle">220</text>
+      <g stroke="var(--muted)" stroke-width="2">
+        <line x1="498.7" y1="48" x2="637.3" y2="48"/><line x1="413.3" y1="83" x2="584" y2="83"/><line x1="413.3" y1="118" x2="594.7" y2="118"/><line x1="349.3" y1="153" x2="530.7" y2="153"/><line x1="306.7" y1="188" x2="488" y2="188"/>
+      </g>
+      <text x="80" y="52" text-anchor="end" class="lbl">UR</text><circle cx="498.7" cy="48" r="6" fill="var(--amber)"/><circle cx="637.3" cy="48" r="6" fill="var(--green)"/><text x="650" y="52" class="val">196 / 222</text>
+      <text x="80" y="87" text-anchor="end" class="lbl">OBC-NCL</text><circle cx="413.3" cy="83" r="6" fill="var(--amber)"/><circle cx="584" cy="83" r="6" fill="var(--green)"/><text x="597" y="87" class="val">180 / 212</text>
+      <text x="80" y="122" text-anchor="end" class="lbl">EWS</text><circle cx="413.3" cy="118" r="6" fill="var(--amber)"/><circle cx="594.7" cy="118" r="6" fill="var(--green)"/><text x="608" y="122" class="val">180 / 214</text>
+      <text x="80" y="157" text-anchor="end" class="lbl">SC</text><circle cx="349.3" cy="153" r="6" fill="var(--amber)"/><circle cx="530.7" cy="153" r="6" fill="var(--green)"/><text x="544" y="157" class="val">168 / 202</text>
+      <text x="80" y="192" text-anchor="end" class="lbl">ST</text><circle cx="306.7" cy="188" r="6" fill="var(--amber)"/><circle cx="488" cy="188" r="6" fill="var(--green)"/><text x="501" y="192" class="val">160 / 194</text>
+    </svg>
+  </div>
+  <p class="note"><span style="color:var(--amber)">●</span> Assistant Professor &nbsp; <span style="color:var(--green)">●</span> JRF. A general student needs about 65% for AP and 74% for JRF. This is the "insight" students want: "Where am I against the cut-off?"</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part IV</span><h2>The core idea: one topic page serves three exams</h2></div>
+  <div class="flow">
+    <div class="node main"><span class="eyebrow">Topic</span><strong>Kautilya: Saptanga theory</strong><span class="note">NET Unit 3, Indian Political Thought</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="eyebrow">Tagged for</span><div class="chips"><span class="chip">UGC NET</span><span class="chip">CUET PG</span><span class="chip a">PGT</span></div><span class="note">PYQ count per exam and year</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="eyebrow">Student gets</span><div class="chips"><span class="chip">PYQs</span><span class="chip">Notes</span><span class="chip">Video link</span><span class="chip">10-Q quiz</span><span class="chip r">AI tutor</span></div><span class="note">Hindi + English</span></div>
+  </div>
+  <p>The 10 NET units are the spine: Political Theory, Political Thought, Indian Political Thought, Comparative Politics, International Relations, India's Foreign Policy, Political Institutions in India, Political Processes in India, Public Administration, Governance and Public Policy. CUET PG and PGT topics hang off the same spine.</p>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part V</span><h2>What goes in each version</h2></div>
+  <div class="tiers">
+    <div class="tier now"><span class="eyebrow" style="color:var(--green)">V1 · Free hub · recommended now</span>
+      <ul>
+        <li>Pick your exam on sign-up (phone OTP or Google)</li>
+        <li>Syllabus explorer: 10 units, topic pages</li>
+        <li>PYQ bank tagged by unit, exam, year, with explanations</li>
+        <li>Daily 10-question quiz + streak</li>
+        <li>Topic tests and full mocks in an NTA-style screen</li>
+        <li>Weak-unit heatmap + score vs last cut-off</li>
+        <li>AI tutor that answers only from teacher notes and shows its source</li>
+        <li>Teacher video index (links out to YouTube)</li>
+        <li>Weekly newsletter signup + archive</li>
+        <li>Hindi / English toggle, works well on cheap phones</li>
+      </ul></div>
+    <div class="tier"><span class="eyebrow">V2 · Paid</span>
+      <ul>
+        <li>Paid courses and notes PDFs (watermarked)</li>
+        <li>Razorpay payments, UPI</li>
+        <li>Live classes (YouTube unlisted or Zoom)</li>
+        <li>Doubt forum</li>
+        <li>Teacher admin panel to upload content</li>
+      </ul></div>
+    <div class="tier"><span class="eyebrow">V3 · Scale</span>
+      <ul>
+        <li>Install as phone app (PWA, then Play Store wrap)</li>
+        <li>Test series for state PGT exams</li>
+        <li>Community and leaderboards</li>
+        <li>Second subject, same engine</li>
+      </ul></div>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VI</span><h2>Newsletter: "Pol Sci Weekly"</h2></div>
+  <ul class="clean">
+    <li>Sent every Sunday. AI drafts it. Teacher reviews it in about 15 minutes.</li>
+    <li>5 news items, each mapped to a syllabus unit ("Why this matters for Unit 6").</li>
+    <li>1 thinker of the week, 10 MCQs, 1 PYQ trend, upcoming exam dates.</li>
+    <li>Each issue also lives on the site as a page, so it brings Google traffic.</li>
+    <li>Gap: no competitor sends a Pol Sci exam newsletter. PW only does a YouTube weekly.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VII</span><h2>Risks</h2></div>
+  <div class="risk">
+    <span class="sev hi">High</span><p>The teacher works for Adda247. A paid rival product may break his contract. This is likely why he stays anonymous. Check his contract before V2 goes paid.</p>
+    <span class="sev hi">High</span><p>His videos belong to the Adda247 channel. Only link to public YouTube videos. Never download or re-host them.</p>
+    <span class="sev md">Med</span><p>AI tutor can give wrong answers. Ground it on teacher notes only, show the source, and let students flag errors.</p>
+    <span class="sev md">Med</span><p>NTA question papers are public, but explanations must be our own writing.</p>
+    <span class="sev md">Med</span><p>TGT is a weak fit. Most TGT exams test full Social Science, not only Pol Sci.</p>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part VIII</span><h2>Decisions for Boss</h2></div>
+  <div class="console" id="console">
+    <div class="dec" data-q="V1 scope">
+      <h3>1. What is V1?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d1a" aria-pressed="true" data-v="Free subject hub + AI tutor + newsletter"><span class="rec">Recommended</span><strong>Free subject hub</strong><small>Fast to ship. Builds an audience before money. No contract clash yet.</small></button>
+        <button class="opt" type="button" id="d1b" aria-pressed="false" data-v="Full AppX-style clone with paid courses"><strong>Full AppX-style clone</strong><small>Paid courses, DRM video, live classes. Slower. Competes with AppX itself.</small></button>
+      </div>
+    </div>
+    <div class="dec" data-q="Exams at launch">
+      <h3>2. Which exams at launch?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d2a" aria-pressed="true" data-v="UGC NET + CUET PG first, PGT in month 2"><span class="rec">Recommended</span><strong>NET + CUET PG first</strong><small>Same syllabus core. Both exams are next on the calendar.</small></button>
+        <button class="opt" type="button" id="d2b" aria-pressed="false" data-v="All: NET, CUET PG, PGT, TGT on day one"><strong>All four on day one</strong><small>More tagging work. TGT is a weak fit.</small></button>
+      </div>
+    </div>
+    <div class="dec" data-q="Language">
+      <h3>3. Language?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d3a" aria-pressed="true" data-v="Hindi + English from day one"><span class="rec">Recommended</span><strong>Hindi + English</strong><small>NTA exams are bilingual. Most of this audience studies in Hindi.</small></button>
+        <button class="opt" type="button" id="d3b" aria-pressed="false" data-v="English first, Hindi later"><strong>English first</strong><small>Half the content work. Loses the Hindi-medium majority.</small></button>
+      </div>
+    </div>
+    <div class="dec" data-q="Brand">
+      <h3>4. Whose face is on it?</h3>
+      <div class="opts">
+        <button class="opt" type="button" id="d4a" aria-pressed="true" data-v="PolityPedia brand, teacher anonymous"><span class="rec">Recommended</span><strong>PolityPedia brand only</strong><small>Teacher stays private. The brand owns the audience.</small></button>
+        <button class="opt" type="button" id="d4b" aria-pressed="false" data-v="Teacher name and face on it"><strong>Teacher's face</strong><small>More trust fast. Contract risk with Adda247.</small></button>
+      </div>
+    </div>
+    <button class="btn" type="button" id="copy">Copy decisions</button>
+    <textarea id="out" aria-label="Decisions text" readonly></textarea>
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+</section>
+
+<section>
+  <div class="part"><span class="eyebrow">Part IX</span><h2>What we need from the teacher</h2></div>
+  <ul class="clean">
+    <li>His notes per unit (PDF or Word), Hindi and English if he has both.</li>
+    <li>List of his YouTube video links with the topic of each.</li>
+    <li>His own question bank or explained PYQs, if any.</li>
+    <li>Which PGT exams his students actually write.</li>
+    <li>Yes or no: can his contract allow a paid product later?</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var decs=document.querySelectorAll('.dec');
+  function render(){
+    var lines=['PolityPedia decisions (4 Nov 2026)'];
+    decs.forEach(function(d){
+      var on=d.querySelector('.opt[aria-pressed="true"]');
+      lines.push('- '+d.getAttribute('data-q')+': '+(on?on.getAttribute('data-v'):'not chosen'));
+    });
+    document.getElementById('out').value=lines.join('\n');
+  }
+  decs.forEach(function(d){
+    d.querySelectorAll('.opt').forEach(function(b){
+      b.addEventListener('click',function(){
+        d.querySelectorAll('.opt').forEach(function(x){x.setAttribute('aria-pressed','false')});
+        b.setAttribute('aria-pressed','true');render();
+      });
+    });
+  });
+  document.getElementById('copy').addEventListener('click',function(){
+    var t=document.getElementById('out'),s=document.getElementById('status');
+    render();
+    try{
+      navigator.clipboard.writeText(t.value).then(function(){s.textContent='Copied. Paste it to Claude.';},function(){t.select();s.textContent='Select the text above and copy it.';});
+    }catch(e){t.select();s.textContent='Select the text above and copy it.';}
+  });
+  render();
+})();
+</script>

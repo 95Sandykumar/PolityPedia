@@ -1,0 +1,10 @@
+# Private: teacher's real identity, links. Never commit.
+research/2026-11-04-teacher-videos.md
+versions/**/PRIVATE-*
+# Secrets
+.env*
+!.env.example
+# Build output
+node_modules/
+.next/
+.vercel/

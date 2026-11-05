@@ -1,0 +1,371 @@
+<title>PolityPedia v1 Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column. Locked architecture, flow, price check, then an OMR-sheet style console for open questions. */
+:root{
+  --bg:#f5f6fa; --paper:#ffffff; --ink:#1c2745; --muted:#5a6378; --rule:#d8dce7;
+  --omr:#c4465a; --omr-soft:#f7e3e7; --good:#2f7d55; --good-soft:#e2f2e9; --warn:#a2670e; --warn-soft:#fbefd9;
+  --bar-ours:#c4465a; --bar-them:#8a93a8; --bar-pro:#2f5fa8;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11141c; --paper:#181c27; --ink:#e6e9f2; --muted:#9aa2b6; --rule:#2c3242;
+  --omr:#ec7d8f; --omr-soft:#3a1f27; --good:#6cc596; --good-soft:#1b3328; --warn:#e3b05c; --warn-soft:#3a2d16;
+  --bar-ours:#ec7d8f; --bar-them:#6b7389; --bar-pro:#7ea6e8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11141c; --paper:#181c27; --ink:#e6e9f2; --muted:#9aa2b6; --rule:#2c3242;
+  --omr:#ec7d8f; --omr-soft:#3a1f27; --good:#6cc596; --good-soft:#1b3328; --warn:#e3b05c; --warn-soft:#3a2d16;
+  --bar-ours:#ec7d8f; --bar-them:#6b7389; --bar-pro:#7ea6e8; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:880px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 80px;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800}
+h2{font-size:22px;font-weight:800;display:flex;gap:10px;align-items:baseline}
+h3{font-size:16px;font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--omr)}
+.lead{color:var(--muted);font-size:16px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.num{font-family:var(--f-mono);font-size:13px;color:var(--omr);font-weight:600}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.summary div{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.summary b{font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums}
+.summary span{color:var(--muted);font-size:13px}
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:11px;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.p-sure{background:var(--good-soft);color:var(--good)}
+.p-mid{background:var(--warn-soft);color:var(--warn)}
+.p-low{background:var(--omr-soft);color:var(--omr)}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px;min-width:0}
+.mermaid-box{overflow-x:auto;background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:12px}
+pre.mermaid{margin:0;min-width:680px}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--ink);font-family:var(--f-body);font-size:12px}
+.chart .muted{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
+.chart .grid{stroke:var(--rule);stroke-width:1}
+.chart .val{font-family:var(--f-mono);font-size:12px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.callout{border-left:3px solid var(--omr);background:var(--omr-soft);padding:12px 14px;border-radius:0 8px 8px 0}
+.callout p{max-width:none}
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:640px){.calc{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.field output{font-family:var(--f-mono);font-weight:600;color:var(--omr)}
+input[type=range]{width:100%;accent-color:var(--omr)}
+select,input[type=text],textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;width:100%;box-sizing:border-box}
+textarea{min-height:90px;resize:vertical}
+:focus-visible{outline:2px solid var(--omr);outline-offset:2px}
+.split{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--rule)}
+.split span{display:block;height:100%}
+.rows{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.rows div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--rule);padding-bottom:4px}
+.rows b{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.verdict{font-size:13px;padding:8px 10px;border-radius:8px}
+.qgroup{display:flex;flex-direction:column;gap:12px}
+.q{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.q .why{color:var(--muted);font-size:13.5px}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer;background:var(--bg)}
+.opt:hover{border-color:var(--omr)}
+.opt input{position:absolute;opacity:0;width:1px;height:1px}
+.bubble{flex:0 0 26px;height:26px;border-radius:50%;border:1.5px solid var(--omr);display:grid;place-items:center;font-family:var(--f-mono);font-size:12px;color:var(--omr);font-weight:600}
+.opt input:checked + .bubble{background:var(--omr);color:var(--paper)}
+.opt input:focus-visible + .bubble{outline:2px solid var(--omr);outline-offset:2px}
+.opt:has(input:checked){border-color:var(--omr)}
+.otext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.otext b{font-weight:600}
+.otext span{font-size:13px;color:var(--muted)}
+.rec{font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--good-soft);color:var(--good);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.bar{position:sticky;bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg);border-top:1px solid var(--rule);padding-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+button{font:inherit;font-weight:600;border-radius:8px;padding:10px 16px;cursor:pointer;border:1px solid var(--omr)}
+.btn-main{background:var(--omr);color:var(--paper)}
+.btn-ghost{background:transparent;color:var(--omr)}
+.status{font-size:13px;color:var(--muted)}
+.sources{font-size:13px;color:var(--muted)}
+.sources a{color:var(--muted)}
+#copyText{width:100%;min-height:160px;font-family:var(--f-mono);font-size:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <div class="eyebrow">PolityPedia · version 1 · round 2 · 4 Nov 2026</div>
+    <h1>Your architecture, locked. 14 questions left.</h1>
+    <p class="lead">You explained the sketch. I locked 15 parts below. The open questions are only what your explanation did not cover. Pick a bubble, write a note, then press <b>Copy decisions</b> and paste it in the chat.</p>
+  </header>
+
+  <div class="summary">
+    <div><b>15</b><span>parts locked from your explanation</span></div>
+    <div><b>₹100 / month</b><span>AI revision add-on</span></div>
+    <div><b>₹299 to ₹399</b><span>mock test set, teacher prices it</span></div>
+    <div><b>14</b><span>open questions</span></div>
+  </div>
+
+  <section>
+    <h2><span class="num">1</span>What I understood (locked)</h2>
+    <p>Check this table first. If a row is wrong, say so in the note box at the end.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Part</th><th>How it works</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Users</td><td>Web app. Two roles: teacher and student.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Teacher batches</td><td>Teacher logs in and makes many batches. One student can be in more than one batch.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Student start</td><td>Student logs in, picks the exam, adds their teachers.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Platform</td><td>Exam based, MCQ format. Each exam has past papers, mock tests, and the next exam date.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Teacher portfolio</td><td>What the student sees: 4 tiles (Videos, Past papers, Mock tests, Notifications) and a Subscribe button.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Videos tile</td><td>Teacher gives only YouTube links. We fetch the thumbnail and title. Teacher picks Show or No show. No show = "Coming soon".</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>"PPP"</td><td>= Past papers.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Past papers storage</td><td>Exam, then Year, then Month (if known). Each holds a PDF: questions, solutions, or both. Teacher uploads and edits.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Past paper player</td><td>Exam name on top. A 0 to 100 bar shows which question of how many. "Reveal answer" button. Same look as the mock test player.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Mock test list</td><td>Test 1, Test 2... Taken tests show a tick and the score. "Attempt" opens the test.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Topic choice</td><td>Dropdown: full paper or one topic.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Wrong answer</td><td>New screen: Wrong, the right answer, a dropdown with the teacher's explanation (if uploaded), and a Revision tab.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Revision (AI)</td><td>AI gets exam, topic, question. It researches and explains in the format you drew. Text and audio. Paid: ₹100 a month.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Right answer</td><td>Correct screen, Next, and Mark for later.</td><td><span class="pill p-sure">locked</span></td></tr>
+        <tr><td>Without AI plan</td><td>Student still sees the right answer and the teacher's explanation.</td><td><span class="pill p-sure">locked</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>The flow</h2>
+    <p>Your architecture as one picture. The two diamonds are where money comes in. Scroll sideways on a phone.</p>
+    <div class="mermaid-box"><pre class="mermaid">
+flowchart LR
+  T["Teacher login"] --> B["Batches (student can be in many)"]
+  T --> UP["Upload: video links, past paper PDFs, mock tests, explanations"]
+  S["Student login"] --> EX["Pick exam"] --> AT["Add teachers"] --> TP["Teacher portfolio"]
+  TP --> V["Videos: thumbnail + title, or Coming soon"]
+  TP --> PP["Past papers: Exam, Year, Month"]
+  TP --> MT["Mock tests"]
+  TP --> N["Notifications"]
+  TP --> SUB["Subscribe"]
+  PP --> PL["Question player: 0 to 100 bar, Reveal answer"]
+  MT --> PAY{"Mock set ₹299 to ₹399"}
+  PAY --> TL["Test list: tick + score, Attempt"] --> TOP["Full paper or topic"] --> PL
+  PL -->|right| C["Correct, Next, Mark for later"]
+  PL -->|wrong| W["Wrong, right answer, teacher explanation"]
+  W --> RV{"Revision: AI ₹100 per month"}
+  RV --> AI["AI: exam + topic + question, research"] --> X["Explanation: text + audio"]
+</pre></div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>Price check</h2>
+    <p>Test series prices for Political Science in India, plus your two prices. Same scale for every bar.</p>
+    <div class="card chart">
+      <svg viewBox="0 0 680 300" role="img" aria-label="Bar chart of prices in rupees">
+        <g class="grid">
+          <line x1="250" y1="20" x2="250" y2="264"/><line x1="337.5" y1="20" x2="337.5" y2="264"/>
+          <line x1="425" y1="20" x2="425" y2="264"/><line x1="512.5" y1="20" x2="512.5" y2="264"/><line x1="600" y1="20" x2="600" y2="264"/>
+        </g>
+        <text class="muted" x="250" y="282" text-anchor="middle">₹0</text>
+        <text class="muted" x="337.5" y="282" text-anchor="middle">₹500</text>
+        <text class="muted" x="425" y="282" text-anchor="middle">₹1,000</text>
+        <text class="muted" x="512.5" y="282" text-anchor="middle">₹1,500</text>
+        <text class="muted" x="600" y="282" text-anchor="middle">₹2,000</text>
+        <!-- scale: 0.175 px per rupee -->
+        <text x="240" y="41" text-anchor="end">Your AI add-on, per month</text>
+        <rect x="250" y="28" width="17.5" height="18" rx="3" fill="var(--bar-ours)"/><text class="val" x="273" y="41">₹100</text>
+        <text x="240" y="75" text-anchor="end">Your mock set, low</text>
+        <rect x="250" y="62" width="52.3" height="18" rx="3" fill="var(--bar-ours)"/><text class="val" x="308" y="75">₹299</text>
+        <text x="240" y="109" text-anchor="end">Your mock set, high</text>
+        <rect x="250" y="96" width="69.8" height="18" rx="3" fill="var(--bar-ours)"/><text class="val" x="326" y="109">₹399</text>
+        <text x="240" y="143" text-anchor="end">PW UGC NET series, 67 tests</text>
+        <rect x="250" y="130" width="87.3" height="18" rx="3" fill="var(--bar-them)"/><text class="val" x="343" y="143">₹499</text>
+        <text x="240" y="177" text-anchor="end">v0 Pro plan, per month</text>
+        <rect x="250" y="164" width="87.5" height="18" rx="3" fill="var(--bar-pro)"/><text class="val" x="344" y="177">₹500</text>
+        <text x="240" y="211" text-anchor="end">JRFAdda Pol Sci Paper 2</text>
+        <rect x="250" y="198" width="227.3" height="18" rx="3" fill="var(--bar-them)"/><text class="val" x="483" y="211">₹1,299</text>
+        <text x="240" y="245" text-anchor="end">JRFAdda Paper 1 + 2</text>
+        <rect x="250" y="232" width="349.8" height="18" rx="3" fill="var(--bar-them)"/><text class="val" x="606" y="245">₹1,999</text>
+      </svg>
+      <div class="legend"><span><i style="background:var(--bar-ours)"></i>Your prices</span><span><i style="background:var(--bar-them)"></i>Competitor test series</span><span><i style="background:var(--bar-pro)"></i>Old v0 plan</span></div>
+    </div>
+    <div class="callout"><p><b>Still true.</b> PW sells 67 tests for ₹499 (about ₹7 a test). ₹299 to ₹399 works for a <b>set</b> of 10 to 15 mocks, not for one test. Your ₹100 AI plan is cheap next to everyone, so it is an easy yes for students.</p></div>
+    <p class="sources">Competitor prices from web search snippets, 4 Nov 2026, unverified. Confirm on each checkout page. Sources: <a href="https://www.pw.live/ugc-net/test-series/698f0acafe7991da6056f55b-online">PW</a>, <a href="https://www.jrfadda.com/courses/ugc-net/polity-jrf/political-science-paper-2-test-series-for-june-2026">JRFAdda Paper 2</a>, <a href="https://www.jrfadda.com/courses/ugc-net/polity-jrf/polity-paper-1-paper-2-test-series-for-june-2026">JRFAdda Paper 1+2</a>, <a href="https://www.adda247.com/ugc-net-political-science/mock-test">Adda247</a>, <a href="https://testbook.com/ugc-net-pol-science/test-series">Testbook</a>.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>Teacher pricing screen (try it)</h2>
+    <p>How a teacher prices one mock test set. The split shows who gets what from one sale.</p>
+    <div class="card calc">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="field"><label for="cExam">Exam</label>
+          <select id="cExam">
+            <option value="399|15">UGC NET Pol Sci (suggested ₹399, 15 tests)</option>
+            <option value="349|12">PGT Pol Sci (suggested ₹349, 12 tests)</option>
+            <option value="299|10">CUET PG HUQP18 (suggested ₹299, 10 tests)</option>
+            <option value="299|10">TGT Social Science (suggested ₹299, 10 tests)</option>
+          </select></div>
+        <div class="field"><label for="cPrice">Set price <output id="oPrice">₹399</output></label><input id="cPrice" type="range" min="299" max="399" step="10" value="399"></div>
+        <div class="field"><label for="cTests">Full mocks in the set <output id="oTests">15</output></label><input id="cTests" type="range" min="1" max="30" step="1" value="15"></div>
+        <div class="field"><label for="cShare">Teacher share <output id="oShare">70%</output></label><input id="cShare" type="range" min="50" max="90" step="5" value="70"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div class="split" id="split" aria-label="Split of one sale"></div>
+        <div class="legend"><span><i style="background:var(--muted)"></i>GST 18%</span><span><i style="background:var(--warn)"></i>Gateway 2%</span><span><i style="background:var(--good)"></i>Teacher</span><span><i style="background:var(--omr)"></i>PolityPedia</span></div>
+        <div class="rows" id="rows"></div>
+        <div class="verdict" id="verdict"></div>
+        <p class="sources">GST 18% inside the price and Razorpay 2% are assumptions, unverified. Confirm with a CA and the Razorpay pricing page before the first sale.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>Open questions</h2>
+    <p>Only what your explanation did not answer. Green tag = my pick. Write a note under any question.</p>
+    <div id="console" style="display:flex;flex-direction:column;gap:28px"></div>
+    <div class="field"><label for="general">Anything wrong in the locked table, or anything else?</label><textarea id="general" placeholder="Write here"></textarea></div>
+    <textarea id="copyText" hidden readonly aria-label="Decisions text"></textarea>
+    <div class="bar">
+      <span class="status" id="status">0 of 14 answered</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-ghost" id="recBtn" type="button">Fill my recommendations</button>
+        <button class="btn-main" id="copyBtn" type="button">Copy decisions</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const Q = [
+ {g:"A. Batches and subscribe", items:[
+  {id:"sub",q:"What does the Subscribe button under the portfolio do?",why:"In the sketch it reads \"Subscribe ENL\". I do not know what ENL means.",o:[
+    ["Follow, free","Student gets this teacher's notifications. No money.",1],["Paid subscription","Student pays the teacher monthly for everything.",0],["Email newsletter","Student joins the teacher's email list.",0]]},
+  {id:"batch",q:"What does a batch change for the student?",why:"You said a student can be in two batches. I need to know what the batch unlocks.",o:[
+    ["Access + reports","Teacher gives a batch free access to chosen mock sets and sees batch scores.",1],["Only a group","Batch is a label for notices and reports. No access change.",0]]},
+  {id:"join",q:"How does a student get into a batch?",why:"",o:[
+    ["Join link or code","Teacher shares a link. Student taps it and joins. Teacher can remove.",1],["Teacher adds","Teacher types the student's phone or email.",0],["Request + approve","Student asks, teacher approves.",0]]}
+ ]},
+ {g:"B. Past papers", items:[
+  {id:"split",q:"The teacher uploads a PDF. How does it become one question per screen?",why:"Your player shows one question at a time with Reveal answer. A PDF is one big file.",o:[
+    ["AI splits, teacher checks","AI cuts the PDF into questions, options and answers. Teacher fixes mistakes, then publishes. PDF download stays too.",1],["Teacher types each","Teacher enters every question by hand.",0]]},
+  {id:"pyqown",q:"Same past paper uploaded by 5 teachers. One copy or five?",why:"A 2025 UGC NET paper is the same for everyone.",o:[
+    ["One shared copy","Platform keeps one copy. Teachers add their own explanations on top.",1],["Each teacher's own","Every teacher keeps a separate copy.",0]]},
+  {id:"pyqfree",q:"Are past papers free?",why:"Free past papers bring students in. Mocks and AI make the money.",o:[
+    ["Free","Past papers free for all. Money from mock sets and AI.",1],["Paid","Past papers sold like mock sets.",0]]},
+  {id:"date",q:"Who keeps the next exam date up to date?",why:"",o:[
+    ["Admin (us)","One list per exam. Every teacher's page shows it.",1],["Each teacher","Teacher types it on their page.",0]]}
+ ]},
+ {g:"C. Mock tests", items:[
+  {id:"timer",q:"Full paper: also a timed exam mode like the real NTA test?",why:"Your flow shows right or wrong after each question. The real exam shows nothing until the end.",o:[
+    ["Both modes","Practice mode as you drew. Plus an exam mode: timer, result at the end.",1],["Practice only","Right or wrong after each question, always.",0]]},
+  {id:"pro",q:"Mock sets ₹299 to ₹399 and AI ₹100 a month. Does the old v0 Pro plan (₹500 a month) go away?",why:"Three prices confuse students.",o:[
+    ["Yes, drop Pro","Two things to buy: mock sets (from the teacher) and the AI plan (from us).",1],["Keep Pro","Pro = everything for ₹500.",0]]}
+ ]},
+ {g:"D. AI revision", items:[
+  {id:"research",q:"Where does the AI \"research\" come from?",why:"In v0 you locked: the AI answers only from the teacher's notes and classes.",o:[
+    ["Notes first, then web","First the teacher's notes and classes. If not there, a web search with source links shown.",1],["Teacher notes only","As in v0. Says \"not in notes\" otherwise.",0],["AI's own knowledge","No search. Fast but can be wrong.",0]]},
+  {id:"cache",q:"One AI explanation per question for all students, or a new one per student?",why:"A saved explanation costs once. Audio costs most.",o:[
+    ["One per question, saved","First student makes it. Everyone after gets it fast. Teacher can edit it.",1],["New per student","Fresh each time. Higher cost, slower.",0]]},
+  {id:"audio",q:"Audio explanation: which voice?",why:"Hindi and English both needed.",o:[
+    ["Paid AI voice, saved","Natural Hindi and English voice. Made once per question and saved. Small cost.",1],["Browser voice","Free, no cost. Sounds robotic, Hindi is weak on some phones.",0]]},
+  {id:"aishare",q:"Does the teacher get a part of the ₹100 AI plan?",why:"Teachers bring the students. The AI uses their notes.",o:[
+    ["No, platform keeps it","Teachers earn from mock sets. AI money pays the AI cost.",1],["Yes, split","Share by which teacher the student came from.",0]]}
+ ]}
+];
+
+const KEY="pp-v1-console-r2";
+const letters="ABCD";
+let state={};
+try{state=JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch(e){state={}}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const total=Q.reduce((n,g)=>n+g.items.length,0);
+
+const con=document.getElementById("console");
+let n=0;
+Q.forEach(g=>{
+  const box=document.createElement("div");box.className="qgroup";
+  box.innerHTML=`<h3>${g.g}</h3>`;
+  g.items.forEach(it=>{
+    n++;it.n=n;
+    const d=document.createElement("div");d.className="q";
+    d.innerHTML=`<div><b>Q${n}. ${it.q}</b></div>${it.why?`<div class="why">${it.why}</div>`:""}
+     <div class="opts" role="radiogroup">${it.o.map((o,i)=>`
+      <label class="opt"><input type="radio" name="${it.id}" id="${it.id}-${i}" value="${i}"><span class="bubble">${letters[i]}</span>
+      <span class="otext"><b>${o[0]}${o[2]?'<span class="rec">Recommended</span>':''}</b><span>${o[1]}</span></span></label>`).join("")}
+     </div>
+     <input type="text" id="${it.id}-note" placeholder="Your note (optional)">`;
+    box.appendChild(d);
+  });
+  con.appendChild(box);
+});
+
+function restore(){
+  Q.forEach(g=>g.items.forEach(it=>{
+    const s=state[it.id]||{};
+    if(s.pick!=null){const el=document.getElementById(`${it.id}-${s.pick}`);if(el)el.checked=true}
+    document.getElementById(`${it.id}-note`).value=s.note||"";
+  }));
+  document.getElementById("general").value=state._general||"";
+  count();
+}
+function count(){
+  const a=Q.reduce((k,g)=>k+g.items.filter(it=>state[it.id]&&state[it.id].pick!=null).length,0);
+  document.getElementById("status").textContent=`${a} of ${total} answered`;
+}
+con.addEventListener("change",e=>{
+  const t=e.target;if(t.type!=="radio")return;
+  state[t.name]=Object.assign(state[t.name]||{},{pick:+t.value});save();count();
+});
+con.addEventListener("input",e=>{
+  const t=e.target;if(t.type!=="text")return;
+  const id=t.id.replace(/-note$/,"");state[id]=Object.assign(state[id]||{},{note:t.value});save();
+});
+document.getElementById("general").addEventListener("input",e=>{state._general=e.target.value;save()});
+document.getElementById("recBtn").addEventListener("click",()=>{
+  Q.forEach(g=>g.items.forEach(it=>{
+    if(state[it.id]&&state[it.id].pick!=null)return;
+    const i=it.o.findIndex(o=>o[2]);state[it.id]=Object.assign(state[it.id]||{},{pick:i});
+  }));save();restore();
+});
+
+function buildText(){
+  const L=["PolityPedia v1 round 2 decisions ("+new Date().toISOString().slice(0,10)+")",""];
+  Q.forEach(g=>{L.push(g.g);g.items.forEach(it=>{
+    const s=state[it.id]||{};const pick=s.pick!=null?`${letters[s.pick]}. ${it.o[s.pick][0]}${it.o[s.pick][2]?" (rec)":""}`:"not answered";
+    L.push(`Q${it.n} ${it.q} -> ${pick}`);if(s.note)L.push(`   note: ${s.note}`);
+  });L.push("")});
+  L.push(`Pricing screen: ${cExam.selectedOptions[0].text}, price ₹${cPrice.value}, ${cTests.value} mocks, teacher ${cShare.value}%`);
+  if(state._general)L.push("General: "+state._general);
+  return L.join("\n");
+}
+document.getElementById("copyBtn").addEventListener("click",()=>{
+  const txt=buildText();const ta=document.getElementById("copyText");ta.value=txt;
+  const st=document.getElementById("status");
+  const fallback=()=>{ta.hidden=false;ta.focus();ta.select();st.textContent="Copy blocked here. Text is selected below: press Ctrl+C."};
+  try{navigator.clipboard.writeText(txt).then(()=>{st.textContent="Copied. Paste it in the chat."},fallback)}catch(e){fallback()}
+});
+
+const cExam=document.getElementById("cExam"),cPrice=document.getElementById("cPrice"),cTests=document.getElementById("cTests"),cShare=document.getElementById("cShare");
+const inr=v=>"₹"+v.toLocaleString("en-IN",{maximumFractionDigits:1,minimumFractionDigits:v<100?1:0});
+function calc(){
+  const p=+cPrice.value,t=+cTests.value,sh=+cShare.value/100;
+  const gst=p-p/1.18,gw=p*0.02,net=p/1.18-gw,te=net*sh,pl=net*(1-sh),per=p/t;
+  document.getElementById("oPrice").textContent="₹"+p;document.getElementById("oTests").textContent=t;document.getElementById("oShare").textContent=Math.round(sh*100)+"%";
+  const seg=(v,c)=>`<span style="width:${(v/p*100).toFixed(2)}%;background:${c}" title="${inr(v)}"></span>`;
+  document.getElementById("split").innerHTML=seg(gst,"var(--muted)")+seg(gw,"var(--warn)")+seg(te,"var(--good)")+seg(pl,"var(--omr)");
+  document.getElementById("rows").innerHTML=
+   `<div><span>Student pays</span><b>${inr(p)}</b></div><div><span>GST 18% (inside price)</span><b>${inr(gst)}</b></div>
+    <div><span>Gateway fee 2%</span><b>${inr(gw)}</b></div><div><span>Teacher gets</span><b>${inr(te)}</b></div>
+    <div><span>PolityPedia gets</span><b>${inr(pl)}</b></div><div><span>Price per mock</span><b>${inr(per)}</b></div>
+    <div><span>Teacher earns from 100 sales</span><b>${inr(Math.round(te*100))}</b></div>`;
+  const v=document.getElementById("verdict");
+  if(per<=15){v.style.background="var(--good-soft)";v.style.color="var(--good)";v.textContent=`Good value. ${inr(per)} per mock. PW is about ₹7, JRFAdda is higher.`}
+  else if(per<=40){v.style.background="var(--warn-soft)";v.style.color="var(--warn)";v.textContent=`OK if the teacher's name sells it. ${inr(per)} per mock. Add topic tests to lift value.`}
+  else{v.style.background="var(--omr-soft)";v.style.color="var(--omr)";v.textContent=`Too pricey per mock (${inr(per)}). Add more tests to the set.`}
+}
+cExam.addEventListener("change",()=>{const [p,t]=cExam.value.split("|");cPrice.value=p;cTests.value=t;calc()});
+[cPrice,cTests,cShare].forEach(el=>el.addEventListener("input",calc));
+calc();restore();
+</script>
