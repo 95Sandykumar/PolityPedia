@@ -25,6 +25,7 @@
  *    fixed message plus the HTTP status, never a response body.
  */
 import {
+  PLANS,
   toPaise,
   type CreateOrderInput,
   type CreateSubscriptionInput,
@@ -89,6 +90,43 @@ export function readRazorpayPlanId(
   if (!name) return null;
   const id = env[name]?.trim();
   return id && id.length > 0 ? id : null;
+}
+
+/**
+ * A Razorpay plan id turned back into OUR plan word, for the webhook's plan
+ * check (issue 34-webhook-grant-first).
+ *
+ * `charge_subscription()` has to refuse a Rs 100 AI charge aimed at a Rs 500
+ * Pro row, and the only link between the two is this environment variable.
+ * Postgres cannot read one, so the mapping happens here and the WORD travels.
+ *
+ * Three answers, and each one means something different in SQL:
+ *
+ *   `'ai'` / `'pro'`  a plan we recognise. Postgres compares it to the row.
+ *   `UNKNOWN_PLAN`    a plan id we have no variable for. It matches neither
+ *                     word, so Postgres refuses and files an alert. Guessing
+ *                     would be how a Pro row gets extended by an AI charge.
+ *   `null`            nothing to check: either the body carried no plan id, or
+ *                     NO plan variable is set at all, which is a fresh install
+ *                     and must not break a real charge.
+ */
+export const UNKNOWN_PLAN = 'unknown';
+
+export function planForRazorpayPlanId(
+  planId: string | null | undefined,
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const wanted = planId?.trim();
+  if (!wanted) return null;
+
+  const known = PLANS.map((plan) => [plan, readRazorpayPlanId(plan, env)] as const).filter(
+    (pair): pair is readonly [Plan, string] => pair[1] !== null,
+  );
+  // Keys are set up before the plan objects are (see `hasPlan`), so "no plan
+  // variable at all" is a normal state and not a mismatch.
+  if (known.length === 0) return null;
+
+  return known.find(([, id]) => id === wanted)?.[0] ?? UNKNOWN_PLAN;
 }
 
 export interface RazorpayEnv {

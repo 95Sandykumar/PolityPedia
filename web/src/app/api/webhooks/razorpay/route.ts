@@ -17,8 +17,15 @@
  *
  * This route takes NO cookie and NO bearer token: anybody on the internet may
  * call it, and the signature is the entire authentication. It is also the only
- * route that carries the service-role key, because the four SQL functions it
- * needs are granted to `service_role` alone (see 0027's closing note).
+ * route that carries the service-role key, because every SQL function it needs
+ * is granted to `service_role` alone (see the closing notes of 0027, 0028,
+ * 0029 and 0034).
+ *
+ * The ORDER the three state moves run in changed in issue
+ * 34-webhook-grant-first: the idempotent action goes first and the event id is
+ * recorded afterwards, so a process killed between the two cannot leave a
+ * paying student with a shut set. Nothing in this file had to change for that,
+ * which is the point of keeping it thin.
  *
  * Security: nothing here is logged. The body carries a payment id and can
  * carry an email, the signature header is derived from a secret, and the env

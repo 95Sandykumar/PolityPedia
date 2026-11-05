@@ -26,12 +26,22 @@
  *    fixed message plus the HTTP status, NEVER a response body: a PostgREST
  *    body quotes constraint names, and a 401 body can echo a token.
  */
-import type { RecordEventInput, SubscriptionStatus, WebhookStore } from './webhook';
+import { planForRazorpayPlanId } from './razorpay-payments';
+import {
+  WebhookPermanentError,
+  type RecordEventInput,
+  type SubscriptionStatus,
+  type WebhookAlertInput,
+  type WebhookStore,
+} from './webhook';
 
 const RPC = '/rest/v1/rpc/';
 
 /** A gateway fee bigger than this is a bug, not a fee. */
 const MAX_FEE_INR = 100_000;
+
+/** Same ceiling as `reconcile_alerts_subject_check` in 0029. */
+const MAX_SUBJECT = 160;
 
 export interface WebhookServiceEnv {
   /** Project URL with no trailing slash. */
@@ -66,21 +76,38 @@ export interface SupabaseWebhookStoreOptions {
  * constraints in 0027 (`purchases.razorpay_order_id` 80,
  * `payment_events.event_id` 120), so a value Postgres would refuse is refused
  * here instead of costing a round trip.
+ *
+ * `WebhookPermanentError` AND NOT A PLAIN ERROR (issue 34). An 81-character
+ * order id will still be 81 characters on the next delivery, so a 500 here
+ * bought hours of Razorpay retries against a wall. The handler answers 200 and
+ * files an alert instead.
  */
 function shortId(value: string, what: string, max: number): string {
   const trimmed = value.trim();
   if (trimmed.length === 0 || trimmed.length > max) {
-    throw new Error('the webhook needs a ' + what);
+    throw new WebhookPermanentError('the webhook needs a ' + what);
   }
   return trimmed;
 }
 
-/** Rupees to the paisa, and nothing strange. */
+/** Rupees to the paisa, and nothing strange. Permanent: see `shortId`. */
 function fee(value: number): number {
   if (!Number.isFinite(value) || value < 0 || value > MAX_FEE_INR) {
-    throw new Error('the gateway fee must be a sane number of rupees');
+    throw new WebhookPermanentError('the gateway fee must be a sane number of rupees');
   }
   return Math.round(value * 100) / 100;
+}
+
+/**
+ * A whole, non-negative number of paise, or null.
+ *
+ * Null is "the gateway did not say", which 0034 reads as "nothing to check".
+ * Anything unreadable becomes null for the same reason: a number we cannot
+ * trust must not be the one that refuses a real sale.
+ */
+function paise(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+  return Math.round(value);
 }
 
 export function createSupabaseWebhookStore(
@@ -157,26 +184,60 @@ export function createSupabaseWebhookStore(
       await rpc('forget_payment_event', { new_event_id: shortId(eventId, 'event id', 120) });
     },
 
-    async grantPurchase({ orderId: order, feeInr }) {
-      // The answer is thrown away ON PURPOSE. `false` means "already paid" or
-      // "not an order of ours", and both are normal: Razorpay gets its 2xx
-      // and nothing is retried. Only an HTTP failure is worth a retry, and
-      // `rpc()` has already thrown for that.
-      await rpc('grant_purchase', { order_id: shortId(order, 'order id', 80), fee: fee(feeInr) });
+    async grantPurchase({ orderId: order, feeInr, amountPaise, currency }) {
+      // The answer is thrown away ON PURPOSE. `false` means "already paid",
+      // "not an order of ours", or (since issue 34) "the amount or the
+      // currency did not match, and an alert has been filed". All of those are
+      // normal: Razorpay gets its 2xx and nothing is retried. Only an HTTP
+      // failure is worth a retry, and `rpc()` has already thrown for that.
+      const args: Record<string, unknown> = {
+        order_id: shortId(order, 'order id', 80),
+        fee: fee(feeInr),
+      };
+
+      // OMITTED RATHER THAN SENT AS NULL, so 0034's own defaults decide. A
+      // body that carried no amount must look exactly like an old two-argument
+      // call, which is the case the migration documents as "nothing to check".
+      const paid = paise(amountPaise);
+      if (paid !== null) args.paid_paise = paid;
+      const money = currency?.trim();
+      if (money) args.paid_currency = money.toUpperCase();
+
+      await rpc('grant_purchase', args);
     },
 
     async refundPurchase({ orderId: order }) {
       await rpc('refund_purchase', { order_id: shortId(order, 'order id', 80) });
     },
 
-    // Issue 28. The answer is thrown away for the same reason as above:
-    // `false` means "not ours" or "already cancelled", and both are normal.
+    // Issue 28, one transaction since issue 34. The answer is thrown away for
+    // the same reason as above: `false` means "not ours", "already charged",
+    // "already cancelled" or "the wrong plan, alert filed", and all of those
+    // are normal.
+    //
     // There is no fee argument on purpose. V19 gives plan money no teacher
     // share, so there is nothing for a gateway fee to come out of.
-    async chargeSubscription({ subscriptionId }) {
-      await rpc('charge_subscription', {
+    async chargeSubscription({ subscriptionId, chargeKey, type, payload, planId }) {
+      const args: Record<string, unknown> = {
         subscription_id: shortId(subscriptionId, 'subscription id', 80),
-      });
+      };
+
+      // THE DE-DUPE ROW AND THE MONTH, IN ONE CALL. The key is built from the
+      // signed body by `readWebhookEvent()`; 120 is `payment_events.event_id`,
+      // and a longer one is permanent, never a retry.
+      if (chargeKey) {
+        args.charge_key = shortId(chargeKey, 'charge key', 120);
+        args.new_type = type ?? 'subscription.charged';
+        args.new_payload = payload ?? {};
+      }
+
+      // Razorpay's plan id turned into OUR plan word, because the mapping is
+      // an environment variable and Postgres cannot read one. Read lazily,
+      // like every other env in this file.
+      const word = planForRazorpayPlanId(planId, options.env ?? process.env);
+      if (word) args.charged_plan = word;
+
+      await rpc('charge_subscription', args);
     },
 
     async markSubscription({
@@ -191,6 +252,27 @@ export function createSupabaseWebhookStore(
         // Already one of three literals in `WebhookEvent`, and 0028 raises
         // PP422 for anything else, so there is no third place to keep in sync.
         new_status: status,
+      });
+    },
+
+    /**
+     * `record_reconcile_alert()` (issue 34). The webhook's own half of A6.
+     *
+     * The answer is thrown away: TRUE means new and FALSE means Boss already
+     * has this exact `(kind, subject)` on the list, and the webhook has
+     * nothing different to do about either. A THROW, though, is passed on, and
+     * the handler swallows it: an alert that could not be filed must not turn
+     * an event that can never succeed into hours of retries.
+     */
+    async recordAlert({ kind, subject, orderId, expectedPaise, actualPaise }: WebhookAlertInput) {
+      await rpc('record_reconcile_alert', {
+        new_kind: kind,
+        // 0029 raises PP422 on a blank subject and refuses one over 160
+        // characters, so it is trimmed to fit here rather than thrown away.
+        new_subject: shortId(subject.slice(0, MAX_SUBJECT), 'alert subject', MAX_SUBJECT),
+        new_order_id: orderId,
+        new_expected_paise: expectedPaise,
+        new_actual_paise: actualPaise,
       });
     },
   };

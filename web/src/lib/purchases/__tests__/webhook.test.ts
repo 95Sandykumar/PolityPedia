@@ -270,7 +270,7 @@ describe('an event we do not act on', () => {
 });
 
 describe('when the database is unhappy', () => {
-  it('answers 500 and releases the event id, so the retry can work', async () => {
+  it('answers 500 and stores no event id, so the retry can work', async () => {
     const store = createFakeWebhookStore({ failAction: true });
     const { reply } = await post(capturedBody({ orderId: 'order_boom' }), { store });
 
@@ -279,7 +279,10 @@ describe('when the database is unhappy', () => {
     // The event must NOT be left behind: Razorpay's next delivery would be
     // de-duped away and the student would have paid for a set that stays shut.
     expect(store.events).toEqual([]);
-    expect(store.forgotten).toEqual(['evt_test_1']);
+    // NOTHING TO FORGET (issue 34-webhook-grant-first). The action now runs
+    // BEFORE the event id is stored, so a failed action leaves no row in front
+    // of the retry and `forget_payment_event()` has no job on this path.
+    expect(store.forgotten).toEqual([]);
   });
 
   it('lets the retry succeed once the database is well again', async () => {
