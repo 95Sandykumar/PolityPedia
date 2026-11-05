@@ -1,13 +1,37 @@
 /**
- * Admin home (issue 03-sign-in).
- * Thin on purpose: this slice only proves the role guard.
+ * Admin home (issue 03-sign-in, grown by 21-plans-entitlements).
+ * Still thin: a title plus the links to the admin tools that exist.
  */
-import { PlaceholderPage } from '@/components/placeholder-page';
+import Link from 'next/link';
+import { DEFAULT_MODE, labels, plain } from '@/lib/i18n';
+
+const TOOLS = [{ href: '/admin/plans', key: 'plans.title' }] as const;
 
 export default function AdminPage() {
+  const mode = DEFAULT_MODE;
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 py-4">
-      <PlaceholderPage titleKey="nav.adminHome" />
+      <section className="flex flex-col gap-3">
+        <h1 className="text-[22px] leading-7 font-bold">
+          {labels('nav.adminHome', mode).map((line) => (
+            <span key={line} className="block">
+              {line}
+            </span>
+          ))}
+        </h1>
+        <nav className="flex flex-col gap-3">
+          {TOOLS.map((tool) => (
+            <Link
+              key={tool.href}
+              href={tool.href}
+              prefetch={false}
+              className="flex min-h-12 items-center rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground"
+            >
+              {plain(tool.key, mode)}
+            </Link>
+          ))}
+        </nav>
+      </section>
     </main>
   );
 }
