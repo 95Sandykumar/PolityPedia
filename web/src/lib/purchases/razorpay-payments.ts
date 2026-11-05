@@ -343,17 +343,36 @@ export function createRazorpayPayments(options: RazorpayPaymentsOptions = {}): P
  *
  * A row we cannot read is DROPPED, not guessed. The nightly reconcile (A6)
  * would rather see a mismatch than a made-up `captured`.
+ *
+ * `invoice_id` and `subscription_id` are read because a monthly plan charge
+ * (issue 28) is a captured payment whose order id is RAZORPAY'S OWN and can
+ * never be in `purchases`. Without them the nightly reconcile filed one false
+ * `no_purchase` alert per subscriber per month (issue 35-reconcile-visible).
  */
 function readPayments(body: PaymentsReply): PaymentRecord[] {
   const items = Array.isArray(body?.items) ? body.items : [];
   const out: PaymentRecord[] = [];
   for (const raw of items) {
-    const one = raw as { id?: unknown; order_id?: unknown; amount?: unknown; status?: unknown };
+    const one = raw as {
+      id?: unknown;
+      order_id?: unknown;
+      amount?: unknown;
+      status?: unknown;
+      invoice_id?: unknown;
+      subscription_id?: unknown;
+    };
     const paymentId = readText(one?.id);
     const amountPaise = readPaise(one?.amount);
     const status = readText(one?.status, 32);
     if (!paymentId || amountPaise === null || !status) continue;
-    out.push({ paymentId, orderId: readText(one?.order_id), amountPaise, status });
+    out.push({
+      paymentId,
+      orderId: readText(one?.order_id),
+      amountPaise,
+      status,
+      invoiceId: readText(one?.invoice_id),
+      subscriptionId: readText(one?.subscription_id),
+    });
   }
   return out;
 }

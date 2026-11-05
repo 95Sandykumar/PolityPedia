@@ -143,7 +143,17 @@ describe('fetchPayments', () => {
     const found = await payments.fetchPayments('order_1');
 
     expect(found).toEqual([
-      { paymentId: 'pay_1', orderId: 'order_1', amountPaise: 39_900, status: 'captured' },
+      {
+        paymentId: 'pay_1',
+        orderId: 'order_1',
+        amountPaise: 39_900,
+        status: 'captured',
+        // Null, not missing: a one-off set sale has neither, and the nightly
+        // reconcile reads both to tell a plan charge apart from a sale
+        // (issue 35-reconcile-visible).
+        invoiceId: null,
+        subscriptionId: null,
+      },
     ]);
     expect(calls[0].url).toContain('/orders/order_1/payments');
   });
@@ -234,7 +244,17 @@ describe('listPayments', () => {
     const payments = createRazorpayPayments({ env: ENV, fetchImpl });
 
     await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).resolves.toEqual([
-      { paymentId: 'pay_1', orderId: 'order_1', amountPaise: 39_900, status: 'captured' },
+      {
+        paymentId: 'pay_1',
+        orderId: 'order_1',
+        amountPaise: 39_900,
+        status: 'captured',
+        // Null, not missing: a one-off set sale has neither, and the nightly
+        // reconcile reads both to tell a plan charge apart from a sale
+        // (issue 35-reconcile-visible).
+        invoiceId: null,
+        subscriptionId: null,
+      },
     ]);
   });
 
@@ -245,7 +265,14 @@ describe('listPayments', () => {
     const payments = createRazorpayPayments({ env: ENV, fetchImpl });
 
     await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).resolves.toEqual([
-      { paymentId: 'pay_loose', orderId: null, amountPaise: 29_900, status: 'captured' },
+      {
+        paymentId: 'pay_loose',
+        orderId: null,
+        amountPaise: 29_900,
+        status: 'captured',
+        invoiceId: null,
+        subscriptionId: null,
+      },
     ]);
   });
 

@@ -22,7 +22,12 @@
  *    body quotes constraint names, and a 401 body can echo a token.
  */
 import type { PurchaseStatus } from '@/lib/purchases/types';
-import type { ReconcileAlertInput, ReconcilePurchase, ReconcileStore } from './types';
+import type {
+  ReconcileAlertInput,
+  ReconcilePurchase,
+  ReconcilePurchasePage,
+  ReconcileStore,
+} from './types';
 
 const PURCHASES = '/rest/v1/purchases';
 const RPC = '/rest/v1/rpc/';
@@ -34,8 +39,14 @@ const PURCHASE_COLUMNS = 'id,razorpay_order_id,amount_inr,status';
  * One night of sales. v1 sells a few sets a day, so 2,000 is far past any
  * real night; reaching it means something is wrong, and a silently truncated
  * read would turn every unseen sale into a `no_payment` alert.
+ *
+ * REACHING IT THROWS (issue 35-reconcile-visible). Until this issue the
+ * comment above said that already and the code returned the truncated list
+ * anyway, so the one night the cap mattered was the night Boss would have
+ * woken up to hundreds of alerts about real, correct sales. Exported so the
+ * test can build exactly `MAX_PURCHASES` rows.
  */
-const MAX_PURCHASES = 2000;
+export const MAX_PURCHASES = 2000;
 
 const STATUSES: readonly PurchaseStatus[] = ['created', 'paid', 'refunded'];
 
@@ -140,7 +151,7 @@ export function createSupabaseReconcileStore(
      * would then be filed as `no_purchase`: a quiet Supabase blip would look
      * like every student paying for nothing.
      */
-    async listPurchases({ sinceIso }) {
+    async listPurchases({ sinceIso }): Promise<ReconcilePurchasePage> {
       const { url } = required();
 
       const res = await doFetch(
@@ -159,12 +170,32 @@ export function createSupabaseReconcileStore(
 
       const body = (await res.json()) as unknown;
       const raw = Array.isArray(body) ? (body as PurchaseRow[]) : [];
+
+      // THE CAP, checked on the RAW rows and BEFORE parsing. Counting parsed
+      // rows would let a page of junk read as a short page, and a short page
+      // is what tells this function the read was complete.
+      //
+      // A throw and not a truncated answer: the job reports a night it could
+      // not check and exits non-zero, which is the one honest answer. The
+      // alternative is `no_payment` alerts about every real sale past row
+      // 2,000.
+      if (raw.length >= MAX_PURCHASES) {
+        throw new Error(
+          'Supabase purchases read hit the ' + MAX_PURCHASES + ' row cap, so it was truncated',
+        );
+      }
+
       const out: ReconcilePurchase[] = [];
+      let unreadable = 0;
       for (const one of raw) {
         const found = readPurchaseRow(one);
+        // Still DROPPED, never guessed. But counted now: the count files its
+        // own alert, because a dropped purchase makes its captured payment
+        // look like `no_purchase` (issue 35-reconcile-visible).
         if (found) out.push(found);
+        else unreadable += 1;
       }
-      return out;
+      return { purchases: out, unreadable };
     },
 
     /** `record_reconcile_alert()`. TRUE = new, FALSE = already on the list. */
