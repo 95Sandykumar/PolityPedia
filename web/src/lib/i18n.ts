@@ -259,6 +259,16 @@ export const dictionary = {
     'posts.badLink': 'A link must start with http:// or https://',
     'posts.homeTitle': 'Latest from your teachers',
     'posts.homeNone': 'Follow a teacher to see their notices here',
+    // Why a split failed (issue 12-pdf-split-worker). The worker stores a
+    // short CODE in `ingest_jobs.error`, never a sentence from the model: a
+    // past paper is untrusted text, and a model's own words are not
+    // translatable. Each line says the fix, because the teacher has to act.
+    'splitError.no-pdf': 'The PDF is missing. Upload it again.',
+    'splitError.bad-answer': 'Could not read the questions. Try again, or type them in.',
+    'splitError.no-questions': 'No questions found in this PDF.',
+    'splitError.too-many': 'This PDF has more than 200 questions. Split it into two papers.',
+    'splitError.splitter-error': 'The AI could not be reached. Try again.',
+    'splitError.write-failed': 'Could not save the questions. Try again.',
   },
   hi: {
     'nav.home': 'होम',
@@ -482,6 +492,12 @@ export const dictionary = {
     'posts.badLink': 'लिंक http:// या https:// से शुरू होना चाहिए',
     'posts.homeTitle': 'आपके शिक्षकों की नई सूचनाएँ',
     'posts.homeNone': 'किसी शिक्षक को फ़ॉलो करें, उनकी सूचनाएँ यहाँ दिखेंगी',
+    'splitError.no-pdf': 'पीडीएफ़ नहीं मिली। दोबारा अपलोड करें।',
+    'splitError.bad-answer': 'प्रश्न पढ़े नहीं जा सके। दोबारा कोशिश करें, या खुद लिखें।',
+    'splitError.no-questions': 'इस पीडीएफ़ में कोई प्रश्न नहीं मिला।',
+    'splitError.too-many': 'इस पीडीएफ़ में 200 से ज़्यादा प्रश्न हैं। दो पेपर में बाँटें।',
+    'splitError.splitter-error': 'एआई से संपर्क नहीं हुआ। दोबारा कोशिश करें।',
+    'splitError.write-failed': 'प्रश्न सेव नहीं हो सके। दोबारा कोशिश करें।',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
