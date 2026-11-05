@@ -14,8 +14,9 @@
  * minted on the server, for a paper the policy already allowed, and it dies a
  * minute later.
  */
-import { Download, ListChecks } from 'lucide-react';
+import { Download, ListChecks, Play } from 'lucide-react';
 import Link from 'next/link';
+import { playerPath } from '@/lib/attempts/types';
 import type { Exam } from '@/lib/exams/types';
 import {
   groupPapers,
@@ -42,6 +43,7 @@ export function PapersList({
   mode = DEFAULT_MODE,
   showStatus = false,
   showReview = false,
+  playTeacherId,
 }: {
   papers: readonly Paper[];
   /** The catalogue, for the exam headings and their order. */
@@ -49,6 +51,12 @@ export function PapersList({
   mode?: LangMode;
   /** True on the teacher's own screen: shows the Draft / Live badge. */
   showStatus?: boolean;
+  /**
+   * Set on the student's browse page: adds the Practice link, which opens the
+   * question player (issue 13-question-player). The teacher's own screen
+   * leaves it out, because a draft paper has nothing live to practise.
+   */
+  playTeacherId?: string;
   /**
    * True on the teacher's own screen: adds the Review link, which opens the
    * check-and-publish screen (issue 11-ingest-job-review-publish).
@@ -124,6 +132,28 @@ export function PapersList({
                           </span>
 
                           <span className="flex flex-wrap gap-2">
+                            {/* Student side only: open the question player
+                                (issue 13-question-player). */}
+                            {playTeacherId ? (
+                              <Link
+                                href={playerPath(playTeacherId, paper.id)}
+                                prefetch={false}
+                                aria-label={`${paper.label}: ${plain('player.title', mode)}`}
+                                className={DOWNLOAD}
+                              >
+                                <Play aria-hidden="true" className="size-5" />
+                                <span className="flex flex-col items-start">
+                                  {labels('player.title', mode).map((line, index) => (
+                                    <span
+                                      key={line}
+                                      className={index === 0 ? 'block' : 'block text-xs'}
+                                    >
+                                      {line}
+                                    </span>
+                                  ))}
+                                </span>
+                              </Link>
+                            ) : null}
                             {paper.questionsPath ? (
                               <PdfLink
                                 paper={paper}

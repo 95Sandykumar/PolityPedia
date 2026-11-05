@@ -10,7 +10,9 @@
  * reaches this page, and neither does a paper of a teacher who is not approved
  * yet.
  *
- * The question player over these PDFs is issue 12.
+ * Each row also carries a Practice link into the question player
+ * (issue 13-question-player), which answers the paper's live questions one by
+ * one with the result on the same screen.
  */
 import { PapersList } from '@/components/papers-list';
 import { readStudentContext } from '@/lib/follows/student-page';
@@ -41,7 +43,7 @@ export default async function TeacherPapersPage({
       </h1>
 
       {configured ? (
-        <PapersList papers={papers} exams={exams} mode={mode} />
+        <PapersList papers={papers} exams={exams} mode={mode} playTeacherId={teacherId} />
       ) : (
         <p role="status" className="text-muted-foreground">
           {labels('papers.notConfigured', mode).join(' / ')}
