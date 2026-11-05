@@ -310,6 +310,21 @@ export const dictionary = {
     'mocks.published': 'Published',
     'mocks.blockedUnchecked': 'Check every question first.',
     'mocks.blockedNoTests': 'Add at least one test first.',
+    // Revision (AI) (issue 22-revision-api). One label per reply code the
+    // /api/revision route can answer with, so no code is left unspeakable.
+    'revision.title': 'Revision (AI)',
+    'revision.writing': 'Writing explanation...',
+    'revision.sources': 'Sources',
+    'revision.remember': 'Remember',
+    'revision.byTeacher': 'Corrected by the teacher',
+    'revision.noPlan': 'AI explanation, Rs 100 a month',
+    'revision.subscribe': 'Subscribe',
+    'revision.limit': '30 new explanations used today. Saved ones still work.',
+    'revision.failed': 'Could not write the explanation. Try again.',
+    'revision.rate': 'Too many requests. Wait a minute.',
+    'revision.notFound': 'Question not found',
+    'revision.signIn': 'Sign in to use revision',
+    'revision.notConfigured': 'Revision is not set up yet',
   },
   hi: {
     'nav.home': 'होम',
@@ -579,6 +594,20 @@ export const dictionary = {
     'mocks.published': 'पब्लिश हो गया',
     'mocks.blockedUnchecked': 'पहले हर प्रश्न जाँचें।',
     'mocks.blockedNoTests': 'पहले कम से कम एक टेस्ट जोड़ें।',
+    // Revision (AI) (issue 22-revision-api).
+    'revision.title': 'रिवीजन (AI)',
+    'revision.writing': 'व्याख्या लिखी जा रही है...',
+    'revision.sources': 'स्रोत',
+    'revision.remember': 'याद रखें',
+    'revision.byTeacher': 'शिक्षक ने सुधारा है',
+    'revision.noPlan': 'AI व्याख्या, Rs 100 हर महीने',
+    'revision.subscribe': 'सदस्यता लें',
+    'revision.limit': 'आज 30 नई व्याख्याएँ हो गईं। सहेजी हुई अब भी चलती हैं।',
+    'revision.failed': 'व्याख्या नहीं बन पाई। फिर कोशिश करें।',
+    'revision.rate': 'बहुत ज़्यादा अनुरोध। एक मिनट रुकें।',
+    'revision.notFound': 'प्रश्न नहीं मिला',
+    'revision.signIn': 'रिवीजन के लिए साइन इन करें',
+    'revision.notConfigured': 'रिवीजन अभी सेट नहीं है',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
