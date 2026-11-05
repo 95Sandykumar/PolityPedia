@@ -359,6 +359,8 @@ export function createFakePayments(options: FakePaymentsOptions = {}): FakePayme
         subscriptionId: 'sub_test_' + subscriptions.length,
         status: 'created',
       };
+    },
+  };
 
   return { payments, orders, fetched, listed, subscriptions };
 }

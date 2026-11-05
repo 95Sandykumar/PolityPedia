@@ -1,6 +1,6 @@
 ---
 id: 23-revision-screen
-status: todo
+status: done
 type: afk
 depends_on: [22-revision-api]
 ---
