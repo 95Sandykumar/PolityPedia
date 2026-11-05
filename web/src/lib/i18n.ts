@@ -488,6 +488,11 @@ export const dictionary = {
     'revision.feedbackThanks': 'Thanks. Your teacher will see this.',
     'revision.retry': 'Try again',
     'revision.plansSoon': 'Plans open soon. Ask your teacher for now.',
+    // The audio bar (issue 25-revision-audio). DESIGN.md section 8.
+    'revision.listen': 'Listen',
+    'revision.play': 'Play the explanation',
+    'revision.pause': 'Pause the explanation',
+    'revision.speed': 'Speed',
   },
   hi: {
     'nav.home': 'होम',
@@ -924,6 +929,11 @@ export const dictionary = {
     'revision.feedbackThanks': 'धन्यवाद। आपके शिक्षक इसे देखेंगे।',
     'revision.retry': 'फिर कोशिश करें',
     'revision.plansSoon': 'प्लान जल्द खुलेंगे। अभी अपने शिक्षक से पूछें।',
+    // The audio bar (issue 25-revision-audio). DESIGN.md section 8.
+    'revision.listen': 'सुनें',
+    'revision.play': 'व्याख्या सुनें',
+    'revision.pause': 'व्याख्या रोकें',
+    'revision.speed': 'गति',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
