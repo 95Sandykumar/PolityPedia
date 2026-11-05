@@ -161,3 +161,52 @@ describe('TeacherPortfolio', () => {
     expect(screen.getByText(dictionary.hi['tile.videos'])).toBeInTheDocument();
   });
 });
+
+/**
+ * Issue 07-next-exam-date-teacher-shell: the next exam date pill.
+ *
+ * DESIGN.md section 8: "Header: photo or alias avatar, name, next exam date
+ * pill." The page hands the pill in already resolved to the nearest future
+ * date, so the component only has to draw it or leave it out.
+ */
+describe('TeacherPortfolio next exam pill', () => {
+  const NEXT_EXAM = {
+    label: 'NET',
+    nameEn: 'UGC NET Political Science',
+    nameHi: 'यूजीसी नेट राजनीति विज्ञान',
+    date: '2026-12-18',
+  };
+
+  it('shows the pill the PRD sketch asks for', () => {
+    render(
+      <TeacherPortfolio
+        teacher={ALIAS_TEACHER}
+        following={false}
+        client={fakeClient()}
+        nextExam={NEXT_EXAM}
+      />,
+    );
+
+    expect(screen.getByText('Next exam: NET 18 Dec')).toBeInTheDocument();
+  });
+
+  it('leaves the header clean when there is no future date', () => {
+    render(<TeacherPortfolio teacher={ALIAS_TEACHER} following={false} client={fakeClient()} />);
+
+    expect(screen.queryByText(/Next exam/)).toBeNull();
+  });
+
+  it('writes the pill in Hindi in hi mode', () => {
+    render(
+      <TeacherPortfolio
+        teacher={ALIAS_TEACHER}
+        following={false}
+        client={fakeClient()}
+        nextExam={NEXT_EXAM}
+        mode="hi"
+      />,
+    );
+
+    expect(screen.getByText('अगली परीक्षा: NET 18 दिस')).toBeInTheDocument();
+  });
+});

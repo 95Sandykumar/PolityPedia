@@ -25,6 +25,7 @@ import { useMemo, useState } from 'react';
 import { TeacherAvatar } from '@/components/teacher-avatar';
 import { createBrowserFollowsClient } from '@/lib/follows/browser-follows-client';
 import { tilePath, type BrowserFollowsClient, type TileSlug } from '@/lib/follows/types';
+import { nextExamLines, type NextExam } from '@/lib/teacher-exams/types';
 import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 import type { PublicTeacher } from '@/lib/teachers/types';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ export function TeacherPortfolio({
   teacher,
   following: initial,
   client,
+  nextExam = null,
   mode = DEFAULT_MODE,
   configured = true,
 }: {
@@ -54,6 +56,12 @@ export function TeacherPortfolio({
   /** Read on the server from `follows`, so the button is right on first paint. */
   following: boolean;
   client?: BrowserFollowsClient;
+  /**
+   * The nearest future exam date, already picked on the server
+   * (issue 07-next-exam-date-teacher-shell). Null hides the pill, which is
+   * what a past date or no date at all comes out as.
+   */
+  nextExam?: NextExam | null;
   mode?: LangMode;
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
@@ -92,7 +100,19 @@ export function TeacherPortfolio({
     <section className="flex flex-col gap-3">
       <header className="flex items-center gap-3">
         <TeacherAvatar displayName={teacher.displayName} avatarPath={teacher.avatarPath} />
-        <h1 className="text-[22px] leading-7 font-bold">{teacher.displayName}</h1>
+        <div className="flex flex-col items-start gap-1">
+          <h1 className="text-[22px] leading-7 font-bold">{teacher.displayName}</h1>
+          {/* 999 px radius: a pill, not a card (DESIGN.md section 0). */}
+          {nextExam ? (
+            <p className="rounded-full border border-border bg-card px-3 py-0.5 text-sm font-medium">
+              {nextExamLines(nextExam, mode).map((line, index) => (
+                <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
+                  {line}
+                </span>
+              ))}
+            </p>
+          ) : null}
+        </div>
       </header>
 
       {/* 2 x 2, 96 px tall, icon over one word (DESIGN.md section 8). */}

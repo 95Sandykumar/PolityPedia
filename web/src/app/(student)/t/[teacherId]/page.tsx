@@ -11,6 +11,9 @@
  *
  * The follow state is read on the server too, so the button is right on first
  * paint and there is no flash of "Follow" for somebody already followed.
+ *
+ * Issue 07 adds the next exam date pill. The nearest FUTURE date is picked on
+ * the server as well, so a past date never reaches the browser.
  */
 import { TeacherPortfolio } from '@/components/teacher-portfolio';
 import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
@@ -23,9 +26,9 @@ export default async function TeacherPortfolioPage({
 }) {
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
-  const { teacher, following } = configured
+  const { teacher, following, nextExam } = configured
     ? await readPortfolio(session, teacherId)
-    : { teacher: null, following: false };
+    : { teacher: null, following: false, nextExam: null };
 
   // No teacher: not approved, not real, or Supabase is not set up. One line,
   // no stack trace, and the nav is still there to go somewhere else
@@ -49,6 +52,7 @@ export default async function TeacherPortfolioPage({
     <TeacherPortfolio
       teacher={teacher}
       following={following}
+      nextExam={nextExam}
       mode={mode}
       configured={configured}
     />
