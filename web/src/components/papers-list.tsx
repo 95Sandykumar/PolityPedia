@@ -14,7 +14,8 @@
  * minted on the server, for a paper the policy already allowed, and it dies a
  * minute later.
  */
-import { Download } from 'lucide-react';
+import { Download, ListChecks } from 'lucide-react';
+import Link from 'next/link';
 import type { Exam } from '@/lib/exams/types';
 import {
   groupPapers,
@@ -23,6 +24,7 @@ import {
   type Paper,
   type PaperKind,
 } from '@/lib/papers/types';
+import { paperReviewPath } from '@/lib/questions/types';
 import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 
 const CARD = 'rounded-[10px] border border-border bg-card p-3';
@@ -39,6 +41,7 @@ export function PapersList({
   exams,
   mode = DEFAULT_MODE,
   showStatus = false,
+  showReview = false,
 }: {
   papers: readonly Paper[];
   /** The catalogue, for the exam headings and their order. */
@@ -46,6 +49,11 @@ export function PapersList({
   mode?: LangMode;
   /** True on the teacher's own screen: shows the Draft / Live badge. */
   showStatus?: boolean;
+  /**
+   * True on the teacher's own screen: adds the Review link, which opens the
+   * check-and-publish screen (issue 11-ingest-job-review-publish).
+   */
+  showReview?: boolean;
 }) {
   const groups = groupPapers(papers, exams);
 
@@ -131,6 +139,29 @@ export function PapersList({
                                 labelKey="papers.solutions"
                                 mode={mode}
                               />
+                            ) : null}
+                            {/* Teacher side only: the review and publish
+                                screen (issue 11-ingest-job-review-publish). A
+                                student has no draft row to review. */}
+                            {showReview ? (
+                              <Link
+                                href={paperReviewPath(paper.id)}
+                                prefetch={false}
+                                aria-label={`${paper.label}: ${plain('papers.review', mode)}`}
+                                className={DOWNLOAD}
+                              >
+                                <ListChecks aria-hidden="true" className="size-5" />
+                                <span className="flex flex-col items-start">
+                                  {labels('papers.review', mode).map((line, index) => (
+                                    <span
+                                      key={line}
+                                      className={index === 0 ? 'block' : 'block text-xs'}
+                                    >
+                                      {line}
+                                    </span>
+                                  ))}
+                                </span>
+                              </Link>
                             ) : null}
                           </span>
                         </li>
