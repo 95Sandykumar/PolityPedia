@@ -237,6 +237,19 @@ export function createSupabaseMocksClient(
       return out;
     },
 
+    // Issue 17-practice-mode: the mock player is reached by TEST id, so it
+    // needs the row on its own to find the set and then the exam's marking.
+    async readTest(testId: string) {
+      if (!UUID_RE.test(testId)) return null;
+      const raw = await rows<TestRow>(
+        TESTS,
+        `select=${TEST_COLUMNS}&id=eq.${encodeURIComponent(testId)}&limit=1`,
+      );
+      // Null, never a half-filled row: a test shown with a made-up duration
+      // is a test a student cannot trust.
+      return raw.length === 0 ? null : readTestRow(raw[0]);
+    },
+
     async saveSet(edit: MockSetEdit) {
       const { url } = required();
       if (!UUID_RE.test(options.userId)) throw new Error('user id must be a uuid');

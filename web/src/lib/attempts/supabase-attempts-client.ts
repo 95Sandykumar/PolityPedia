@@ -211,6 +211,58 @@ export function createSupabaseAttemptsClient(
       return started;
     },
 
+    // Issue 17-practice-mode. Same shape as the paper read above, with one
+    // extra rule: the TOPIC is part of what is resumed. A sitting of the full
+    // paper holds different questions from a sitting of one topic, so
+    // changing the Topic dropdown has to start a new sitting, never resume a
+    // half-answered one whose answers belong to other questions.
+    async openOrStartForTest({ testId, mode, topicId = null }) {
+      const { url } = required();
+      if (!UUID_RE.test(options.userId)) throw new Error('user id must be a uuid');
+      if (!UUID_RE.test(testId)) throw new Error('test id must be a uuid');
+      if (topicId !== null && !UUID_RE.test(topicId)) {
+        throw new Error('topic id must be a uuid');
+      }
+
+      const open = await rows<AttemptRow>(
+        ATTEMPTS,
+        `select=${ATTEMPT_COLUMNS}` +
+          `&test_id=eq.${encodeURIComponent(testId)}` +
+          `&mode=eq.${encodeURIComponent(mode)}` +
+          (topicId === null
+            ? '&topic_id=is.null'
+            : `&topic_id=eq.${encodeURIComponent(topicId)}`) +
+          '&submitted_at=is.null&order=started_at.desc&limit=1',
+      );
+      const resumed = readAttemptRow(open[0]);
+      if (resumed) return resumed;
+
+      const res = await doFetch(`${url}${ATTEMPTS}?select=${ATTEMPT_COLUMNS}`, {
+        method: 'POST',
+        headers: headers({ accept: 'application/json', prefer: 'return=representation' }),
+        body: JSON.stringify({
+          // The owner comes from the session, never from an argument of the
+          // page. `attempts_insert_own` checks it again inside Postgres, and
+          // `attempts_mock_needs_access` (0017) checks the paywall there too.
+          user_id: options.userId,
+          // The parent that is NOT set is sent as an explicit null, so the
+          // XOR in `attempts_one_parent_check` holds whatever the defaults do.
+          paper_id: null,
+          test_id: testId,
+          mode,
+          topic_id: topicId,
+        }),
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error('Supabase attempt start failed with status ' + res.status);
+
+      const body = (await res.json()) as unknown;
+      const first = Array.isArray(body) ? (body[0] as AttemptRow) : (body as AttemptRow);
+      const started = readAttemptRow(first);
+      if (!started) throw new Error('Supabase attempt start returned no row');
+      return started;
+    },
+
     async listAnswers(attemptId: string) {
       const out = new Map<string, AttemptAnswer>();
       if (!UUID_RE.test(attemptId)) return out;

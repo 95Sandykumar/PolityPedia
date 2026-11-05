@@ -322,8 +322,13 @@ export interface QuestionsClient {
    * OPTIONAL, so a caller that only deals with past papers (and every fake
    * written for issue 11) is still a whole `QuestionsClient`. Call it as
    * `client.listForTest?.(id) ?? []`.
+   *
+   * `topicId` is F-E4's topic filter (issue 17-practice-mode): one topic
+   * instead of the full paper. The filter is applied by POSTGRES, not after
+   * the read, so "one topic" is one small request and not the whole paper
+   * thrown away in the browser. Null or missing means the full paper.
    */
-  listForTest?(testId: string): Promise<Question[]>;
+  listForTest?(testId: string, topicId?: string | null): Promise<Question[]>;
   /**
    * Store one question. The owner is the session user, never a field of the
    * input, and the row is always a DRAFT. Throws an error named

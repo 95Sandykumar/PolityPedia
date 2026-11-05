@@ -296,6 +296,17 @@ export interface MockSetsClient {
   /** One set's tests, in position order. */
   listTests(setId: string): Promise<MockTest[]>;
   /**
+   * One test by its own id, or null (issue 17-practice-mode).
+   *
+   * The mock player is reached by test id, so it has to get from the test to
+   * its SET, and from the set to the EXAM whose marking scores the sitting
+   * (F-E6). RLS decides whether the caller may see it at all.
+   *
+   * OPTIONAL, so every fake written for issue 15 is still a whole
+   * `MockSetsClient`. Call it as `client.readTest?.(id) ?? null`.
+   */
+  readTest?(testId: string): Promise<MockTest | null>;
+  /**
    * Store a set as a DRAFT, or update the price and title of an existing one.
    * The owner is the session user, never a field of the input. Throws an error
    * named `MockSetConflict` when that title is taken under that exam.
