@@ -19,6 +19,8 @@ import type { AuthSession } from '@/lib/auth/types';
 import { createSupabaseExamsClient } from '@/lib/exams/supabase-exams-client';
 import { createSupabaseTeachersClient } from '@/lib/teachers/supabase-teachers-client';
 import type { PublicTeacher } from '@/lib/teachers/types';
+import { readNextExam } from '@/lib/teacher-exams/teacher-page';
+import type { NextExam } from '@/lib/teacher-exams/types';
 import { DEFAULT_MODE, type LangMode } from '@/lib/i18n';
 
 export interface StudentContext {
@@ -94,9 +96,14 @@ export interface PortfolioData {
   /** Null when there is no approved teacher with that id. */
   teacher: PublicTeacher | null;
   following: boolean;
+  /**
+   * The nearest future exam date for the header pill, or null
+   * (issue 07-next-exam-date-teacher-shell).
+   */
+  nextExam: NextExam | null;
 }
 
-/** One teacher plus whether this student already follows them. */
+/** One teacher, whether this student follows them, and their next exam date. */
 export async function readPortfolio(
   session: AuthSession | null,
   teacherId: string,
@@ -104,11 +111,13 @@ export async function readPortfolio(
   const teacher = await teachersClient(session)
     .readPublic(teacherId)
     .catch(() => null);
-  if (!teacher) return { teacher: null, following: false };
+  if (!teacher) return { teacher: null, following: false, nextExam: null };
 
   const ids = await followsClient(session)
     .listFollowing()
     .catch(() => [] as string[]);
 
-  return { teacher, following: ids.includes(teacher.userId) };
+  const nextExam = await readNextExam(session, teacher.userId).catch(() => null);
+
+  return { teacher, following: ids.includes(teacher.userId), nextExam };
 }
