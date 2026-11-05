@@ -55,3 +55,9 @@
   - H3 AI live check: not run. Using an Anthropic key from another project's .env was blocked by the permission check. No real paper PDF is in the repo. Needs: one real paper PDF + permission to use a key (or a new PolityPedia key).
   - H4 voice pick: Sarvam Bulbul V4 Flash (Hindi + Indian English, Rs 20 per 10k chars standard, Rs 10 promo to 12 Nov; source sarvam.ai/apis/text-to-speech). ElevenLabs Flash about $0.04 per 1k chars (third-party source cartesia.ai). Sarvam about half the price and Indian-language native. Samples not made yet (no Sarvam key). Unverified on sound.
   - H5 money gates: kept closed. Test keys only.
+- H3 prep (2026-11-05). Boss: key comes later, use a public paper.
+  - Paper: official UGC NET July 2018 Political Science Paper II from ugcnetonline.in (HTTP 200, application/pdf, 265,127 bytes, 48 pages). The official answer key is no longer online; the split check does not need it.
+  - truth.json: 100 of 100 English questions with 4 options each (parser handles the printed typo "55 The" with no period).
+  - FINDING (risk for ticket 12): the Hindi text layer uses an old non-Unicode font and extracts as garbage (example "∑§ÊÒÁ≈UÀÿ"). A text-only split loses all Hindi. The split must read page images, or Hindi must come from somewhere else. split_check.py counts how many Hindi stems come back in real Devanagari.
+  - Scripts tested offline: self-match 100/100, neighbour mismatch 0/99, Devanagari test True/False, no-key path exits 1 with a clear message. Not yet run against the API.
+  - When the key arrives: put `ANTHROPIC_API_KEY=...` in `PolityPedia/.env.local`, then run `python research/live-checks/split_check.py research/papers/2018-07-ugcnet-polsci-p2` and `python research/live-checks/explain_check.py research/papers/2018-07-ugcnet-polsci-p2`.

@@ -21,3 +21,5 @@ Student web app for Political Science aspirants (UGC NET, CUET PG, TGT/PGT). Ind
 | versions/v0-2026-11-04/ | v0 copies of research, design.md, decision log, both pages. Do not edit |
 | .planning/intake/2026-11-04-polity-v1/ | /dev-work intake: decisions.md, PRD.md, design.md, issues/ (board in issues/README.md) |
 | .planning/issues/ | 34 Ralph tickets (29 afk, 5 human). Ralph reads these from main |
+| research/papers/2018-07-ugcnet-polsci-p2/ | Public test paper for H3: official UGC NET July 2018 Political Science Paper II (paper.pdf, 48 pages, 100 Qs, from ugcnetonline.in) + truth.json (100 English questions with 4 options, machine-built) |
+| research/live-checks/ | H3 live AI check scripts: build_truth.py, split_check.py (AS2), explain_check.py (AS3 + X7). Read the key from PolityPedia/.env.local. Results go to results/ |

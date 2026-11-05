@@ -8,3 +8,5 @@ versions/**/PRIVATE-*
 node_modules/
 .next/
 .vercel/
+__pycache__/
+research/live-checks/results/*.tmp
