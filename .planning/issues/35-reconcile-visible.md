@@ -1,6 +1,6 @@
 ---
 id: 35-reconcile-visible
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -34,3 +34,5 @@ Unit tests with fakes: missing keys give a non-zero exit code; a failed Razorpay
 
 ## Notes / scope guard
 Do not change the webhook ordering (ticket 34), coupon limits or the payout race.
+
+<!-- ralph 2026-11-05T23:34:09.695Z: integration tests failed after merge -- reverted -->
