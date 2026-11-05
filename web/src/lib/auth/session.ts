@@ -8,9 +8,10 @@
  *
  * Security: never log a value from this module. It holds tokens.
  */
-import { isRole, type AuthSession, type Role } from './types';
+import { isTeacherStatus } from '@/lib/teachers/types';
+import { isRole, type AuthSession, type Role, type TeacherStatus } from './types';
 
-export type { AuthSession, Role };
+export type { AuthSession, Role, TeacherStatus };
 
 export const SESSION_COOKIE = 'pp_session';
 
@@ -48,12 +49,21 @@ export function decodeSession(value: string | undefined | null): AuthSession | n
   try {
     const parsed: unknown = JSON.parse(fromBase64Url(value));
     if (typeof parsed !== 'object' || parsed === null) return null;
-    const { accessToken, refreshToken, userId, role } = parsed as Record<string, unknown>;
+    const { accessToken, refreshToken, userId, role, teacherStatus } = parsed as Record<
+      string,
+      unknown
+    >;
     if (typeof accessToken !== 'string' || !accessToken) return null;
     if (typeof refreshToken !== 'string') return null;
     if (typeof userId !== 'string' || !userId) return null;
     if (!isRole(role)) return null;
-    return { accessToken, refreshToken, userId, role };
+    // Optional (issue 05): a cookie written before teachers existed has no
+    // status, and a value we do not know is dropped, so the guard reads it as
+    // pending either way.
+    if (teacherStatus === undefined || !isTeacherStatus(teacherStatus)) {
+      return { accessToken, refreshToken, userId, role };
+    }
+    return { accessToken, refreshToken, userId, role, teacherStatus };
   } catch {
     return null;
   }

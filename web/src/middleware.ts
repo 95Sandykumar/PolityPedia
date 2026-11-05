@@ -15,7 +15,12 @@ import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
 
 export function middleware(request: NextRequest): NextResponse {
   const session = decodeSession(request.cookies.get(SESSION_COOKIE)?.value);
-  const verdict = guard({ pathname: request.nextUrl.pathname, role: session?.role ?? null });
+  const verdict = guard({
+    pathname: request.nextUrl.pathname,
+    role: session?.role ?? null,
+    // Issue 05: a teacher must be approved, not only a teacher.
+    teacherStatus: session?.teacherStatus ?? null,
+  });
 
   if (verdict.allow) return NextResponse.next();
 

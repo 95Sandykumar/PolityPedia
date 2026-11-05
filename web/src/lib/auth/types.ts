@@ -9,8 +9,11 @@
  * - `BrowserAuthClient` runs in the page and talks to our own route handlers,
  *   which hold the key and set the httpOnly session cookie.
  */
+import type { TeacherStatus } from '@/lib/teachers/types';
 
 export type Role = 'student' | 'teacher' | 'admin';
+
+export type { TeacherStatus };
 
 export const ROLES: readonly Role[] = ['student', 'teacher', 'admin'];
 
@@ -24,6 +27,13 @@ export interface AuthSession {
   refreshToken: string;
   userId: string;
   role: Role;
+  /**
+   * `teachers.status` for a teacher, absent for everybody else
+   * (issue 05-teacher-invite-approval). A routing hint, like `role`: the
+   * middleware keeps a pending teacher on the pending page. Missing is read
+   * as pending, so an old cookie fails closed.
+   */
+  teacherStatus?: TeacherStatus;
 }
 
 /** Server side. Holds the Supabase key, so it never ships to the browser. */
