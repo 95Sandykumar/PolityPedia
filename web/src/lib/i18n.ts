@@ -8,6 +8,14 @@ export type LangMode = Lang | 'both';
 
 export const DEFAULT_MODE: LangMode = 'en';
 
+/** The three language choices, in the order the UI shows them (DESIGN.md D6). */
+export const LANG_MODES: readonly LangMode[] = ['en', 'hi', 'both'];
+
+/** True for a value that is safe to store in `profiles.lang`. */
+export function isLangMode(value: unknown): value is LangMode {
+  return typeof value === 'string' && (LANG_MODES as readonly string[]).includes(value);
+}
+
 export const dictionary = {
   en: {
     'nav.home': 'Home',
@@ -32,6 +40,18 @@ export const dictionary = {
     'auth.changeEmail': 'Change email',
     'auth.failed': 'Could not sign in. Try again.',
     'auth.notConfigured': 'Sign in is not set up yet',
+    'onboarding.title': 'Get started',
+    'onboarding.exams': 'Your exams',
+    'onboarding.language': 'Language',
+    'onboarding.continue': 'Continue',
+    'onboarding.saving': 'Saving...',
+    'onboarding.failed': 'Could not save. Try again.',
+    'onboarding.notConfigured': 'Set up is not ready yet',
+    'me.language': 'Language',
+    'me.saved': 'Saved',
+    'lang.en': 'English',
+    'lang.hi': 'Hindi',
+    'lang.both': 'Both',
   },
   hi: {
     'nav.home': 'होम',
@@ -56,6 +76,18 @@ export const dictionary = {
     'auth.changeEmail': 'ईमेल बदलें',
     'auth.failed': 'साइन इन नहीं हो सका। फिर कोशिश करें।',
     'auth.notConfigured': 'साइन इन अभी सेट नहीं है',
+    'onboarding.title': 'शुरू करें',
+    'onboarding.exams': 'आपकी परीक्षाएँ',
+    'onboarding.language': 'भाषा',
+    'onboarding.continue': 'जारी रखें',
+    'onboarding.saving': 'सेव हो रहा है...',
+    'onboarding.failed': 'सेव नहीं हुआ। फिर कोशिश करें।',
+    'onboarding.notConfigured': 'सेटअप अभी तैयार नहीं है',
+    'me.language': 'भाषा',
+    'me.saved': 'सेव हो गया',
+    'lang.en': 'अंग्रेज़ी',
+    'lang.hi': 'हिंदी',
+    'lang.both': 'दोनों',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
