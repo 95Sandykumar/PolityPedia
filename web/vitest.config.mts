@@ -6,6 +6,10 @@ const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) };
 
 export default defineConfig({
   test: {
+    // 150+ test files, 27 of them boot a PGlite WASM engine. On a 32-core machine
+    // vitest starts ~31 workers and some die ("Worker exited unexpectedly"), which
+    // Ralph reads as TRUNK RED. A cap keeps the suite steady.
+    maxWorkers: 8,
     projects: [
       // UI and library tests. jsdom + testing-library.
       {
