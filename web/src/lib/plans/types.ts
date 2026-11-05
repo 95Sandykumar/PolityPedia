@@ -71,3 +71,74 @@ export interface AdminPlansClient {
   grant(input: GrantInput): Promise<void>;
   end(input: EndInput): Promise<void>;
 }
+
+// --------------------------------------------------------------------------
+// Paid subscriptions (issue 28-plan-subscriptions)
+// --------------------------------------------------------------------------
+
+/**
+ * V18's two prices, for the Me > Plans page to DRAW.
+ *
+ * Drawn and never charged. The bill comes from `plan_price_inr()` in Postgres
+ * (F-G2), which is why `start_plan_subscription()` takes a plan name and no
+ * amount. A student who edits this object changes a label, not a bill, and
+ * `test/subscriptions.test.ts` holds the same two numbers against the
+ * database.
+ */
+export const PLAN_PRICE_INR: Record<Plan, number> = { ai: 100, pro: 500 };
+
+/** `subscriptions.status` in 0028. */
+export type SubscriptionStatus = 'created' | 'active' | 'cancelled' | 'halted';
+
+/** What `start_plan_subscription()` hands back. */
+export interface StartedSubscription {
+  /** OUR row id, a uuid. Not Razorpay's. */
+  subscriptionId: string;
+  /** Rupees quoted by Postgres. Never read from a request. */
+  amountInr: number;
+  status: SubscriptionStatus;
+}
+
+/**
+ * Server side. Carries the student's own access token, so `auth.uid()` inside
+ * `start_plan_subscription()` is them and nobody else.
+ */
+export interface SubscriptionsClient {
+  /** False when the Supabase env vars are missing. */
+  isConfigured(): boolean;
+  /** `start_plan_subscription()`. Throws `PurchaseError` on a refusal. */
+  start(plan: Plan): Promise<StartedSubscription>;
+  /** `attach_subscription_id()`. Single-shot inside Postgres (A1). */
+  attachSubscriptionId(subscriptionId: string, razorpaySubscriptionId: string): Promise<void>;
+  /**
+   * The student's own subscription rows, so Me > Plans can say "Stopped".
+   * Read through `subscriptions_select_own`, so it can only ever be theirs.
+   * Empty list on any failure: a page that cannot read a status should draw
+   * the plain card, not an error.
+   */
+  list(): Promise<SubscriptionRow[]>;
+}
+
+/** What the page needs to open Razorpay's subscription checkout. No secret. */
+export interface SubscribeStart {
+  /** Our own row id. */
+  subscriptionId: string;
+  /** Razorpay's own id, which its checkout modal needs. */
+  razorpaySubscriptionId: string;
+  /** Rupees, for the receipt line on screen. Postgres quoted it. */
+  amountInr: number;
+  plan: Plan;
+  /** The PUBLIC key id. */
+  keyId: string;
+}
+
+/** Browser side. Calls our own route; never sees a key. */
+export interface BrowserSubscribeClient {
+  start(plan: Plan): Promise<SubscribeStart>;
+}
+
+/** One stored subscription, for Me > Plans to show "Pro, active". */
+export interface SubscriptionRow {
+  plan: Plan;
+  status: SubscriptionStatus;
+}

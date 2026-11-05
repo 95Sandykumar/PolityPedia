@@ -1,12 +1,13 @@
 /**
  * The webhook's `WebhookStore` over the Supabase REST API
- * (issue 27-razorpay-webhook-ledger).
+ * (issue 27-razorpay-webhook-ledger, extended by 28-plan-subscriptions).
  *
  * Plain `fetch` with the SERVICE-ROLE key. That is right here and almost
  * nowhere else: a webhook is not a signed-in user, it carries no access token,
- * and the four functions in `0027_ledger.sql` are deliberately granted to
- * `service_role` alone, because granting them to `authenticated` would let any
- * student call `grant_purchase()` and open a mock set for nothing.
+ * and the functions in `0027_ledger.sql` and `0028_subscriptions.sql` are
+ * deliberately granted to `service_role` alone, because granting them to
+ * `authenticated` would let any student call `grant_purchase()` and open a
+ * mock set for nothing, or `charge_subscription()` and hand themselves Pro.
  *
  * WHY THIS FILE AND NOT `src/lib/split/env.ts`. That file reads the same two
  * variables, but its own header says "LAPTOP ONLY ... nothing under
@@ -25,7 +26,7 @@
  *    fixed message plus the HTTP status, NEVER a response body: a PostgREST
  *    body quotes constraint names, and a 401 body can echo a token.
  */
-import type { RecordEventInput, WebhookStore } from './webhook';
+import type { RecordEventInput, SubscriptionStatus, WebhookStore } from './webhook';
 
 const RPC = '/rest/v1/rpc/';
 
@@ -166,6 +167,31 @@ export function createSupabaseWebhookStore(
 
     async refundPurchase({ orderId: order }) {
       await rpc('refund_purchase', { order_id: shortId(order, 'order id', 80) });
+    },
+
+    // Issue 28. The answer is thrown away for the same reason as above:
+    // `false` means "not ours" or "already cancelled", and both are normal.
+    // There is no fee argument on purpose. V19 gives plan money no teacher
+    // share, so there is nothing for a gateway fee to come out of.
+    async chargeSubscription({ subscriptionId }) {
+      await rpc('charge_subscription', {
+        subscription_id: shortId(subscriptionId, 'subscription id', 80),
+      });
+    },
+
+    async markSubscription({
+      subscriptionId,
+      status,
+    }: {
+      subscriptionId: string;
+      status: SubscriptionStatus;
+    }) {
+      await rpc('mark_subscription', {
+        subscription_id: shortId(subscriptionId, 'subscription id', 80),
+        // Already one of three literals in `WebhookEvent`, and 0028 raises
+        // PP422 for anything else, so there is no third place to keep in sync.
+        new_status: status,
+      });
     },
   };
 }

@@ -14,7 +14,15 @@
  *   3. unreadable body      -> 400.
  *   4. event already seen   -> 200, and nothing happens (A1).
  *   5. captured / refunded  -> one SQL call, which is one transaction.
- *   6. anything else        -> stored, 200, no money moved.
+ *   6. a subscription event -> one SQL call, same rules (issue 28).
+ *   7. anything else        -> stored, 200, no money moved.
+ *
+ * PLANS SHARE THIS DOOR (issue 28-plan-subscriptions). The four
+ * `subscription.*` events arrive on the same URL with the same signature and
+ * the same de-dupe, and the issue asks for exactly that. What they do NOT
+ * share is the ledger: V19 puts the teacher share on mock sets only, so plan
+ * money never reaches `grant_purchase()`, and nothing in this file can make
+ * it: a subscription event's action is never `grant`.
  *
  * WHY THE SIGNATURE CANNOT BE CHECKED IN POSTGRES. HMAC-SHA256 runs over the
  * RAW BYTES of the body. Parsing the JSON and sending it on changes those
@@ -65,8 +73,36 @@ const GRANT_EVENTS = new Set(['payment.captured', 'order.paid']);
  */
 const REFUND_EVENTS = new Set(['refund.created', 'refund.processed']);
 
+/**
+ * "One month of a plan was paid for" (issue 28). Razorpay sends this every
+ * cycle, so it is the only subscription event that moves money.
+ */
+const SUBSCRIPTION_CHARGE_EVENTS = new Set(['subscription.charged']);
+
+/**
+ * The three subscription events that move the ROW and not the money.
+ *
+ * `activated` deliberately grants nothing: Razorpay sends it before the first
+ * collection, and a free month for a subscription whose card then fails is a
+ * month we cannot get back. `cancelled` and `halted` leave `valid_until`
+ * alone, so a student keeps the month they paid for (0028's header).
+ */
+const SUBSCRIPTION_STATUS_EVENTS: Record<string, SubscriptionStatus> = {
+  'subscription.activated': 'active',
+  'subscription.cancelled': 'cancelled',
+  'subscription.halted': 'halted',
+};
+
+/** The three `subscriptions.status` values a webhook may ask for (0028). */
+export type SubscriptionStatus = 'active' | 'cancelled' | 'halted';
+
 /** What we do about an event. `none` is stored and otherwise ignored. */
-export type WebhookAction = 'grant' | 'refund' | 'none';
+export type WebhookAction =
+  | 'grant'
+  | 'refund'
+  | 'charge_subscription'
+  | 'mark_subscription'
+  | 'none';
 
 export interface WebhookEvent {
   /** The de-dupe key. Razorpay's own id, or one built from the body. */
@@ -74,8 +110,18 @@ export interface WebhookEvent {
   /** Razorpay's own word, e.g. `payment.captured`. */
   type: string;
   action: WebhookAction;
-  /** Our link back to a `purchases` row. Null when there is no order. */
+  /**
+   * Our link back to a `purchases` row. Null when there is no order.
+   *
+   * ALWAYS null on a subscription event, even though Razorpay puts an
+   * `order_id` on a subscription charge: that order is Razorpay's own, not one
+   * of ours, and `grant_purchase()` must never be aimed at it.
+   */
   orderId: string | null;
+  /** Our link back to a `subscriptions` row (issue 28). Razorpay's own id. */
+  subscriptionId: string | null;
+  /** Where `mark_subscription()` should move the row. Null for everything else. */
+  subscriptionStatus: SubscriptionStatus | null;
   /** What Razorpay kept, in rupees to the paisa. 0 when it did not say. */
   feeInr: number;
   /** The parsed body, stored whole for support and the reconcile (A6). */
@@ -176,6 +222,13 @@ function feeRupees(value: unknown): number {
  * twice produces the same id, so the de-dupe still works. A body with neither
  * is refused, because an event we cannot name cannot be de-duped, and an
  * event that cannot be de-duped could pay a teacher twice.
+ *
+ * THE FALLBACK PREFERS THE PAYMENT ID, and on a subscription that is not a
+ * detail. `subscription.charged` carries a NEW payment id every cycle and the
+ * SAME subscription id forever, so keying month two on the subscription id
+ * would make it a "duplicate" of month one and throw a month the student paid
+ * for straight in the bin. The subscription id is the fallback's fallback,
+ * used by `activated`, `cancelled` and `halted`, which happen once each.
  */
 export function readWebhookEvent(
   rawBody: string,
@@ -193,27 +246,44 @@ export function readWebhookEvent(
 
   const payment = entity(body, 'payment');
   const refund = entity(body, 'refund');
+  const subscriptionId = readText(child(entity(body, 'subscription'), 'id'));
 
   const paymentId = readText(child(payment, 'id')) ?? readText(child(refund, 'payment_id'));
+  const fallbackId = paymentId ?? subscriptionId;
 
   const eventId =
     readText(headerEventId, MAX_EVENT_ID) ??
-    (paymentId ? (type + ':' + paymentId).slice(0, MAX_EVENT_ID) : null);
+    (fallbackId ? (type + ':' + fallbackId).slice(0, MAX_EVENT_ID) : null);
   if (!eventId) return null;
 
-  const action: WebhookAction = GRANT_EVENTS.has(type)
-    ? 'grant'
-    : REFUND_EVENTS.has(type)
-      ? 'refund'
-      : 'none';
+  const subscriptionStatus = SUBSCRIPTION_STATUS_EVENTS[type] ?? null;
+
+  // The order matters. A subscription event is read as a subscription event
+  // FIRST, so a `subscription.charged` body can never fall through to the
+  // mock-set grant and ask `grant_purchase()` about Razorpay's own order id.
+  const subscription =
+    SUBSCRIPTION_CHARGE_EVENTS.has(type) && subscriptionId
+      ? 'charge_subscription'
+      : subscriptionStatus && subscriptionId
+        ? 'mark_subscription'
+        : null;
+
+  const action: WebhookAction =
+    subscription ??
+    (GRANT_EVENTS.has(type) ? 'grant' : REFUND_EVENTS.has(type) ? 'refund' : 'none');
 
   return {
     eventId,
     type,
     action,
     // The payment entity carries our order id on both the capture and the
-    // refund. `payload.order.entity.id` is the `order.paid` shape.
-    orderId: readText(child(payment, 'order_id')) ?? readText(child(entity(body, 'order'), 'id')),
+    // refund. `payload.order.entity.id` is the `order.paid` shape. A
+    // subscription event gets null: see the note on the field.
+    orderId: subscription
+      ? null
+      : (readText(child(payment, 'order_id')) ?? readText(child(entity(body, 'order'), 'id'))),
+    subscriptionId,
+    subscriptionStatus: subscription === 'mark_subscription' ? subscriptionStatus : null,
     feeInr: feeRupees(child(payment, 'fee')),
     payload: body,
   };
@@ -230,8 +300,9 @@ export interface RecordEventInput {
 }
 
 /**
- * The three SQL functions in `0027_ledger.sql`, and nothing else. Faked in
- * every test, so no test touches a network or a key (web/CLAUDE.md).
+ * The SQL functions in `0027_ledger.sql` and `0028_subscriptions.sql`, and
+ * nothing else. Faked in every test, so no test touches a network or a key
+ * (web/CLAUDE.md).
  */
 export interface WebhookStore {
   /** False when the Supabase env vars are missing. */
@@ -247,6 +318,20 @@ export interface WebhookStore {
   grantPurchase(input: { orderId: string; feeInr: number }): Promise<void>;
   /** `refund_purchase()`. paid -> refunded, and the set shuts. */
   refundPurchase(input: { orderId: string }): Promise<void>;
+  /**
+   * `charge_subscription()` (issue 28). One more paid month on
+   * `entitlements.valid_until`, stacked on what is already paid for. Writes NO
+   * ledger row: V19 puts the teacher share on mock sets only.
+   */
+  chargeSubscription(input: { subscriptionId: string }): Promise<void>;
+  /**
+   * `mark_subscription()` (issue 28). activated / cancelled / halted. Touches
+   * no entitlement, so a cancelled plan keeps the month it paid for.
+   */
+  markSubscription(input: {
+    subscriptionId: string;
+    status: SubscriptionStatus;
+  }): Promise<void>;
 }
 
 // --------------------------------------------------------------------------
@@ -320,6 +405,20 @@ export async function handleRazorpayWebhook({
       await store.grantPurchase({ orderId: event.orderId, feeInr: event.feeInr });
     } else if (event.action === 'refund' && event.orderId) {
       await store.refundPurchase({ orderId: event.orderId });
+    } else if (event.action === 'charge_subscription' && event.subscriptionId) {
+      // Issue 28. One month, and NO ledger row: the fee is not read here on
+      // purpose, because plan money has no teacher share to take it out of
+      // (V19).
+      await store.chargeSubscription({ subscriptionId: event.subscriptionId });
+    } else if (
+      event.action === 'mark_subscription' &&
+      event.subscriptionId &&
+      event.subscriptionStatus
+    ) {
+      await store.markSubscription({
+        subscriptionId: event.subscriptionId,
+        status: event.subscriptionStatus,
+      });
     }
   } catch {
     // THE EVENT ROW HAS TO GO. It was written a moment ago and the work it
@@ -347,7 +446,7 @@ export async function handleRazorpayWebhook({
 
 export interface FakeWebhookStoreOptions {
   configured?: boolean;
-  /** Throw from `grantPurchase` and `refundPurchase`, for the 500 path. */
+  /** Throw from every action, for the 500 path. */
   failAction?: boolean;
   /** Throw from `recordEvent`, for the "cannot even de-dupe" path. */
   failRecord?: boolean;
@@ -363,6 +462,10 @@ export interface FakeWebhookStore {
   readonly forgotten: string[];
   readonly granted: { orderId: string; feeInr: number }[];
   readonly refunded: { orderId: string }[];
+  /** Plan months bought, in order (issue 28). */
+  readonly charged: { subscriptionId: string }[];
+  /** Subscription status moves, in order (issue 28). */
+  readonly marked: { subscriptionId: string; status: SubscriptionStatus }[];
   /** Turn the action failure on or off, so a retry can be tested. */
   failAction(value: boolean): void;
 }
@@ -375,6 +478,8 @@ export function createFakeWebhookStore(
   const forgotten: string[] = [];
   const granted: { orderId: string; feeInr: number }[] = [];
   const refunded: { orderId: string }[] = [];
+  const charged: { subscriptionId: string }[] = [];
+  const marked: { subscriptionId: string; status: SubscriptionStatus }[] = [];
   const configured = options.configured ?? true;
   let failing = options.failAction ?? false;
 
@@ -402,6 +507,14 @@ export function createFakeWebhookStore(
       if (failing) throw new Error('refund failed');
       refunded.push(input);
     },
+    async chargeSubscription(input) {
+      if (failing) throw new Error('charge failed');
+      charged.push(input);
+    },
+    async markSubscription(input) {
+      if (failing) throw new Error('mark failed');
+      marked.push(input);
+    },
   };
 
   return {
@@ -415,6 +528,8 @@ export function createFakeWebhookStore(
     forgotten,
     granted,
     refunded,
+    charged,
+    marked,
     failAction(value: boolean) {
       failing = value;
     },
