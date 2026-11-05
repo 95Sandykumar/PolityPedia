@@ -8,6 +8,8 @@ import { DEFAULT_MODE, labels, plain } from '@/lib/i18n';
 const TOOLS = [
   { href: '/admin/teachers', key: 'adminTeachers.title' },
   { href: '/admin/plans', key: 'plans.title' },
+  // Open one mock set for one student (issue 16-set-access-mock-list).
+  { href: '/admin/set-access', key: 'setAccess.title' },
 ] as const;
 
 export default function AdminPage() {
