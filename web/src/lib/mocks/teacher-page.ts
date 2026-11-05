@@ -114,7 +114,13 @@ export async function readMockSetData(
       // `listForTest` is optional on the interface (issue 11's fakes do not
       // have it), so the call is guarded and a missing one reads as no
       // questions rather than a crash.
-      (client.listForTest?.(one.id) ?? Promise.resolve([])).catch(() => []),
+      //
+      // WITH THE KEY: this is the teacher's own authoring screen, and
+      // `question_keys()` always hands a teacher their own keys (issue
+      // 30-exam-key-lock).
+      (client.listForTest?.(one.id, null, { keys: true }) ?? Promise.resolve([])).catch(
+        () => [],
+      ),
     ),
   );
 
