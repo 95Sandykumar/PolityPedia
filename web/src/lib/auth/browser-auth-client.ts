@@ -10,6 +10,10 @@ import type { BrowserAuthClient } from './types';
 
 export const SEND_CODE_PATH = '/api/auth/send-code';
 export const VERIFY_CODE_PATH = '/api/auth/verify-code';
+/** Renew the cookie's access token (issue 33-session-refresh). */
+export const REFRESH_PATH = '/api/auth/refresh';
+/** Revoke the session and clear the cookie (issue 33-session-refresh). */
+export const SIGN_OUT_PATH = '/api/auth/sign-out';
 
 export function createBrowserAuthClient(fetchImpl?: typeof fetch): BrowserAuthClient {
   const doFetch: typeof fetch = (...args) => (fetchImpl ?? fetch)(...args);

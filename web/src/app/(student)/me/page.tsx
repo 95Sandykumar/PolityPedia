@@ -11,11 +11,16 @@
  * three cards plus a gateway; folding it in here would make the Me tab the
  * busiest screen in the app. `prefetch={false}` for the same reason every link
  * in this app has it (B3: no viewport prefetch on 4G).
+ *
+ * Sign out (issue 33-session-refresh) is the last row, and only for somebody
+ * who is actually signed in. It is the only way to clear the 7 day session
+ * cookie off a shared phone.
  */
 import { ChevronRight } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { LanguageSetting } from '@/components/language-setting';
+import { SignOutButton } from '@/components/sign-out-button';
 import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
 import { createSupabaseExamsClient } from '@/lib/exams/supabase-exams-client';
 import { DEFAULT_MODE, labels, type LangMode } from '@/lib/i18n';
@@ -58,6 +63,8 @@ export default async function MePage() {
         </span>
         <ChevronRight aria-hidden="true" className="size-5 text-muted-foreground" />
       </Link>
+
+      {session ? <SignOutButton mode={mode} /> : null}
     </section>
   );
 }

@@ -97,19 +97,21 @@ describe('guard with a teacher status', () => {
 });
 
 describe('middleware carries the status out of the session cookie', () => {
-  it('redirects a pending teacher to the pending page', () => {
-    const res = middleware(request({ role: 'teacher', teacherStatus: 'pending' }));
+  // Issue 33-session-refresh made the middleware async (it may renew the
+  // access token first). With no env vars nothing here calls out.
+  it('redirects a pending teacher to the pending page', async () => {
+    const res = await middleware(request({ role: 'teacher', teacherStatus: 'pending' }));
     expect(res.status).toBe(307);
     expect(location(res)).toBe(TEACHER_PENDING_PATH);
   });
 
-  it('lets an approved teacher through', () => {
-    const res = middleware(request({ role: 'teacher', teacherStatus: 'approved' }));
+  it('lets an approved teacher through', async () => {
+    const res = await middleware(request({ role: 'teacher', teacherStatus: 'approved' }));
     expect(location(res)).toBeNull();
     expect(res.status).toBe(200);
   });
 
-  it('treats an old cookie with no status as pending', () => {
-    expect(location(middleware(request({ role: 'teacher' })))).toBe(TEACHER_PENDING_PATH);
+  it('treats an old cookie with no status as pending', async () => {
+    expect(location(await middleware(request({ role: 'teacher' })))).toBe(TEACHER_PENDING_PATH);
   });
 });
