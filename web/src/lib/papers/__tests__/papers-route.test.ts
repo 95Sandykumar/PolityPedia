@@ -15,6 +15,7 @@ import type { AuthSession } from '@/lib/auth/types';
 import { createMemoryFileStore } from '../memory-file-store';
 import { handleCreatePaper, handlePaperDownload } from '../papers-route';
 import { MAX_PDF_BYTES, type Paper, type PapersClient, type UploadFile } from '../types';
+import type { IngestJobsClient } from '@/lib/questions/types';
 
 const NET = 'a4000001-0000-4000-8000-000000000001';
 const TEACHER = '44444444-4444-4444-8444-444444444444';
@@ -290,6 +291,83 @@ describe('handleCreatePaper', () => {
 
     expect(reply.status).toBe(502);
     expect(client.create).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Issue 11-ingest-job-review-publish: the upload now also QUEUES the PDF for
+ * the AI split. A queued job is what the teacher's review screen watches over
+ * Realtime, so without this row the review screen would never light up.
+ */
+describe('handleCreatePaper queues a split job', () => {
+  function jobsClient(overrides: Partial<IngestJobsClient> = {}): IngestJobsClient {
+    return {
+      isConfigured: () => true,
+      createQueued: vi.fn(async ({ paperId, pdfPath }) => ({
+        id: '12121212-1212-4121-8121-121212121212',
+        teacherId: TEACHER,
+        paperId,
+        pdfPath,
+        status: 'queued' as const,
+        attempts: 0,
+        error: null,
+        questionCount: 0,
+      })),
+      readLatestForPaper: vi.fn(async () => null),
+      ...overrides,
+    };
+  }
+
+  it('queues the QUESTIONS pdf of the paper it just stored', async () => {
+    const jobs = jobsClient();
+    const reply = await create({ jobs });
+
+    expect(reply.status).toBe(200);
+    expect(jobs.createQueued).toHaveBeenCalledWith({
+      paperId: PAPER_ID,
+      pdfPath: `${TEACHER}/fixed-id-questions.pdf`,
+    });
+    expect(reply.body).toMatchObject({ job: { status: 'queued' } });
+  });
+
+  it('queues nothing when only the SOLUTIONS pdf was uploaded', async () => {
+    const jobs = jobsClient();
+    const reply = await create({
+      jobs,
+      files: { questions: null, solutions: pdf(1024, 'answers.pdf') },
+      client: fakeClient({
+        create: vi.fn(async (draft) =>
+          storedPaper({ ...draft, status: 'draft', questionsPath: null }),
+        ),
+      }),
+    });
+
+    expect(reply.status).toBe(200);
+    // There is nothing to split: the solutions PDF is an answer key, not a
+    // question paper.
+    expect(jobs.createQueued).not.toHaveBeenCalled();
+  });
+
+  it('still reports the paper when the queue insert fails', async () => {
+    const jobs = jobsClient({
+      createQueued: vi.fn(async () => {
+        throw new Error('ingest_jobs insert blocked');
+      }),
+    });
+
+    const reply = await create({ jobs });
+
+    // The paper IS stored and its PDF downloads, so a failed queue is not a
+    // failed upload. The teacher can start the split again from the review
+    // screen; answering 502 here would make them upload 30 MB twice.
+    expect(reply.status).toBe(200);
+    expect(reply.body).toMatchObject({ ok: true });
+    expect(reply.body).not.toHaveProperty('job');
+  });
+
+  it('works with no jobs client at all, so issue 10 keeps its own shape', async () => {
+    const reply = await create({ jobs: undefined });
+    expect(reply.status).toBe(200);
   });
 });
 

@@ -245,7 +245,9 @@ export function TeacherPapersForm({
         </button>
       </form>
 
-      <PapersList papers={rows} exams={exams} mode={mode} showStatus />
+      {/* `showReview` opens the check-and-publish screen for each paper
+          (issue 11-ingest-job-review-publish). Teacher side only. */}
+      <PapersList papers={rows} exams={exams} mode={mode} showStatus showReview />
     </section>
   );
 }

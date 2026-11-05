@@ -21,6 +21,7 @@ import { handleCreatePaper } from '@/lib/papers/papers-route';
 import { createSupabaseFileStore } from '@/lib/papers/supabase-file-store';
 import { createSupabasePapersClient } from '@/lib/papers/supabase-papers-client';
 import type { UploadFile } from '@/lib/papers/types';
+import { createSupabaseIngestJobsClient } from '@/lib/questions/supabase-questions-client';
 import { readSessionCookie } from '@/lib/teachers/read-session';
 
 /** One form field as the server-side `UploadFile` the handler expects. */
@@ -77,6 +78,12 @@ export async function POST(request: Request) {
       userId: session?.userId ?? '',
     }),
     store: createSupabaseFileStore({ accessToken: session?.accessToken ?? '' }),
+    // Issue 11: the upload also QUEUES the questions PDF for the AI split, so
+    // the teacher's review screen has a job row to watch.
+    jobs: createSupabaseIngestJobsClient({
+      accessToken: session?.accessToken ?? '',
+      userId: session?.userId ?? '',
+    }),
   });
 
   return NextResponse.json(reply.body, { status: reply.status });

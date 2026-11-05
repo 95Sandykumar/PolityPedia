@@ -19,6 +19,7 @@
  * so a policy name never reaches the browser.
  */
 import type { AuthSession } from '@/lib/auth/types';
+import type { IngestJob, IngestJobsClient } from '@/lib/questions/types';
 import {
   checkPdf,
   isPaperKind,
@@ -46,13 +47,30 @@ export interface CreatePaperInput {
   session: AuthSession | null;
   client: PapersClient;
   store: FileStore;
+  /**
+   * Queues the questions PDF for the AI split
+   * (issue 11-ingest-job-review-publish). Optional, so this handler still
+   * works on its own: with no jobs client the paper is stored and nothing is
+   * queued.
+   */
+  jobs?: IngestJobsClient;
   /** Injected in tests, so a stored path is predictable. */
   newId?: () => string;
 }
 
 export interface CreatePaperReply {
   status: number;
-  body: { ok: true; paper: Paper } | { error: string };
+  body:
+    | {
+        ok: true;
+        paper: Paper;
+        /**
+         * The queued split job. Absent when there was no questions PDF to
+         * split, or when the queue insert failed.
+         */
+        job?: IngestJob;
+      }
+    | { error: string };
 }
 
 function fail(status: number, error: string): CreatePaperReply {
@@ -92,6 +110,7 @@ export async function handleCreatePaper({
   session,
   client,
   store,
+  jobs,
   newId = () => globalThis.crypto.randomUUID(),
 }: CreatePaperInput): Promise<CreatePaperReply> {
   if (!session) return fail(401, 'sign in');
@@ -143,7 +162,23 @@ export async function handleCreatePaper({
 
   try {
     const stored = await client.create(paper);
-    return { status: 200, body: { ok: true, paper: stored } };
+
+    // Issue 11: queue the QUESTIONS pdf for the AI split (V9). The solutions
+    // PDF is an answer key, not a question paper, so there is nothing in it to
+    // cut into questions.
+    //
+    // A failed queue is NOT a failed upload. The paper is stored and its PDF
+    // downloads, so answering 502 here would make the teacher send 30 MB
+    // again over a 4G connection that already dropped once. The review screen
+    // then shows no job, and the teacher can add questions by hand.
+    let job: IngestJob | undefined;
+    if (jobs && jobs.isConfigured() && stored.questionsPath) {
+      job = await jobs
+        .createQueued({ paperId: stored.id, pdfPath: stored.questionsPath })
+        .catch(() => undefined);
+    }
+
+    return { status: 200, body: job ? { ok: true, paper: stored, job } : { ok: true, paper: stored } };
   } catch (cause) {
     // The teacher already has that paper (the unique constraint in 0010).
     if ((cause as Error)?.name === 'PaperConflict') return fail(409, 'duplicate');
