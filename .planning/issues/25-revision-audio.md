@@ -1,6 +1,6 @@
 ---
 id: 25-revision-audio
-status: todo
+status: done
 type: afk
 depends_on: [23-revision-screen]
 ---
@@ -29,3 +29,5 @@ No provider integration.
 <!-- ralph 2026-11-05T18:52:21.335Z: upstream 22-revision-api blocked -->
 
 <!-- ralph 2026-11-05T19:18:13.764Z: upstream 23-revision-screen blocked -->
+
+<!-- ralph 2026-11-05T21:26:23.767Z: committed + tests pass -->
