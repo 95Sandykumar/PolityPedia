@@ -61,6 +61,10 @@ export function TeacherPortfolio({
   const fallback = useMemo(() => createBrowserFollowsClient(), []);
   const follows = client ?? fallback;
 
+  // V6: comes straight off `teachers_public`, so the teacher's own switch
+  // decides whether the Videos tile opens (issue 08-videos-tile).
+  const videosVisible = teacher.videosVisible;
+
   const [following, setFollowing] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -97,23 +101,49 @@ export function TeacherPortfolio({
 
       {/* 2 x 2, 96 px tall, icon over one word (DESIGN.md section 8). */}
       <ul className="grid grid-cols-2 gap-3">
-        {TILES.map(({ slug, key, Icon }) => (
-          <li key={slug}>
-            <Link
-              href={tilePath(teacher.userId, slug)}
-              prefetch={false}
-              aria-label={plain(key, mode)}
-              className="flex h-24 flex-col items-center justify-center gap-1 rounded-[10px] border border-border bg-card text-center text-sm font-medium transition-colors duration-100"
-            >
+        {TILES.map(({ slug, key, Icon }) => {
+          const face = (
+            <>
               <Icon size={24} strokeWidth={2} aria-hidden="true" />
               {labels(key, mode).map((line, index) => (
                 <span key={line} className={index === 0 ? undefined : 'text-xs'}>
                   {line}
                 </span>
               ))}
-            </Link>
-          </li>
-        ))}
+            </>
+          );
+
+          // V6 / PRD F-C2 and DESIGN.md section 8: the Videos tile in "No
+          // show" reads "Coming soon", is muted, and DOES NOT OPEN. A plain
+          // div, not a disabled link: there is then no href to tap, to
+          // middle-click or to reach with the keyboard.
+          if (slug === 'videos' && !videosVisible) {
+            return (
+              <li key={slug}>
+                <div
+                  aria-disabled="true"
+                  className="flex h-24 flex-col items-center justify-center gap-1 rounded-[10px] border border-border bg-muted text-center text-sm font-medium text-muted-foreground"
+                >
+                  {face}
+                  <span className="text-xs">{plain('placeholder.soon', mode)}</span>
+                </div>
+              </li>
+            );
+          }
+
+          return (
+            <li key={slug}>
+              <Link
+                href={tilePath(teacher.userId, slug)}
+                prefetch={false}
+                aria-label={plain(key, mode)}
+                className="flex h-24 flex-col items-center justify-center gap-1 rounded-[10px] border border-border bg-card text-center text-sm font-medium transition-colors duration-100"
+              >
+                {face}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
 
       {failed ? (
