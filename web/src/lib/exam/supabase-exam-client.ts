@@ -13,9 +13,12 @@
  *
  * TWO THINGS THIS FILE DOES THAT THE PRACTICE CLIENT DOES NOT:
  *
- *  1. IT SETS THE DEADLINE. `deadline_at = now + duration`, computed here and
- *     stored by Postgres, so the clock is one agreed value. The browser only
- *     ever subtracts from it.
+ *  1. IT STARTS A CLOCK. The DEADLINE ITSELF IS NOT SENT (issue
+ *     31-attempt-score-guard): `attempts_server_owns_score` in
+ *     `0031_attempt_score_guard.sql` sets it to `now + mock_tests.duration_min`
+ *     and refuses to let anybody move it, so a student cannot ask for a sitting
+ *     that ends in the year 2100. This client reads the stored value back out
+ *     of the insert and hands it to the browser, which only ever subtracts.
  *  2. IT NEVER SENDS A VERDICT. `is_correct` goes out as an explicit null,
  *     because the phone was never given `correct_idx` (F-E5). The marking
  *     happens in `score_attempt()`, which is the only write to
@@ -27,7 +30,7 @@
  */
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
 import { readAttemptRow } from '@/lib/attempts/supabase-attempts-client';
-import { deadlineFor, type ExamAnswer, type ExamClient } from './types';
+import type { ExamAnswer, ExamClient } from './types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -94,7 +97,10 @@ export function createSupabaseExamClient(
       return env() !== null;
     },
 
-    async openOrStartExam({ testId, topicId, durationMin }) {
+    // `durationMin` is still part of the input, because the load route tells
+    // the player what the test is worth; the DEADLINE is read back from the
+    // row Postgres wrote, never sent up.
+    async openOrStartExam({ testId, topicId }) {
       const { url } = required();
       if (!UUID_RE.test(options.userId)) throw new Error('user id must be a uuid');
       if (!UUID_RE.test(testId)) throw new Error('test id must be a uuid');
@@ -134,9 +140,10 @@ export function createSupabaseExamClient(
           test_id: testId,
           mode: 'exam',
           topic_id: topicId,
-          // THE CLOCK. Worked out here and stored, so the browser subtracts
-          // from a value Postgres also uses to refuse a late write.
-          deadline_at: deadlineFor(durationMin, now()),
+          // NO `deadline_at`. The clock is the server's: Postgres works it out
+          // from `mock_tests.duration_min` and sends it back in the
+          // representation below, so there is one value and the phone never
+          // gets a vote on it.
         }),
         cache: 'no-store',
       });

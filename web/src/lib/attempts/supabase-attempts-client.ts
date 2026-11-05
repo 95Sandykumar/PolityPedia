@@ -16,6 +16,13 @@
  * upsert, so the retry queue can send a held answer without asking whether it
  * already arrived.
  *
+ * WHAT THIS CLIENT NO LONGER WRITES (issue 31-attempt-score-guard). The score,
+ * the close and the deadline are the SERVER'S. `submit()` calls
+ * `score_attempt()` instead of patching `submitted_at` and a score the browser
+ * worked out, and the `is_correct` an answer carries is advisory: Postgres
+ * recomputes it from `questions.correct_idx` on the way in, so the player can
+ * go on showing right or wrong at once while a forged verdict goes nowhere.
+ *
  * Security: tokens are secrets. No console call lives in this file, and the
  * errors it throws carry a fixed message plus the HTTP status, never a
  * response body (a Postgres message quotes policy and constraint names).
@@ -35,6 +42,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const ATTEMPTS = '/rest/v1/attempts';
 const ANSWERS = '/rest/v1/attempt_answers';
+/** The SERVER marks and closes a sitting (0018, tightened by 0031). */
+const SCORE = '/rest/v1/rpc/score_attempt';
 
 /** Never `select=*`, so a column added later cannot leak by accident. */
 const ATTEMPT_COLUMNS =
@@ -307,21 +316,30 @@ export function createSupabaseAttemptsClient(
       if (!res.ok) throw new Error('Supabase answer save failed with status ' + res.status);
     },
 
-    async submit({ attemptId, score }: AttemptSubmit) {
+    // Issue 31-attempt-score-guard. This used to be a PATCH that wrote
+    // `submitted_at` and the score the BROWSER worked out. It is now the same
+    // `score_attempt()` call exam mode makes, for one reason: a student could
+    // send that PATCH themselves and set score 999. Postgres now refuses every
+    // caller-side write to those two columns, so the only way to close a
+    // sitting is the definer function, which reads `questions.correct_idx`
+    // itself and marks with the exam's own scheme.
+    //
+    // The `score` in the body is DROPPED here rather than refused: it is the
+    // number the player already has on screen, worked out by `scoreAnswers()`
+    // from the same marking rules, so the two agree and nobody needs telling.
+    //
+    // Still safe to call twice: `score_attempt()` returns the stored score of
+    // a closed sitting and marks nothing again.
+    async submit({ attemptId }: AttemptSubmit) {
       const { url } = required();
       if (!UUID_RE.test(attemptId)) throw new Error('attempt id must be a uuid');
 
-      // `submitted_at=is.null` makes this write-once: a second submit matches
-      // no row, so a replayed request cannot move a score that is already in.
-      const res = await doFetch(
-        `${url}${ATTEMPTS}?id=eq.${encodeURIComponent(attemptId)}&submitted_at=is.null`,
-        {
-          method: 'PATCH',
-          headers: headers({ accept: 'application/json', prefer: 'return=minimal' }),
-          body: JSON.stringify({ submitted_at: new Date().toISOString(), score }),
-          cache: 'no-store',
-        },
-      );
+      const res = await doFetch(`${url}${SCORE}`, {
+        method: 'POST',
+        headers: headers({ accept: 'application/json' }),
+        body: JSON.stringify({ attempt_id: attemptId }),
+        cache: 'no-store',
+      });
 
       if (!res.ok) throw new Error('Supabase attempt submit failed with status ' + res.status);
     },

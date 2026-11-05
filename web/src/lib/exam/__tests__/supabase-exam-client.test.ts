@@ -6,9 +6,10 @@
  *
  * What it has to prove:
  *
- *  * STARTING A SITTING SETS THE DEADLINE. `deadline_at = now + duration` is
- *    computed on the SERVER and stored, so the clock is one value both sides
- *    agree on and not something the phone made up.
+ *  * STARTING A SITTING SENDS NO DEADLINE (issue 31-attempt-score-guard).
+ *    Postgres works the clock out from `mock_tests.duration_min` and refuses
+ *    to let anybody move it, so the insert carries no `deadline_at` at all and
+ *    the stored value is read back out of the reply.
  *  * A SITTING IS RESUMED, NOT RESTARTED. A student who closes the tab walks
  *    back into the same clock, never into another full hour.
  *  * THE WRITE CARRIES NO VERDICT. `is_correct` goes out as an explicit null,
@@ -106,7 +107,7 @@ describe('openOrStartExam', () => {
     expect(url).toContain('submitted_at=is.null');
   });
 
-  it('starts one with deadline_at = now + duration when none is open', async () => {
+  it('starts one with NO deadline in the body, because the server owns the clock', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(json([]))
@@ -123,33 +124,35 @@ describe('openOrStartExam', () => {
 
     const insert = call(fetchImpl, 1);
     expect(insert.init.method).toBe('POST');
+    // Five fields and no `deadline_at`: a clock the caller could choose is the
+    // hole issue 31 closed. Postgres sets it from `mock_tests.duration_min`.
     expect(insert.body).toEqual({
       user_id: STUDENT,
       paper_id: null,
       test_id: TEST,
       mode: 'exam',
       topic_id: null,
-      deadline_at: '2026-11-05T11:30:00.000Z',
     });
   });
 
-  it('falls back to the default duration rather than drawing a wrong clock', async () => {
+  it('takes the deadline Postgres wrote, however long the caller asked for', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(json([]))
-      .mockResolvedValueOnce(json([attemptRow()]));
+      .mockResolvedValueOnce(json([attemptRow({ deadline_at: '2026-11-05T11:00:00.000Z' })]));
     const now = Date.parse('2026-11-05T10:00:00.000Z');
 
-    await createSupabaseExamClient({
+    const started = await createSupabaseExamClient({
       accessToken: 'student-token',
       userId: STUDENT,
       env: ENV,
       fetchImpl: fetchImpl as unknown as typeof fetch,
       now: () => now,
-    }).openOrStartExam({ testId: TEST, topicId: null, durationMin: 0 });
+    }).openOrStartExam({ testId: TEST, topicId: null, durationMin: 600 });
 
-    // One hour, which is `mock_tests.duration_min`'s own default.
-    expect(call(fetchImpl, 1).body?.deadline_at).toBe('2026-11-05T11:00:00.000Z');
+    // The row's own value, not ten hours from the argument.
+    expect(started.deadlineAt).toBe('2026-11-05T11:00:00.000Z');
+    expect(call(fetchImpl, 1).body).not.toHaveProperty('deadline_at');
   });
 
   it('carries the caller s own token, so RLS decides', async () => {
