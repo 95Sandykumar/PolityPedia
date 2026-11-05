@@ -50,8 +50,11 @@ alter table public.reconcile_alerts
     'not_paid',
     'amount_mismatch',
     'no_payment',
+    'currency_mismatch',
+    'plan_mismatch',
+    'bad_event',
     'unreadable_purchase'
   ));
 
 comment on column public.reconcile_alerts.kind is
-  'no_purchase (money taken, no row), not_paid (row never turned paid), amount_mismatch (both paid, different amounts), no_payment (our row says paid, the gateway has nothing), unreadable_purchase (the job could not parse N of our own purchase rows, so the rest of that night is suspect).';
+  'no_purchase (money taken, no row), not_paid (row never turned paid), amount_mismatch (both paid, different amounts), no_payment (our row says paid, the gateway has nothing), currency_mismatch, plan_mismatch and bad_event (written by the webhook, issue 34), unreadable_purchase (the job could not parse N of our own purchase rows, so the rest of that night is suspect).';
