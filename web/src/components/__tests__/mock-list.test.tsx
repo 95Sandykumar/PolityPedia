@@ -7,8 +7,8 @@
  *  * a taken test shows a tick and its score, and its button says Review,
  *  * an untaken open test says Attempt,
  *  * a locked test shows a lock and NO button of its own,
- *  * the set shows ONE "Unlock Rs 399" button, which says payments are
- *    coming soon (S5),
+ *  * the set shows ONE "Unlock Rs 399" button, which starts a real checkout
+ *    (issue 26-razorpay-order-checkout replaced the "coming soon" line),
  *  * the free sample is open to everybody,
  *  * above the list: Topic (Full paper by default) and Practice | Exam.
  */
@@ -68,12 +68,9 @@ describe('a locked set', () => {
     expect(screen.getAllByRole('button', { name: 'Unlock Rs 399' })).toHaveLength(1);
   });
 
-  it('says payments are coming soon instead of opening a checkout', () => {
+  it('offers a coupon box with the Unlock button', () => {
     draw(rows());
-    expect(screen.queryByText('Payments coming soon')).not.toBeInTheDocument();
-
-    fireEvent.click(unlockButton());
-    expect(screen.getByText('Payments coming soon')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Coupon code (optional)' })).toBeInTheDocument();
   });
 });
 

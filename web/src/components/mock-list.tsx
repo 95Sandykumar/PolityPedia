@@ -9,23 +9,43 @@
  * Rs 399' button for the whole set. Above the list: Topic dropdown (Full paper
  * by default) and a 2-way switch Practice | Exam."
  *
- * A client component, because the topic, the mode and the "payments coming
- * soon" line are all state. The rows themselves arrive already built by
- * `buildMockRows()` on the server, so no key and no access rule ships to the
- * browser.
+ * A client component, because the topic, the mode and the checkout state are
+ * all state. The rows themselves arrive already built by `buildMockRows()` on
+ * the server, so no key and no access rule ships to the browser.
  *
  * WHAT THIS COMPONENT IS NOT. It is not the gate. `open` on a row only decides
  * which button is drawn; a student who taps Attempt on a locked test reaches a
  * player that reads ZERO questions, because the restrictive policy in
  * `0016_set_access.sql` is the gate. Never move that rule up here.
  *
- * Unlock does not take money yet (issues 26 and 27), so it says so out loud
- * instead of opening a half-built checkout.
+ * UNLOCK TAKES MONEY (issue 26-razorpay-order-checkout). On tap it posts to
+ * `/api/checkout/order`, which asks Postgres for the price and Razorpay for an
+ * order, then opens the gateway modal. Two rules live in that one sentence:
+ *
+ *  * NO PRICE IS SENT. `set.priceInr` is drawn on the button and nowhere else.
+ *    What is charged is what `start_set_purchase()` quotes (F-G2), so a student
+ *    who edits this component's props changes the label and not the bill.
+ *  * `checkout.js` IS LOADED ON TAP, inside `openRazorpayCheckout()`, never at
+ *    import time. DESIGN.md section 10 caps a student page at 150 KB gzipped,
+ *    and a student who never buys must not carry a gateway bundle.
+ *
+ * Confirming the payment is issue 27's webhook, not this file. That is also
+ * why a free unlock asks for a reload instead of flipping the rows open by
+ * itself: the server is the only thing allowed to say a set is unlocked.
  */
 import { Check, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ATTEMPT_MODES, type AttemptMode } from '@/lib/attempts/types';
+import {
+  createBrowserCheckoutClient,
+  openRazorpayCheckout as openRazorpayCheckoutDefault,
+} from '@/lib/purchases/browser-checkout-client';
+import {
+  MAX_COUPON_LENGTH,
+  normaliseCoupon,
+  type BrowserCheckoutClient,
+} from '@/lib/purchases/types';
 import {
   MOCK_TOPIC_ALL,
   isTaken,
@@ -53,6 +73,33 @@ const SWITCH_OFF =
 const BADGE =
   'rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground';
 
+/**
+ * What a refusal from our own route says on screen. Every code the route can
+ * answer with gets a sentence of its own, because "already unlocked" and "that
+ * coupon is wrong" ask the student to do different things. An unknown code
+ * falls back to "try again": a code we do not recognise is not a code we can
+ * explain.
+ */
+const CHECKOUT_MESSAGE: Record<string, MessageKey> = {
+  coupon: 'checkout.badCoupon',
+  owned: 'checkout.owned',
+  sign_in: 'checkout.signIn',
+  not_configured: 'checkout.notConfigured',
+};
+
+/** One client for the whole page, built on first use and never at import. */
+let sharedCheckout: BrowserCheckoutClient | null = null;
+function defaultCheckout(): BrowserCheckoutClient {
+  sharedCheckout ??= createBrowserCheckoutClient();
+  return sharedCheckout;
+}
+
+/** What Unlock is doing, for the one set whose button was tapped. */
+type UnlockState =
+  | { setId: string; kind: 'working' }
+  | { setId: string; kind: 'free' }
+  | { setId: string; kind: 'error'; message: MessageKey };
+
 function Lines({ keyName, mode }: { keyName: MessageKey; mode: LangMode }) {
   return (
     <>
@@ -70,6 +117,8 @@ export function MockList({
   teacherId,
   topics = [],
   mode = DEFAULT_MODE,
+  checkout,
+  openCheckout = openRazorpayCheckoutDefault,
 }: {
   sets: readonly MockSetRow[];
   /** Whose portfolio this is, so the player link knows where it came from. */
@@ -82,11 +131,56 @@ export function MockList({
    */
   topics?: readonly MockTopic[];
   mode?: LangMode;
+  /** Injected in tests, so no request to our route is ever real. */
+  checkout?: BrowserCheckoutClient;
+  /** Injected in tests. The default is what loads `checkout.js` on tap. */
+  openCheckout?: typeof openRazorpayCheckoutDefault;
 }) {
   const [topicId, setTopicId] = useState<string>(MOCK_TOPIC_ALL);
   const [attemptMode, setAttemptMode] = useState<AttemptMode>('practice');
+  /** The coupon box per set. Empty is the normal case, not a mistake. */
+  const [coupons, setCoupons] = useState<Record<string, string>>({});
   /** The set whose Unlock button was tapped, so the message sits next to it. */
-  const [askedToPay, setAskedToPay] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState<UnlockState | null>(null);
+  /**
+   * A ref and not the state above, because two taps inside one tick both read
+   * the OLD state and would both order. A double order is a double charge.
+   */
+  const inFlight = useRef(false);
+
+  async function unlock(set: MockSetRow) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setUnlocking({ setId: set.id, kind: 'working' });
+
+    try {
+      const start = await (checkout ?? defaultCheckout()).start({
+        setId: set.id,
+        // Trimmed and upper-cased by the same function the server uses, so a
+        // student who typed " free100 " is not told their coupon is wrong.
+        coupon: normaliseCoupon(coupons[set.id]),
+      });
+
+      if (start.free) {
+        // A4. The server has already written `purchases` paid and
+        // `set_access`, so the set IS open and the rows on screen are now
+        // stale. Asking for a reload is honest and keeps the gate server-side.
+        setUnlocking({ setId: set.id, kind: 'free' });
+        return;
+      }
+
+      await openCheckout({ order: start, description: set.title });
+      // The modal is up. Whatever happens inside it, issue 27's webhook is
+      // what grants the set, so there is nothing left for this file to say.
+      setUnlocking(null);
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      const message = typeof code === 'string' ? CHECKOUT_MESSAGE[code] : undefined;
+      setUnlocking({ setId: set.id, kind: 'error', message: message ?? 'checkout.failed' });
+    } finally {
+      inFlight.current = false;
+    }
+  }
 
   if (sets.length === 0) {
     return (
@@ -219,11 +313,31 @@ export function MockList({
           {/* One button for the whole set, not one per row (DESIGN.md). */}
           {set.unlocked ? null : (
             <>
+              <label htmlFor={`coupon-${set.id}`} className="text-sm font-medium">
+                <Lines keyName="checkout.coupon" mode={mode} />
+              </label>
+              <input
+                id={`coupon-${set.id}`}
+                name="coupon"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={MAX_COUPON_LENGTH}
+                value={coupons[set.id] ?? ''}
+                onChange={(event) =>
+                  setCoupons((was) => ({ ...was, [set.id]: event.target.value }))
+                }
+                aria-label={plain('checkout.coupon', mode)}
+                className={`${FIELD} uppercase`}
+              />
               <button
                 type="button"
-                onClick={() => setAskedToPay(set.id)}
+                onClick={() => void unlock(set)}
+                // Disabled only while THIS set's order is being made, so the
+                // other sets on the page stay tappable.
+                disabled={unlocking?.setId === set.id && unlocking.kind === 'working'}
                 aria-label={unlockLabels(set.priceInr, mode).join(' / ')}
-                className={`${UNLOCK} tabular-nums`}
+                className={`${UNLOCK} tabular-nums disabled:opacity-60`}
               >
                 <span className="flex flex-col items-center">
                   {unlockLabels(set.priceInr, mode).map((line, index) => (
@@ -233,9 +347,24 @@ export function MockList({
                   ))}
                 </span>
               </button>
-              {askedToPay === set.id ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                  {plain('mockList.paymentsSoon', mode)}
+              {unlocking?.setId === set.id ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={
+                    unlocking.kind === 'error'
+                      ? 'text-sm text-wrong'
+                      : 'text-sm text-muted-foreground'
+                  }
+                >
+                  {plain(
+                    unlocking.kind === 'working'
+                      ? 'checkout.opening'
+                      : unlocking.kind === 'free'
+                        ? 'checkout.unlockedFree'
+                        : unlocking.message,
+                    mode,
+                  )}
                 </p>
               ) : null}
             </>
