@@ -291,14 +291,27 @@ describe('questions: the shape of a question', () => {
   });
 
   it('belongs to a paper OR a test, never both and never neither', async () => {
-    const testId = '77777777-7777-4777-8777-777777777777';
+    // A real mock test, because `questions_test_fkey` arrived with issue 15
+    // and a made-up uuid is refused by the foreign key now, not by the XOR.
+    const setRes = await db.admin.query<{ id: string }>(
+      `insert into public.mock_sets (teacher_id, exam_id, title)
+       values ($1, $2, 'XOR set')
+       returning id`,
+      [teacherA, NET],
+    );
+    const testRes = await db.admin.query<{ id: string }>(
+      `insert into public.mock_tests (set_id, title, position)
+       values ($1, 'Test 1', 1)
+       returning id`,
+      [setRes.rows[0].id],
+    );
+    const testId = testRes.rows[0].id;
 
     // Neither.
     await expect(insertQuestion(teacherA, null, {})).rejects.toThrow();
     // Both.
     await expect(insertQuestion(teacherA, paperA, { testId })).rejects.toThrow();
-    // A test question: paper_id null, test_id set. The FK for test_id arrives
-    // in issue 15, so it is a plain uuid here.
+    // A test question: paper_id null, test_id set.
     const id = await insertQuestion(teacherA, null, { testId });
     expect(id).toBeTruthy();
   });

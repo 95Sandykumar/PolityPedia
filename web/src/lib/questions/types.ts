@@ -147,11 +147,19 @@ export interface Question {
  *
  * `id` is null for a question the teacher added by hand. There is no
  * `teacherId` and no `status`: the owner comes from the session cookie and the
- * status only ever changes through `publish_paper()`.
+ * status only ever changes through `publish_paper()` or
+ * `publish_mock_set()`.
+ *
+ * EXACTLY ONE PARENT, the same XOR as `questions_one_parent_check`: a
+ * past-paper question hangs on a paper, a mock-test question on a test
+ * (issue 15-mock-sets-authoring).
  */
 export interface QuestionEdit {
   id: string | null;
-  paperId: string;
+  /** Set for a past-paper question, null for a mock-test one. */
+  paperId: string | null;
+  /** Set for a mock-test question, null for a past-paper one. */
+  testId: string | null;
   number: number;
   stem: string;
   options: QuestionOptions;
@@ -168,11 +176,29 @@ function readLang(value: unknown): Lang | null {
 }
 
 /**
+ * One parent id out of a body: the uuid, `null` when it was not sent, or
+ * `'bad'` when something was sent that is not a uuid.
+ *
+ * The three answers matter. "Not sent" is normal (a mock-test question sends
+ * no `paperId`), while "sent and wrong" is a bug or an attack and has to be
+ * refused outright rather than read as "not sent", which would let
+ * `{ paperId: '../../etc', testId: <valid> }` through as a test question.
+ */
+function readParentId(value: unknown): string | null | 'bad' {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string' || !UUID_RE.test(value)) return 'bad';
+  return value;
+}
+
+/**
  * Validate anything into a `QuestionEdit`, or null.
  *
- * Only the nine fields above are carried over, so a `status: 'live'` or a
+ * Only the ten fields above are carried over, so a `status: 'live'` or a
  * `teacherId` in the body is dropped right here rather than being refused: a
  * caller who sends it gets a stored draft, not a hint about what we check.
+ *
+ * EXACTLY ONE of `paperId` and `testId`. Both, or neither, is refused here and
+ * would be refused again by `questions_one_parent_check` in Postgres.
  */
 export function readQuestionEdit(body: unknown): QuestionEdit | null {
   if (typeof body !== 'object' || body === null) return null;
@@ -186,7 +212,12 @@ export function readQuestionEdit(body: unknown): QuestionEdit | null {
     id = raw.id;
   }
 
-  if (typeof raw.paperId !== 'string' || !UUID_RE.test(raw.paperId)) return null;
+  const paperId = readParentId(raw.paperId);
+  const testId = readParentId(raw.testId);
+  if (paperId === 'bad' || testId === 'bad') return null;
+  // `===` on two booleans is XNOR: true when BOTH are null or NEITHER is, and
+  // both of those are a question with the wrong number of parents.
+  if ((paperId === null) === (testId === null)) return null;
 
   if (typeof raw.number !== 'number' || !Number.isInteger(raw.number)) return null;
   if (raw.number < 1 || raw.number > MAX_QUESTIONS_PER_PAPER) return null;
@@ -216,7 +247,8 @@ export function readQuestionEdit(body: unknown): QuestionEdit | null {
 
   return {
     id,
-    paperId: raw.paperId,
+    paperId,
+    testId,
     number: raw.number,
     stem,
     options,
@@ -283,6 +315,15 @@ export interface QuestionsClient {
   isConfigured(): boolean;
   /** One paper's questions, in number order. Drafts included, for the owner. */
   listForPaper(paperId: string): Promise<Question[]>;
+  /**
+   * One mock test's questions, in number order
+   * (issue 15-mock-sets-authoring).
+   *
+   * OPTIONAL, so a caller that only deals with past papers (and every fake
+   * written for issue 11) is still a whole `QuestionsClient`. Call it as
+   * `client.listForTest?.(id) ?? []`.
+   */
+  listForTest?(testId: string): Promise<Question[]>;
   /**
    * Store one question. The owner is the session user, never a field of the
    * input, and the row is always a DRAFT. Throws an error named

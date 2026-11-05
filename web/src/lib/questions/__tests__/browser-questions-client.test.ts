@@ -20,6 +20,7 @@ const TEACHER = '44444444-4444-4444-8444-444444444444';
 const EDIT: QuestionEdit = {
   id: null,
   paperId: PAPER,
+  testId: null,
   number: 2,
   stem: 'Who appoints the Governor?',
   options: ['President', 'Prime Minister', 'Chief Minister', 'Speaker'],

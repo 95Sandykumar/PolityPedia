@@ -269,7 +269,7 @@ export function TeacherReview({
             // The key resets every field when the teacher moves to another
             // question, so no edit can leak from one row into the next.
             key={current?.id ?? `new-${at}`}
-            paperId={paper.id}
+            parent={{ paperId: paper.id }}
             question={current}
             fallbackNumber={nextQuestionNumber(rows)}
             client={data}
@@ -422,20 +422,29 @@ function Walker({
 }
 
 /**
- * One question. Owns its own field state; the parent resets it with a `key`.
+ * One question. Owns its own field state; the caller resets it with a `key`.
  *
  * `question` is null for a question the teacher is adding by hand, and then
  * the save goes out with `id: null` so the server inserts instead of patching.
+ *
+ * EXPORTED since issue 15-mock-sets-authoring: the mock set screen reuses this
+ * exact form with a `testId` instead of a `paperId`. One form, so a fix to the
+ * option fields or the Checked box lands on both screens at once.
  */
-function QuestionForm({
-  paperId,
+export function QuestionForm({
+  parent,
   question,
   fallbackNumber,
   client,
   mode,
   onSaved,
 }: {
-  paperId: string;
+  /**
+   * Which parent the question hangs on: a past paper OR a mock test, never
+   * both. The union makes `questions_one_parent_check` unrepresentable here,
+   * so a caller cannot pass two parents or none.
+   */
+  parent: { paperId: string; testId?: never } | { testId: string; paperId?: never };
   question: Question | null;
   /** The number a NEW question gets: one past the highest one in the paper. */
   fallbackNumber: number;
@@ -478,7 +487,10 @@ function QuestionForm({
     try {
       const saved = await client.save({
         id: question?.id ?? null,
-        paperId,
+        // Exactly one of the two is a string; the other is sent as an explicit
+        // null, which is the XOR the database checks.
+        paperId: parent.paperId ?? null,
+        testId: parent.testId ?? null,
         number: Number(number),
         stem: stem.trim(),
         options: clean,

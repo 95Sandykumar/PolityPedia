@@ -127,29 +127,29 @@ export function createSupabaseQuestionsClient(
     async listForPaper(paperId: string) {
       // The id goes into a URL, so it is checked against the UUID shape first.
       if (!UUID_RE.test(paperId)) return [];
+      return listByParent('paper_id', paperId);
+    },
 
-      const raw = await rows<QuestionRow>(
-        QUESTIONS,
-        `select=${QUESTION_COLUMNS}` +
-          `&paper_id=eq.${encodeURIComponent(paperId)}` +
-          '&order=number.asc',
-      );
-
-      const out: Question[] = [];
-      for (const one of raw) {
-        // A row we cannot read is DROPPED, never half-filled: a review screen
-        // showing three options would make the teacher check a broken
-        // question (Risk 1).
-        const question = readQuestionRow(one);
-        if (question) out.push(question);
-      }
-      return out;
+    // Issue 15-mock-sets-authoring: the same read with the other parent.
+    async listForTest(testId: string) {
+      if (!UUID_RE.test(testId)) return [];
+      return listByParent('test_id', testId);
     },
 
     async save(edit: QuestionEdit) {
       const { url } = required();
       if (!UUID_RE.test(options.userId)) throw new Error('user id must be a uuid');
-      if (!UUID_RE.test(edit.paperId)) throw new Error('paper id must be a uuid');
+      // EXACTLY ONE parent, the same XOR as `questions_one_parent_check`. A
+      // past-paper question hangs on a paper, a mock-test question on a test
+      // (issue 15-mock-sets-authoring).
+      const parent =
+        edit.paperId !== null && edit.testId === null
+          ? ({ column: 'paper_id', id: edit.paperId } as const)
+          : edit.testId !== null && edit.paperId === null
+            ? ({ column: 'test_id', id: edit.testId } as const)
+            : null;
+      if (!parent) throw new Error('a question needs exactly one parent');
+      if (!UUID_RE.test(parent.id)) throw new Error('parent id must be a uuid');
       if (edit.id !== null && !UUID_RE.test(edit.id)) {
         throw new Error('question id must be a uuid');
       }
@@ -180,7 +180,10 @@ export function createSupabaseQuestionsClient(
             ? {
                 // The owner comes from the session, never from the body.
                 teacher_id: options.userId,
-                paper_id: edit.paperId,
+                // The parent that is NOT set is sent as an explicit null, so
+                // the XOR holds even on a table whose defaults change.
+                paper_id: parent.column === 'paper_id' ? parent.id : null,
+                test_id: parent.column === 'test_id' ? parent.id : null,
                 ...fields,
               }
             : // On an update, neither the owner nor the parent moves: the
@@ -192,8 +195,9 @@ export function createSupabaseQuestionsClient(
       });
 
       if (res.status === 409) {
-        // `questions_paper_number_idx`. Named, so the route can answer 409
-        // without reading a Postgres message that quotes the index.
+        // `questions_paper_number_idx` or its mock-test twin: that number is
+        // already in the paper or the test. Named, so the route can answer
+        // 409 without reading a Postgres message that quotes the index.
         throw Object.assign(new Error('that question number is taken'), {
           name: 'QuestionConflict',
         });
@@ -248,6 +252,36 @@ export function createSupabaseQuestionsClient(
       return 0;
     },
   };
+
+  /**
+   * "This parent's questions, in number order."
+   *
+   * One read, two callers: a past paper (`paper_id`) and a mock test
+   * (`test_id`, issue 15-mock-sets-authoring). `column` is one of two
+   * literals from this file and never a string a caller supplied, so it
+   * cannot widen the query.
+   */
+  async function listByParent(
+    column: 'paper_id' | 'test_id',
+    id: string,
+  ): Promise<Question[]> {
+    const raw = await rows<QuestionRow>(
+      QUESTIONS,
+      `select=${QUESTION_COLUMNS}` +
+        `&${column}=eq.${encodeURIComponent(id)}` +
+        '&order=number.asc',
+    );
+
+    const out: Question[] = [];
+    for (const one of raw) {
+      // A row we cannot read is DROPPED, never half-filled: a review screen
+      // showing three options would make the teacher check a broken question
+      // (Risk 1).
+      const question = readQuestionRow(one);
+      if (question) out.push(question);
+    }
+    return out;
+  }
 }
 
 export function createSupabaseIngestJobsClient(
