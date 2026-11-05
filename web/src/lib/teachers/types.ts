@@ -78,6 +78,18 @@ export interface TeachersClient {
   approve(input: ApproveInput): Promise<void>;
   /** Approved teachers as a student sees them: the view, never the table. */
   listPublic(): Promise<PublicTeacher[]>;
+  /**
+   * One approved teacher for the portfolio page `/t/<id>`, or null when there
+   * is no such row (issue 06-portfolio-follow). Reads the view, so a pending
+   * teacher and an alias real name are both invisible here.
+   */
+  readPublic(userId: string): Promise<PublicTeacher | null>;
+  /**
+   * The same rows as `listPublic`, cut down to the given ids, for the Home tab
+   * list of followed teachers (issue 06-portfolio-follow). An unknown or
+   * unapproved id simply drops out.
+   */
+  listPublicByIds(userIds: readonly string[]): Promise<PublicTeacher[]>;
 }
 
 export interface ApproveInput {

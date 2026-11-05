@@ -174,25 +174,56 @@ export function createSupabaseTeachersClient(
 
     async listPublic() {
       const rows = await readRows(`${VIEW}?select=${PUBLIC_COLUMNS}&order=display_name.asc`);
+      return mapPublic(rows);
+    },
 
-      const out: PublicTeacher[] = [];
-      for (const raw of rows as PublicRow[]) {
-        const userId = text(raw.user_id);
-        const displayName = text(raw.display_name);
-        // A teacher with no name to show is not shown at all. Better a short
-        // list than a row that leans on a fallback and leaks something.
-        if (userId === null || displayName === null || !isIdentityMode(raw.identity_mode)) continue;
-        out.push({
-          userId,
-          identityMode: raw.identity_mode,
-          displayName,
-          avatarPath: text(raw.avatar_path),
-          bioEn: text(raw.bio_en),
-          bioHi: text(raw.bio_hi),
-          videosVisible: raw.videos_visible !== false,
-        });
-      }
-      return out;
+    async readPublic(userId: string) {
+      // Checked before it goes into the URL, so a crafted id cannot steer the
+      // request at another path. An invalid id is "no such teacher", not a
+      // crash: the page then renders its not-found state.
+      if (!UUID_RE.test(userId)) return null;
+
+      const rows = await readRows(
+        `${VIEW}?select=${PUBLIC_COLUMNS}&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+      );
+      return mapPublic(rows)[0] ?? null;
+    },
+
+    async listPublicByIds(userIds: readonly string[]) {
+      const ids = userIds.filter((id) => UUID_RE.test(id));
+      if (ids.length === 0) return [];
+
+      const inList = ids.map((id) => encodeURIComponent(id)).join(',');
+      const rows = await readRows(
+        `${VIEW}?select=${PUBLIC_COLUMNS}&user_id=in.(${inList})&order=display_name.asc`,
+      );
+      return mapPublic(rows);
     },
   };
+}
+
+/**
+ * Rows of `teachers_public` to `PublicTeacher`. One place, so `listPublic`,
+ * `readPublic` and `listPublicByIds` cannot drift apart and start mapping a
+ * different set of columns.
+ */
+function mapPublic(rows: unknown[]): PublicTeacher[] {
+  const out: PublicTeacher[] = [];
+  for (const raw of rows as PublicRow[]) {
+    const userId = text(raw.user_id);
+    const displayName = text(raw.display_name);
+    // A teacher with no name to show is not shown at all. Better a short list
+    // than a row that leans on a fallback and leaks something.
+    if (userId === null || displayName === null || !isIdentityMode(raw.identity_mode)) continue;
+    out.push({
+      userId,
+      identityMode: raw.identity_mode,
+      displayName,
+      avatarPath: text(raw.avatar_path),
+      bioEn: text(raw.bio_en),
+      bioHi: text(raw.bio_hi),
+      videosVisible: raw.videos_visible !== false,
+    });
+  }
+  return out;
 }
