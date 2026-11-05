@@ -147,17 +147,25 @@ function readQuestions(
   });
 }
 
-/** Close a sitting the way `AttemptsClient.submit` does: write-once. */
+/**
+ * Close a sitting, write-once.
+ *
+ * Written with the OWNER handle, because since `0031_attempt_score_guard.sql`
+ * `attempts.score` and `attempts.submitted_at` belong to the server:
+ * `score_attempt()` is the only writer, and a student's own PATCH is refused.
+ * These tests are about the TICK on the mock list, so they take the server's
+ * seat rather than re-testing the marking (`test/attempt-score-guard.test.ts`
+ * covers the refusal, and `test/exam-mode.test.ts` the marking).
+ */
 function submit(userId: string, attemptId: string, score: number): Promise<number> {
-  return db.asUser(userId, async (sql) => {
-    const res = await sql.query(
+  return db.admin
+    .query(
       `update public.attempts
          set submitted_at = now(), score = $2
-       where id = $1 and submitted_at is null`,
-      [attemptId, score],
-    );
-    return res.affectedRows ?? 0;
-  });
+       where id = $1 and submitted_at is null and user_id = $3`,
+      [attemptId, score, userId],
+    )
+    .then((res) => res.affectedRows ?? 0);
 }
 
 /**

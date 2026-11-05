@@ -76,7 +76,14 @@ export async function handleSaveAnswer({
   }
 }
 
-/** Close one sitting: `submitted_at` and `score`. */
+/**
+ * Close one sitting.
+ *
+ * The body's `score` is the number the player already shows; it is NOT what
+ * gets stored. `score_attempt()` in Postgres marks the paper itself and writes
+ * `submitted_at` and `score`, because a caller who could write those could
+ * write 999 (issue 31-attempt-score-guard).
+ */
 export async function handleSubmitAttempt({
   body,
   session,

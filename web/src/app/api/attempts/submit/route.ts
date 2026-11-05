@@ -4,9 +4,11 @@
  *
  * Thin adapter. Every rule lives in `@/lib/attempts/attempts-route`.
  *
- * The PATCH behind it matches `submitted_at is null`, so a submit is
- * write-once: a replayed request moves no row and cannot change a score the
- * student has already seen.
+ * The call behind it is `score_attempt()` in Postgres, which marks the paper
+ * from `questions.correct_idx` and closes the sitting (issue
+ * 31-attempt-score-guard: a student's own PATCH of `score` is refused). It is
+ * write-once, so a replayed request returns the stored score and cannot change
+ * a number the student has already seen.
  *
  * Security: nothing here is logged. The cookie holds tokens.
  */
