@@ -462,6 +462,13 @@ export const dictionary = {
     'payouts.failed': 'Could not save. Try again.',
     'payouts.readFailed': 'Could not load the report. Reload the page.',
     'payouts.notConfigured': 'Payouts are not set up yet',
+    // The screen (issue 23-revision-screen).
+    'revision.aiWritten': 'Written by AI',
+    'revision.thumbsUp': 'This helped',
+    'revision.thumbsDown': 'This did not help',
+    'revision.feedbackThanks': 'Thanks. Your teacher will see this.',
+    'revision.retry': 'Try again',
+    'revision.plansSoon': 'Plans open soon. Ask your teacher for now.',
   },
   hi: {
     'nav.home': 'होम',
@@ -872,6 +879,13 @@ export const dictionary = {
     'payouts.failed': 'सेव नहीं हो सका। फिर कोशिश करें।',
     'payouts.readFailed': 'रिपोर्ट लोड नहीं हो सकी। पेज फिर लोड करें।',
     'payouts.notConfigured': 'भुगतान अभी सेट नहीं है',
+    // The screen (issue 23-revision-screen).
+    'revision.aiWritten': 'AI ने लिखा है',
+    'revision.thumbsUp': 'इससे मदद मिली',
+    'revision.thumbsDown': 'इससे मदद नहीं मिली',
+    'revision.feedbackThanks': 'धन्यवाद। आपके शिक्षक इसे देखेंगे।',
+    'revision.retry': 'फिर कोशिश करें',
+    'revision.plansSoon': 'प्लान जल्द खुलेंगे। अभी अपने शिक्षक से पूछें।',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

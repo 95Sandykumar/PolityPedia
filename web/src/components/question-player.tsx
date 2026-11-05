@@ -29,6 +29,12 @@
  */
 import { Bookmark, BookmarkCheck, Check, Eye, Sparkles, WifiOff, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RevisionPanel } from '@/components/revision-panel';
+import {
+  explanationLang,
+  type BrowserRevisionClient,
+  type ExplanationLive,
+} from '@/lib/ai/revision-screen';
 import {
   optionLetter,
   progressLabel,
@@ -83,6 +89,9 @@ export function QuestionPlayer({
   startedAnswers,
   onFinish,
   onTag,
+  revisionClient,
+  revisionLive,
+  revisionConfigured = true,
 }: {
   /** Every question of the paper, in order. Loaded in ONE request. */
   questions: readonly Question[];
@@ -113,6 +122,16 @@ export function QuestionPlayer({
    * `(user_id, question_id, tag)`, so the same tag sent twice is one row.
    */
   onTag?: (questionId: string, tag: SavedTag, saved: boolean) => void;
+  /**
+   * The Revision (AI) screen's two outside things (issue 23-revision-screen).
+   * Passed straight through, so this file's own test drives the panel with no
+   * `fetch` and no socket. Left out in the app: the panel builds the real ones
+   * itself, lazily.
+   */
+  revisionClient?: BrowserRevisionClient;
+  revisionLive?: ExplanationLive;
+  /** False when the Supabase env vars are missing. */
+  revisionConfigured?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<string, AttemptAnswer>>(
@@ -371,16 +390,22 @@ export function QuestionPlayer({
               </p>
             </details>
 
-            {/* Issue 23 writes the explanation. Until then the button is here
-                and says so, rather than being missing and surprising later. */}
+            {/* The AI explanation, on the SAME screen under the result (D3).
+                Mounted only when the student asks, so no model call and no
+                socket happens for a student who never taps Revision. The
+                `key` remounts it per question and language, which is what
+                starts the one request for the new question. */}
             {revisionAsked ? (
-              <p
-                data-testid="player-revision-soon"
-                role="status"
-                className="text-sm text-muted-foreground"
-              >
-                {plain('placeholder.soon', mode)}
-              </p>
+              <RevisionPanel
+                key={`${question.id}:${explanationLang(mode, question.lang)}`}
+                questionId={question.id}
+                lang={explanationLang(mode, question.lang)}
+                mode={mode}
+                teacherExplanation={question.teacherExplanation}
+                client={revisionClient}
+                live={revisionLive}
+                configured={revisionConfigured}
+              />
             ) : null}
           </div>
         ) : null}
