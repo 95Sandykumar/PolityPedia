@@ -19,6 +19,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuestionPlayer } from '../question-player';
 import { createAnswerQueue } from '@/lib/attempts/answer-queue';
 import type { AnswerUpsert } from '@/lib/attempts/types';
+import type { SavedTag } from '@/lib/saved/types';
 import { dictionary } from '@/lib/i18n';
 import type { Question, QuestionOptions } from '@/lib/questions/types';
 
@@ -396,5 +397,76 @@ describe('QuestionPlayer: Hindi', () => {
     expect(
       screen.getByRole('button', { name: rx(dictionary.hi['player.reveal']) }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('QuestionPlayer: the Saved list (issue 14-saved-list)', () => {
+  /** The player with a spy on the saved-tag sink. */
+  function withTags(questions: readonly Question[] = [Q1, Q2]) {
+    const tagged: { questionId: string; tag: SavedTag; saved: boolean }[] = [];
+    const onTag = vi.fn((questionId: string, tag: SavedTag, saved: boolean) => {
+      tagged.push({ questionId, tag, saved });
+    });
+    const queue = createAnswerQueue({ save: async () => {} });
+    render(
+      <QuestionPlayer
+        questions={questions}
+        attemptId={ATTEMPT}
+        queue={queue}
+        onTag={onTag}
+      />,
+    );
+    return { tagged, onTag };
+  }
+
+  it('a wrong answer saves itself with the tag Wrong', () => {
+    const { tagged } = withTags();
+
+    // Q1 correctIdx is 1, so option A is wrong.
+    clickOption(0);
+
+    expect(tagged).toEqual([{ questionId: Q1.id, tag: 'wrong', saved: true }]);
+  });
+
+  it('a right answer saves nothing', () => {
+    const { tagged } = withTags();
+
+    clickOption(1);
+
+    expect(tagged).toEqual([]);
+  });
+
+  it('sends the same wrong tag once per tap, and the key keeps it one row', () => {
+    const { tagged } = withTags();
+
+    clickOption(0);
+    clickOption(2);
+
+    // Two taps, two sends, ONE row: the key is (user_id, question_id, tag),
+    // and `test/saved.test.ts` proves the row count in Postgres.
+    expect(tagged).toHaveLength(2);
+    expect(tagged.every((one) => one.tag === 'wrong' && one.questionId === Q1.id)).toBe(
+      true,
+    );
+  });
+
+  it('Mark for later saves the tag Marked, and un-marking removes it', () => {
+    const { tagged } = withTags();
+
+    fireEvent.click(button('player.mark'));
+    expect(tagged).toEqual([{ questionId: Q1.id, tag: 'marked', saved: true }]);
+
+    fireEvent.click(button('player.mark'));
+    expect(tagged[1]).toEqual({ questionId: Q1.id, tag: 'marked', saved: false });
+  });
+
+  it('works with no sink at all, so the player never needs one', () => {
+    setup();
+
+    clickOption(0);
+
+    expect(screen.getByTestId('player-result')).toHaveTextContent(
+      dictionary.en['player.wrong'],
+    );
   });
 });

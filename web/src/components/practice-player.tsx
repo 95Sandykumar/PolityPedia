@@ -22,6 +22,8 @@ import { createBrowserAttemptsClient } from '@/lib/attempts/browser-attempts-cli
 import type { AttemptAnswer } from '@/lib/attempts/types';
 import type { LangMode } from '@/lib/i18n';
 import type { Question } from '@/lib/questions/types';
+import { createBrowserSavedClient } from '@/lib/saved/browser-saved-client';
+import type { SavedTag } from '@/lib/saved/types';
 
 export function PracticePlayer({
   questions,
@@ -38,6 +40,8 @@ export function PracticePlayer({
   startedAnswers?: readonly (readonly [string, AttemptAnswer])[];
 }) {
   const client = useMemo(() => createBrowserAttemptsClient(), []);
+  /** The Saved list writer (issue 14-saved-list). Holds no key either. */
+  const savedClient = useMemo(() => createBrowserSavedClient(), []);
 
   const queue = useMemo(
     () =>
@@ -63,6 +67,13 @@ export function PracticePlayer({
       mode={mode}
       examName={examName}
       startedAnswers={answers}
+      onTag={(questionId: string, tag: SavedTag, saved: boolean) => {
+        // Never awaited and never thrown: the Saved list is a side effect of
+        // answering, so a failure here must not stop the paper. The save is
+        // keyed (user_id, question_id, tag), so the student's next tap on the
+        // same question writes the same row again and nothing is lost.
+        void savedClient.setSaved(questionId, tag, saved).catch(() => {});
+      }}
       onFinish={(score) =>
         client.submit({ attemptId, score }).catch(() => {
           // The score is on screen either way. Re-opening the paper resumes
