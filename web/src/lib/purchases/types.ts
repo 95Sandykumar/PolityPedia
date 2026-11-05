@@ -154,15 +154,32 @@ export interface PaymentRecord {
   status: string;
 }
 
-/** Razorpay, behind four methods. Faked in every test. */
+/**
+ * A window of time to read payments over, in WHOLE SECONDS since the epoch,
+ * because that is the unit Razorpay's `from` and `to` query parameters take
+ * (issue 29-ledger-reconcile-payouts).
+ */
+export interface PaymentsWindow {
+  fromSeconds: number;
+  toSeconds: number;
+}
+
+/** Razorpay, behind five methods. Faked in every test. */
 export interface Payments {
   /** False when the Razorpay env vars are missing, so pages can say so. */
   isConfigured(): boolean;
   /** The PUBLIC key id the browser needs to open checkout. Never the secret. */
   keyId(): string | null;
   createOrder(input: CreateOrderInput): Promise<PaymentsOrder>;
-  /** Reconcile (A6) and issue 27's webhook cross-check. */
+  /** One order's payments. Issue 27's webhook cross-check. */
   fetchPayments(orderId: string): Promise<PaymentRecord[]>;
+  /**
+   * EVERY payment in a window, whatever order it belongs to. The nightly
+   * reconcile (A6) needs this and not `fetchPayments`: a payment we have no
+   * purchase row for has no order id we could have asked about, and that is
+   * the single worst case the reconcile exists to catch.
+   */
+  listPayments(window: PaymentsWindow): Promise<PaymentRecord[]>;
 }
 
 // --------------------------------------------------------------------------
@@ -219,6 +236,8 @@ export interface FakePaymentsOptions {
   /** Throw instead of answering, so the route's gateway path is testable. */
   failCreate?: boolean;
   payments?: readonly PaymentRecord[];
+  /** What `listPayments` finds in the window. The reconcile's whole input. */
+  listed?: readonly PaymentRecord[];
 }
 
 export interface FakePayments {
@@ -227,6 +246,8 @@ export interface FakePayments {
   orders: CreateOrderInput[];
   /** Every `fetchPayments` call, in order. */
   fetched: string[];
+  /** Every `listPayments` window, in order, so a test can check the 48 hours. */
+  listed: PaymentsWindow[];
 }
 
 /**
@@ -236,6 +257,7 @@ export interface FakePayments {
 export function createFakePayments(options: FakePaymentsOptions = {}): FakePayments {
   const orders: CreateOrderInput[] = [];
   const fetched: string[] = [];
+  const listed: PaymentsWindow[] = [];
   const configured = options.configured ?? true;
   const keyId = options.keyId === undefined ? 'rzp_test_fake' : options.keyId;
 
@@ -259,7 +281,11 @@ export function createFakePayments(options: FakePaymentsOptions = {}): FakePayme
       fetched.push(orderId);
       return [...(options.payments ?? [])];
     },
+    async listPayments(window: PaymentsWindow) {
+      listed.push(window);
+      return [...(options.listed ?? [])];
+    },
   };
 
-  return { payments, orders, fetched };
+  return { payments, orders, fetched, listed };
 }

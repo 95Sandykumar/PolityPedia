@@ -150,3 +150,120 @@ describe('fetchPayments', () => {
     await expect(payments.fetchPayments('order_1')).resolves.toEqual([]);
   });
 });
+
+/**
+ * The nightly reconcile's read (issue 29-ledger-reconcile-payouts).
+ *
+ * This is the only call that reads payments we may know NOTHING about, so two
+ * things matter more here than anywhere else:
+ *
+ *  * it must page to the end. A window that silently stopped at 100 payments
+ *    would hide exactly the mismatch the job exists to find.
+ *  * a failed page must THROW, not return what it has. A half-read window
+ *    makes every unseen payment look like a sale the gateway never captured,
+ *    and the job would file alerts about real, finished sales.
+ */
+describe('listPayments', () => {
+  /** A fetch that answers a different page each call. */
+  function pager(pages: readonly unknown[]) {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: unknown) => {
+      const page = pages[calls.length];
+      calls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return page;
+        },
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, fetchImpl };
+  }
+
+  function page(count: number, from = 0) {
+    return {
+      items: Array.from({ length: count }, (_, index) => ({
+        id: 'pay_' + (from + index),
+        order_id: 'order_' + (from + index),
+        amount: 39_900,
+        status: 'captured',
+      })),
+    };
+  }
+
+  it('asks for the window in whole seconds and reads one short page', async () => {
+    const { calls, fetchImpl } = pager([page(2)]);
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    const found = await payments.listPayments({ fromSeconds: 1_000, toSeconds: 2_000 });
+
+    expect(found).toHaveLength(2);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('/payments?from=1000&to=2000');
+    expect(calls[0]).toContain('skip=0');
+    // The secret travels in a header, never in the URL.
+    expect(calls[0]).not.toContain('shhh');
+  });
+
+  it('pages to the end, so a busy night is not truncated', async () => {
+    const { calls, fetchImpl } = pager([page(100), page(100, 100), page(7, 200)]);
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    const found = await payments.listPayments({ fromSeconds: 0, toSeconds: 1 });
+
+    expect(found).toHaveLength(207);
+    expect(calls).toHaveLength(3);
+    expect(calls[1]).toContain('skip=100');
+    expect(calls[2]).toContain('skip=200');
+  });
+
+  it('drops a row it cannot read rather than inventing a captured payment', async () => {
+    const { fetchImpl } = pager([
+      {
+        items: [
+          { id: 'pay_1', order_id: 'order_1', amount: 39_900, status: 'captured' },
+          { id: 'pay_2', order_id: 'order_2', amount: 'lots', status: 'captured' },
+        ],
+      },
+    ]);
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).resolves.toEqual([
+      { paymentId: 'pay_1', orderId: 'order_1', amountPaise: 39_900, status: 'captured' },
+    ]);
+  });
+
+  it('keeps a payment with no order id: that is the worst case, not a bad row', async () => {
+    const { fetchImpl } = pager([
+      { items: [{ id: 'pay_loose', amount: 29_900, status: 'captured' }] },
+    ]);
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).resolves.toEqual([
+      { paymentId: 'pay_loose', orderId: null, amountPaise: 29_900, status: 'captured' },
+    ]);
+  });
+
+  it('throws on a failed page instead of answering a half window', async () => {
+    const { fetchImpl } = recorder({}, false, 502);
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).rejects.toThrow(
+      'Razorpay payments list failed with status 502',
+    );
+  });
+
+  it('refuses a backwards window without calling Razorpay', async () => {
+    const { calls, fetchImpl } = recorder({ items: [] });
+    const payments = createRazorpayPayments({ env: ENV, fetchImpl });
+
+    await expect(payments.listPayments({ fromSeconds: 2_000, toSeconds: 1_000 })).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('refuses when there are no keys, so a missing key is never a quiet night', async () => {
+    const payments = createRazorpayPayments({ env: {} });
+    await expect(payments.listPayments({ fromSeconds: 0, toSeconds: 1 })).rejects.toThrow();
+  });
+});

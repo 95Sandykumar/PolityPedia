@@ -10,6 +10,8 @@ const TOOLS = [
   { href: '/admin/plans', key: 'plans.title' },
   // Open one mock set for one student (issue 16-set-access-mock-list).
   { href: '/admin/set-access', key: 'setAccess.title' },
+  // The monthly bank transfer, X1 (issue 29-ledger-reconcile-payouts).
+  { href: '/admin/payouts', key: 'payouts.title' },
 ] as const;
 
 export default function AdminPage() {
