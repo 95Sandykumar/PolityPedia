@@ -21,8 +21,19 @@
  * Both browser clients are props so the tests can inject fakes: no real
  * network call and no key in any test (web/CLAUDE.md).
  */
+import { Check, ChevronDown, Clock, ListChecks, Plus, Tag } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { PriceStepper } from '@/components/price-stepper';
+import {
+  BOX,
+  CARD,
+  EmptyState,
+  Field,
+  PageHeader,
+  PRIMARY_BUTTON,
+  QUIET_BUTTON as QUIET,
+  StatusChip,
+} from '@/components/teacher-ui';
 import { QuestionForm } from '@/components/teacher-review';
 import { createBrowserMocksClient } from '@/lib/mocks/browser-mocks-client';
 import {
@@ -45,20 +56,14 @@ import {
   type BrowserQuestionsClient,
   type Question,
 } from '@/lib/questions/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
-const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
+const QUIET_BUTTON = cn(QUIET, 'text-sm text-primary');
 
-const QUIET_BUTTON =
-  'min-h-12 rounded-[10px] border border-border bg-card px-3 text-sm font-medium text-primary transition-colors duration-100 disabled:opacity-60';
-
-const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
-
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
-
-const BADGE = 'rounded-full border border-border px-2 py-0.5 text-xs font-medium';
+/** A small fact on a test row: a count, a length. */
+const FACT =
+  'inline-flex items-center gap-1 rounded-full bg-background px-2 py-0.5 text-xs leading-4 font-medium whitespace-nowrap text-muted-foreground';
 
 /** Why Publish is off -> the line under the button. */
 const BLOCK_LABELS = {
@@ -201,21 +206,50 @@ export function MockSetEditor({
   );
 
   return (
-    <Shell mode={mode} title={open.title}>
-      <div className="flex items-center gap-2">
-        <span className={BADGE}>
+    <Shell
+      mode={mode}
+      title={open.title}
+      action={
+        // Publish is the page's main action, so it lives in the header where
+        // it is always the first thing found, with the reason it is off right
+        // under it. The rule itself is `publish_mock_set()` in Postgres.
+        <div className="flex flex-col gap-1 sm:w-60">
+          <button
+            type="button"
+            disabled={publishBusy || block !== null || status === 'live'}
+            onClick={publish}
+            className={PRIMARY_BUTTON}
+          >
+            {plain(publishBusy ? 'mocks.publishing' : 'mocks.publish', mode)}
+          </button>
+
+          {block ? (
+            <p className="text-sm text-muted-foreground">{plain(BLOCK_LABELS[block], mode)}</p>
+          ) : null}
+        </div>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip live={status === 'live'}>
           {plain(status === 'live' ? 'mocks.live' : 'mocks.draft', mode)}
-        </span>
+        </StatusChip>
       </div>
 
       {problem ? (
-        <p role="alert" className={`${CARD} text-wrong`}>
+        <p role="alert" className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong">
           {plain(problem, mode)}
         </p>
       ) : null}
 
+      {publishDone ? (
+        <p role="status" className="rounded-[10px] bg-primary/10 p-3 font-medium text-primary">
+          {plain('mocks.published', mode)}
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
       {/* ---- price ---- */}
-      <section className={`${CARD} flex flex-col gap-3`}>
+      <section className={`${CARD} flex flex-col gap-3 lg:col-start-2 lg:row-start-1`}>
         <PriceStepper
           price={price}
           onChange={setPrice}
@@ -224,7 +258,7 @@ export function MockSetEditor({
           busy={priceBusy}
         />
         {priceDone ? (
-          <p role="status" className="text-muted-foreground">
+          <p role="status" className="text-sm font-medium text-primary">
             {plain('mocks.saved', mode)}
           </p>
         ) : null}
@@ -239,36 +273,44 @@ export function MockSetEditor({
       </section>
 
       {/* ---- tests ---- */}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">{plain('mocks.tests', mode)}</h2>
+      <section className="flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <h2 className="flex items-baseline gap-2 text-[18px] leading-6 font-bold">
+          {plain('mocks.tests', mode)}
+          <span className="text-sm font-medium text-muted-foreground tabular-nums">
+            {testRows.length}
+          </span>
+        </h2>
 
         {testRows.length === 0 ? (
-          <p role="status" className="text-muted-foreground">
-            {plain('mocks.noTests', mode)}
-          </p>
+          <EmptyState icon={ListChecks} text={plain('mocks.noTests', mode)} />
         ) : (
           <ul className="flex flex-col gap-3">
             {testRows.map((one) => {
               const count = questionRows.filter((q) => q.testId === one.id).length;
               return (
-                <li key={one.id} className={`${CARD} flex flex-col gap-2`}>
+                <li key={one.id} className={`${CARD} flex flex-col gap-3`}>
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-foreground">{one.title}</span>
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="tabular-nums">
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <span className="font-medium break-words text-foreground">{one.title}</span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className={cn(FACT, 'tabular-nums')}>
+                          <Clock size={12} strokeWidth={2} aria-hidden="true" />
                           {one.durationMin} {plain('mocks.duration', mode)}
                         </span>
                         <span
                           data-testid={`question-count-${one.id}`}
-                          className="tabular-nums"
+                          className={cn(FACT, 'tabular-nums')}
                         >
                           {count} {plain('mocks.questions', mode)}
                         </span>
                         {one.isFreeSample ? (
                           // A testid as well as the words, because the same
                           // words are the label of the checkbox below.
-                          <span data-testid={`free-sample-${one.id}`} className={BADGE}>
+                          <span
+                            data-testid={`free-sample-${one.id}`}
+                            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs leading-4 font-medium whitespace-nowrap text-primary"
+                          >
+                            <Tag size={12} strokeWidth={2} aria-hidden="true" />
                             {plain('mocks.freeSample', mode)}
                           </span>
                         ) : null}
@@ -277,13 +319,23 @@ export function MockSetEditor({
 
                     <button
                       type="button"
+                      aria-expanded={openTestId === one.id}
                       onClick={() => {
                         setOpenTestId(openTestId === one.id ? null : one.id);
                         setEditing(null);
                       }}
-                      className={QUIET_BUTTON}
+                      className={cn(QUIET_BUTTON, 'shrink-0 border-primary')}
                     >
                       {plain('mocks.questions', mode)}
+                      <ChevronDown
+                        size={20}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                        className={cn(
+                          'transition-transform duration-200',
+                          openTestId === one.id && 'rotate-180',
+                        )}
+                      />
                     </button>
                   </div>
 
@@ -299,11 +351,29 @@ export function MockSetEditor({
                               <button
                                 type="button"
                                 onClick={() => setEditing(q)}
-                                className={`${QUIET_BUTTON} tabular-nums`}
+                                aria-current={editing?.id === q.id ? 'step' : undefined}
+                                aria-label={`${plain('review.question', mode)} ${q.number}, ${plain(
+                                  q.checked ? 'review.checked' : 'review.draft',
+                                  mode,
+                                )}`}
+                                className={cn(
+                                  'relative flex min-h-12 min-w-12 items-center justify-center rounded-[10px] border px-2 text-base font-bold tabular-nums transition-colors duration-100',
+                                  editing?.id === q.id
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : q.checked
+                                      ? 'border-correct bg-correct-soft text-correct'
+                                      : 'border-border bg-card text-foreground hover:bg-background',
+                                )}
                               >
                                 {q.number}
-                                {' '}
-                                {plain(q.checked ? 'review.checked' : 'review.draft', mode)}
+                                {q.checked ? (
+                                  <Check
+                                    size={12}
+                                    strokeWidth={3}
+                                    aria-hidden="true"
+                                    className="absolute top-1 right-1"
+                                  />
+                                ) : null}
                               </button>
                             </li>
                           ))}
@@ -338,40 +408,18 @@ export function MockSetEditor({
             })}
           </ul>
         )}
-
-        <AddTestForm
-          setId={open.id}
-          position={nextPosition}
-          client={data}
-          mode={mode}
-          onProblem={setProblem}
-          onAdded={(made) => setTestRows((current) => sortTests([...current, made]))}
-        />
       </section>
 
-      {/* ---- publish ---- */}
-      <section className="flex flex-col gap-2">
-        {publishDone ? (
-          <p role="status" className="text-muted-foreground">
-            {plain('mocks.published', mode)}
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          disabled={publishBusy || block !== null || status === 'live'}
-          onClick={publish}
-          className={PRIMARY_BUTTON}
-        >
-          {plain(publishBusy ? 'mocks.publishing' : 'mocks.publish', mode)}
-        </button>
-
-        {block ? (
-          <p className="text-sm text-muted-foreground">
-            {plain(BLOCK_LABELS[block], mode)}
-          </p>
-        ) : null}
-      </section>
+      {/* ---- add a test ---- */}
+      <AddTestForm
+        setId={open.id}
+        position={nextPosition}
+        client={data}
+        mode={mode}
+        onProblem={setProblem}
+        onAdded={(made) => setTestRows((current) => sortTests([...current, made]))}
+      />
+      </div>
     </Shell>
   );
 }
@@ -443,7 +491,21 @@ function AddTestForm({
   }
 
   return (
-    <form onSubmit={add} className={`${CARD} flex flex-col gap-3`} noValidate>
+    <form
+      onSubmit={add}
+      className={`${CARD} flex flex-col gap-3 lg:col-start-2 lg:row-start-2`}
+      noValidate
+    >
+      <h2 className="flex items-center gap-2 text-[18px] leading-6 font-bold">
+        <span
+          aria-hidden="true"
+          className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary"
+        >
+          <Plus size={20} strokeWidth={2} />
+        </span>
+        {plain('mocks.addTest', mode)}
+      </h2>
+
       <Field labelKey="mocks.testName" mode={mode}>
         <input
           type="text"
@@ -511,54 +573,28 @@ function AddTestForm({
   );
 }
 
+
 /** The page frame: the set title as the heading, or the screen name. */
 function Shell({
   mode,
   title,
+  action,
   children,
 }: {
   mode: LangMode;
   title?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const back = { href: '/teacher/mocks', label: plain('nav.mockSets', mode) };
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-4">
       {title ? (
-        <h1 className="text-[22px] leading-7 font-bold">{title}</h1>
+        <PageHeader title={title} mode={mode} icon={ListChecks} back={back} action={action} />
       ) : (
-        <h1 className="text-[22px] leading-7 font-bold">
-          {labels('mocks.title', mode).map((line, index) => (
-            <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-              {line}
-            </span>
-          ))}
-        </h1>
+        <PageHeader titleKey="mocks.title" mode={mode} icon={ListChecks} back={back} />
       )}
       {children}
     </section>
-  );
-}
-
-/** A visible label above the box, plus the same text as the aria-label. */
-function Field({
-  labelKey,
-  mode,
-  children,
-}: {
-  labelKey: MessageKey;
-  mode: LangMode;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex w-full flex-col gap-1">
-      <span className="text-sm font-medium text-muted-foreground">
-        {labels(labelKey, mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </span>
-      {children}
-    </label>
   );
 }

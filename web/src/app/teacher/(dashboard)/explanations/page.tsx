@@ -1,11 +1,14 @@
 /**
- * Teacher > Notices: add and delete notification posts
- * (issue 09-teacher-notifications).
+ * Teacher > AI explanations: correct the AI text on your own questions
+ * (issue 24-revision-teacher-edit).
+ *
+ * F7 is the human gate on AI text, and F-F4 names the human: the teacher whose
+ * question it is. This page is where they stand.
  *
  * The middleware already keeps non-teachers out of `/teacher/*`, and sends a
  * teacher who is not approved yet to `/teacher/pending` (issue 05). This page
  * therefore only ever renders for an approved teacher, and the route handler
- * plus the `teacher_posts_*` policies check it again anyway.
+ * plus the `ai_explanations_update_owner` policy check it again anyway.
  *
  * The list is read HERE, on the server, with the teacher's own access token
  * out of the httpOnly session cookie, so Postgres RLS decides the rows. The
@@ -18,18 +21,15 @@
  * The env is read inside the component, never at import time, so the build
  * works with no environment variables (web/CLAUDE.md).
  */
-import { TeacherPostsManager } from '@/components/teacher-posts-manager';
+import { TeacherExplanations } from '@/components/teacher-explanations';
+import { readMyExplanations } from '@/lib/ai/teacher-page';
+import type { TeacherExplanation } from '@/lib/ai/teacher-edit';
 import { readStudentContext } from '@/lib/follows/student-page';
-import { readMyPosts } from '@/lib/posts/server-posts';
-import type { TeacherPost } from '@/lib/posts/types';
 
-export default async function TeacherPostsPage() {
+export default async function TeacherExplanationsPage() {
   const { session, configured, mode } = await readStudentContext();
-  const posts: TeacherPost[] = configured ? await readMyPosts(session) : [];
+  const explanations: TeacherExplanation[] = configured ? await readMyExplanations(session) : [];
 
-  return (
-    <main className="mx-auto w-full max-w-[560px] px-4 py-4">
-      <TeacherPostsManager posts={posts} mode={mode} configured={configured} />
-    </main>
-  );
+  // The page frame (nav, gutter, `<main>`) comes from `(dashboard)/layout.tsx`.
+  return <TeacherExplanations explanations={explanations} mode={mode} configured={configured} />;
 }
