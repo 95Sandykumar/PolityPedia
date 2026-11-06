@@ -12,13 +12,15 @@
  *
  * TWO RULES THIS FILE EXISTS FOR:
  *
- *  1. F-E5. The key is NEVER READ while the sitting is open (issue
- *     30-exam-key-lock). `0030_exam_key_lock.sql` revoked the column
- *     privilege on `questions.correct_idx`, so the question read here has no
- *     key in it at all, and `question_keys()` is asked for one only once
- *     Postgres says the sitting is submitted. `examQuestions` still strips
- *     the payload, so the rule is stated twice: one is the rule, the other is
- *     the proof.
+ *  1. F-E5. NO KEY MATERIAL IS READ while the sitting is open (issues
+ *     30-exam-key-lock and 36-exam-leaks-close). The column privileges on
+ *     `questions.correct_idx` AND `questions.teacher_explanation` are both
+ *     revoked, so the question read here carries neither, and
+ *     `question_keys()` and `question_explanations()` are asked only once
+ *     Postgres says the sitting is submitted. The prose counts as key
+ *     material because it names the right option in words. `examQuestions`
+ *     still strips the payload, so the rule is stated twice: one is the rule,
+ *     the other is the proof.
  *  2. THE CLOCK STARTS HERE. Opening this read creates the sitting with
  *     `deadline_at = now + duration`, or RESUMES the open one, so a refresh
  *     walks back into the same clock instead of buying another hour.
@@ -112,7 +114,7 @@ export async function readExamLoad(
   // the browser sent is part of that decision.
   const revealed = attempt.submittedAt !== null;
 
-  const [answers, keys] = await Promise.all([
+  const [answers, keys, explanations] = await Promise.all([
     createSupabaseAttemptsClient(clientOptions(session))
       .listAnswers(attempt.id)
       .catch(() => new Map()),
@@ -125,10 +127,24 @@ export async function readExamLoad(
           Promise.resolve(new Map<string, number>())
         ).catch(() => new Map<string, number>())
       : Promise.resolve(new Map<string, number>()),
+    // THE SAME, for the teacher's prose (issue 36-exam-leaks-close). It is no
+    // longer a column of the load either, because it names the right option
+    // in words. The review accordion asks for it the moment the sitting is
+    // closed, and fails soft onto `player.noExplanation` the same way an
+    // empty explanation always did.
+    revealed && questions.length > 0
+      ? (questionsClient.readExplanations?.(questions.map((one) => one.id)) ??
+          Promise.resolve(new Map<string, string>())
+        ).catch(() => new Map<string, string>())
+      : Promise.resolve(new Map<string, string>()),
   ]);
 
   const reviewed = revealed
-    ? questions.map((one) => ({ ...one, correctIdx: keys.get(one.id) ?? null }))
+    ? questions.map((one) => ({
+        ...one,
+        correctIdx: keys.get(one.id) ?? null,
+        teacherExplanation: explanations.get(one.id) ?? null,
+      }))
     : questions;
 
   return {

@@ -475,3 +475,142 @@ describe('the answer key route', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * The teacher's PROSE is a second read too (issue 36-exam-leaks-close).
+ *
+ * The independent re-check of 0030 found that revoking one column was not
+ * enough: `questions.teacher_explanation` sits beside the key and says which
+ * option is right in words, so a student mid-exam could read
+ *
+ *   GET /rest/v1/questions?test_id=eq.<id>&select=number,teacher_explanation
+ *
+ * and be told the answer in a sentence. `0037_exam_leaks_close.sql` revoked
+ * that column too and added `question_explanations()`, the twin of
+ * `question_keys()`: same read rules, same refusal, same 403.
+ *
+ * So the same three things have to be true as for the key.
+ */
+describe('the teacher explanation route', () => {
+  it('never asks the table for teacher_explanation', async () => {
+    const fetchImpl = vi.fn(async () => json([questionRow()]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    await client.listForPaper(PAPER);
+
+    const [url] = fetchImpl.mock.calls[0] as unknown as [string];
+    expect(url).not.toContain('teacher_explanation');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives a null explanation, and fetches none, when the caller did not ask', async () => {
+    // The row the REAL database sends has neither key column in it.
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+    delete (bare as Record<string, unknown>).teacher_explanation;
+
+    const fetchImpl = vi.fn(async () => json([bare]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER);
+
+    expect(rows[0].teacherExplanation).toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('merges the prose in from question_explanations() when asked', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+    delete (bare as Record<string, unknown>).teacher_explanation;
+
+    const fetchImpl = vi.fn(async (input: unknown) => {
+      const at = String(input);
+      if (at.includes('rpc/question_explanations')) {
+        return json([{ question_id: QUESTION, teacher_explanation: 'Article 80 names it.' }]);
+      }
+      if (at.includes('rpc/question_keys')) {
+        return json([{ question_id: QUESTION, correct_idx: 1 }]);
+      }
+      return json([bare]);
+    });
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER, { keys: true });
+
+    const call = fetchImpl.mock.calls.find((one) =>
+      String(one[0]).includes('rpc/question_explanations'),
+    ) as unknown as [string, RequestInit];
+    expect(call).toBeDefined();
+    expect(call[1].method).toBe('POST');
+    expect(JSON.parse(String(call[1].body))).toEqual({ question_ids: [QUESTION] });
+    // The caller's own token, so Postgres and not this file is the gate.
+    expect((call[1].headers as Record<string, string>).authorization).toBe('Bearer caller-token');
+
+    expect(rows[0].teacherExplanation).toBe('Article 80 names it.');
+    expect(rows[0].correctIdx).toBe(1);
+  });
+
+  it('names the exam refusal ExamKeyLocked here too, so one sentence covers both', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+    delete (bare as Record<string, unknown>).teacher_explanation;
+
+    // Only the EXPLANATION call is refused, to prove this path raises on its
+    // own and does not lean on the key call failing first.
+    const fetchImpl = vi.fn(async (input: unknown) => {
+      const at = String(input);
+      if (at.includes('rpc/question_explanations')) return json({ code: '42501' }, 403);
+      if (at.includes('rpc/question_keys')) return json([{ question_id: QUESTION, correct_idx: 1 }]);
+      return json([bare]);
+    });
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    await expect(client.listForPaper(PAPER, { keys: true })).rejects.toMatchObject({
+      name: 'ExamKeyLocked',
+    });
+  });
+
+  it('leaves the explanation null when the function hands back no prose', async () => {
+    const bare = questionRow();
+    delete (bare as Record<string, unknown>).correct_idx;
+    delete (bare as Record<string, unknown>).teacher_explanation;
+
+    const fetchImpl = vi.fn(async (input: unknown) => {
+      const at = String(input);
+      // A question with no explanation stored: the row is there, the prose is
+      // null. Indistinguishable from "not allowed", which is on purpose.
+      if (at.includes('rpc/question_explanations')) {
+        return json([{ question_id: QUESTION, teacher_explanation: null }]);
+      }
+      if (at.includes('rpc/question_keys')) return json([{ question_id: QUESTION, correct_idx: 1 }]);
+      return json([bare]);
+    });
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const rows = await client.listForPaper(PAPER, { keys: true });
+    expect(rows[0].teacherExplanation).toBeNull();
+  });
+
+  it('echoes the explanation the teacher just saved, without a second read', async () => {
+    const bare = questionRow({ checked: true });
+    delete (bare as Record<string, unknown>).correct_idx;
+    delete (bare as Record<string, unknown>).teacher_explanation;
+
+    const fetchImpl = vi.fn(async () => json([bare]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    const saved = await client.save(EDIT);
+
+    // The write succeeded, so the stored prose IS the one in the edit.
+    expect(saved.teacherExplanation).toBe('Article 80.');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for no explanations at all when there are no questions', async () => {
+    const fetchImpl = vi.fn(async () => json([]));
+    const client = questions(fetchImpl as unknown as typeof fetch);
+
+    expect(await client.listForPaper(PAPER, { keys: true })).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});

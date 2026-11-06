@@ -50,6 +50,13 @@ const PUBLISH = '/rest/v1/rpc/publish_paper';
  * revoked the column privilege (issue 30-exam-key-lock).
  */
 const KEYS = '/rest/v1/rpc/question_keys';
+/**
+ * The ONE route to `questions.teacher_explanation` since
+ * `0037_exam_leaks_close.sql` revoked that column privilege too
+ * (issue 36-exam-leaks-close). The prose names the right option in words, so
+ * it is answer key material and it travels the same way the key does.
+ */
+const EXPLANATIONS = '/rest/v1/rpc/question_explanations';
 
 /**
  * The Postgres error codes `publish_paper()` raises -> the NAME the route
@@ -152,6 +159,7 @@ export function createSupabaseQuestionsClient(
     },
 
     readKeys,
+    readExplanations,
 
     async save(edit: QuestionEdit) {
       const { url } = required();
@@ -230,11 +238,16 @@ export function createSupabaseQuestionsClient(
       // question. Treated as a failure, so the screen never shows "saved".
       if (!stored) throw new Error('Supabase question save returned no row');
 
-      // The representation cannot carry `correct_idx` any more (issue
-      // 30-exam-key-lock), and the teacher does not need a round trip to
-      // learn what they themselves just wrote: the write SUCCEEDED, so the
-      // stored key is the one in the edit. Not a guess, an echo.
-      return { ...stored, correctIdx: edit.correctIdx };
+      // The representation cannot carry `correct_idx` (issue
+      // 30-exam-key-lock) or `teacher_explanation` (issue
+      // 36-exam-leaks-close) any more, and the teacher does not need a round
+      // trip to learn what they themselves just wrote: the write SUCCEEDED,
+      // so the stored values are the ones in the edit. Not a guess, an echo.
+      return {
+        ...stored,
+        correctIdx: edit.correctIdx,
+        teacherExplanation: edit.teacherExplanation,
+      };
     },
 
     async publishPaper(paperId: string) {
@@ -308,14 +321,24 @@ export function createSupabaseQuestionsClient(
       if (question) out.push(question);
     }
 
-    // THE KEY, SECOND AND ONLY IF ASKED (issue 30-exam-key-lock). It is no
-    // longer a column of the read above, so it comes from `question_keys()`,
-    // which is also the thing that refuses mid-exam. `ExamKeyLocked` is left
-    // to escape on purpose: the page has to be able to say why.
+    // THE KEY MATERIAL, SECOND AND ONLY IF ASKED (issues 30-exam-key-lock and
+    // 36-exam-leaks-close). Neither the key nor the prose explanation is a
+    // column of the read above any more, so both come from their own definer
+    // function, and those functions are what refuse mid-exam. `ExamKeyLocked`
+    // is left to escape on purpose: the page has to be able to say why.
+    //
+    // ONE flag for both, because they are refused by the same gate for the
+    // same reason. A reader that wants the explanation wants the key too: it
+    // is showing a student their result or a teacher their own question.
     if (read.keys !== true || out.length === 0) return out;
 
-    const keys = await readKeys(out.map((one) => one.id));
-    return out.map((one) => ({ ...one, correctIdx: keys.get(one.id) ?? null }));
+    const ids = out.map((one) => one.id);
+    const [keys, explanations] = await Promise.all([readKeys(ids), readExplanations(ids)]);
+    return out.map((one) => ({
+      ...one,
+      correctIdx: keys.get(one.id) ?? null,
+      teacherExplanation: explanations.get(one.id) ?? null,
+    }));
   }
 
   /**
@@ -362,6 +385,59 @@ export function createSupabaseQuestionsClient(
       // seeing one means the shape changed under us.
       if (typeof key !== 'number' || !Number.isInteger(key) || key < 0 || key > 3) continue;
       out.set(questionId, key);
+    }
+    return out;
+  }
+
+  /**
+   * `question_explanations(question_ids)`: question id -> the teacher's prose
+   * (issue 36-exam-leaks-close).
+   *
+   * The twin of `readKeys`, deliberately the same shape: a question the
+   * caller may not have the explanation for is simply MISSING from the map,
+   * and the one loud refusal is an open exam sitting, which arrives as the
+   * same 403 and becomes the same `ExamKeyLocked` error. The prose is answer
+   * key material, so a page that has to explain one refusal explains both
+   * with one sentence.
+   *
+   * A question with no explanation stored comes back as `null` and is left
+   * OUT of the map: "no explanation" and "not allowed the explanation" look
+   * the same to the player, which already prints `player.noExplanation`.
+   */
+  async function readExplanations(
+    questionIds: readonly string[],
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const ids = questionIds.filter((one) => UUID_RE.test(one));
+    if (ids.length === 0) return out;
+
+    const { url } = required();
+    const res = await doFetch(`${url}${EXPLANATIONS}`, {
+      method: 'POST',
+      headers: headers({ accept: 'application/json' }),
+      body: JSON.stringify({ question_ids: ids }),
+      cache: 'no-store',
+    });
+
+    if (res.status === 403) {
+      throw Object.assign(new Error('the explanation is locked during an exam'), {
+        name: 'ExamKeyLocked',
+      });
+    }
+    if (!res.ok) throw new Error('Supabase question explanations failed with status ' + res.status);
+
+    const body = (await res.json()) as unknown;
+    if (!Array.isArray(body)) return out;
+
+    for (const row of body) {
+      if (typeof row !== 'object' || row === null) continue;
+      const { question_id: questionId, teacher_explanation: prose } = row as Record<
+        string,
+        unknown
+      >;
+      if (typeof questionId !== 'string') continue;
+      if (typeof prose !== 'string' || prose.length === 0) continue;
+      out.set(questionId, prose);
     }
     return out;
   }
