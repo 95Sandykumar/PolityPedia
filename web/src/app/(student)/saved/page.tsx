@@ -9,28 +9,26 @@
  * gets their own rows (`saved_questions_select_own`), and only live questions
  * of approved teachers come back with them (`questions_select_live`).
  *
- * The whole list is read in ONE request and handed down, so the two chips
+ * The whole list is read in ONE request and handed down, so the two tabs
  * filter what is already in the page and nothing waits for the network
  * (DESIGN.md section 10).
+ *
+ * Student-ui pass (2026-11-06): a one-line hint under the title says what the
+ * page is for.
  */
+import { PageHeader } from '@/components/student-ui';
 import { SavedList } from '@/components/saved-list';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readSavedQuestions } from '@/lib/saved/student-page';
-import { labels, plain } from '@/lib/i18n';
+import { plain } from '@/lib/i18n';
 
 export default async function SavedPage() {
   const { session, configured, mode } = await readStudentContext();
   const items = configured ? await readSavedQuestions(session) : [];
 
   return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels('nav.saved', mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </h1>
+    <section className="flex flex-col gap-4">
+      <PageHeader titleKey="nav.saved" hintKey="sui.savedHint" mode={mode} />
 
       {/* No keys, or nobody signed in: say so rather than draw an empty list
           that looks like "you have saved nothing". */}

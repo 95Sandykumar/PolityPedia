@@ -20,13 +20,14 @@
  */
 import { cookies } from 'next/headers';
 import { PlanPicker } from '@/components/plan-picker';
+import { BackLink, PageHeader } from '@/components/student-ui';
 import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
 import { createSupabaseExamsClient } from '@/lib/exams/supabase-exams-client';
 import { createSupabasePlansClient } from '@/lib/plans/supabase-plans-client';
 import { createSupabaseSubscriptionsClient } from '@/lib/plans/supabase-subscriptions-client';
 import { createRazorpayPayments } from '@/lib/purchases/razorpay-payments';
 import type { Entitlement, SubscriptionRow } from '@/lib/plans/types';
-import { DEFAULT_MODE, labels, type LangMode } from '@/lib/i18n';
+import { DEFAULT_MODE, type LangMode } from '@/lib/i18n';
 
 /** A plan page is per student and never cached. */
 export const dynamic = 'force-dynamic';
@@ -63,14 +64,9 @@ export default async function MePlansPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels('mePlans.title', mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </h1>
+    <section className="flex flex-col gap-4">
+      <BackLink href="/me" mode={mode} labelKey="sui.backToMe" />
+      <PageHeader titleKey="mePlans.title" mode={mode} />
       <PlanPicker
         entitlements={entitlements}
         subscriptions={subscriptions}

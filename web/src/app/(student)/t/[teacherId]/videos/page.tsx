@@ -11,6 +11,7 @@
  * `teacher_videos_select_visible` policy in 0008 says so.
  */
 import { StudentVideos } from '@/components/student-videos';
+import { BackLink } from '@/components/student-ui';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readStudentVideos } from '@/lib/videos/page-data';
 import { labels } from '@/lib/i18n';
@@ -43,5 +44,10 @@ export default async function TeacherVideosPage({
     );
   }
 
-  return <StudentVideos teacher={teacher} videos={videos} mode={mode} configured={configured} />;
+  return (
+    <div className="flex flex-col gap-3">
+      <BackLink href={`/t/${teacherId}`} mode={mode} />
+      <StudentVideos teacher={teacher} videos={videos} mode={mode} configured={configured} />
+    </div>
+  );
 }

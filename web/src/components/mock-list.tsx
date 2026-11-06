@@ -33,9 +33,10 @@
  * why a free unlock asks for a reload instead of flipping the rows open by
  * itself: the server is the only thing allowed to say a set is unlocked.
  */
-import { Check, Lock } from 'lucide-react';
+import { BookOpenCheck, Check, ChevronRight, ListChecks, Lock, LockOpen, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { CARD, EmptyState, Lines } from '@/components/student-ui';
 import { ATTEMPT_MODES, type AttemptMode } from '@/lib/attempts/types';
 import {
   createBrowserCheckoutClient,
@@ -55,23 +56,23 @@ import {
   type MockSetRow,
   type MockTopic,
 } from '@/lib/set-access/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
-
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 
 /** 48 px tall, the touch-target floor (DESIGN.md section 5). */
 const ACTION =
-  'inline-flex min-h-12 items-center gap-2 rounded-[10px] border border-primary px-3 text-base font-medium text-primary transition-colors duration-100';
+  'inline-flex min-h-12 min-w-24 shrink-0 items-center justify-center gap-1 rounded-[10px] border border-primary bg-card px-3 text-base font-medium text-primary transition-colors duration-100';
+const ACTION_PRIMARY =
+  'inline-flex min-h-12 min-w-24 shrink-0 items-center justify-center gap-1 rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100';
 const UNLOCK =
-  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-base font-medium text-white transition-colors duration-100';
+  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100';
 const FIELD =
   'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const SWITCH_ON =
-  'min-h-12 flex-1 rounded-[10px] border border-primary bg-primary px-3 text-base font-medium text-white';
+  'inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[8px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100';
 const SWITCH_OFF =
-  'min-h-12 flex-1 rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground';
+  'inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[8px] px-3 text-base font-medium text-foreground transition-colors duration-100';
 const BADGE =
-  'rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground';
+  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-sm leading-5 font-medium';
 
 /**
  * What a refusal from our own route says on screen. Every code the route can
@@ -99,18 +100,6 @@ type UnlockState =
   | { setId: string; kind: 'working' }
   | { setId: string; kind: 'free' }
   | { setId: string; kind: 'error'; message: MessageKey };
-
-function Lines({ keyName, mode }: { keyName: MessageKey; mode: LangMode }) {
-  return (
-    <>
-      {labels(keyName, mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </>
-  );
-}
 
 export function MockList({
   sets,
@@ -184,17 +173,15 @@ export function MockList({
 
   if (sets.length === 0) {
     return (
-      <p role="status" className="text-muted-foreground">
-        {plain('mockList.none', mode)}
-      </p>
+      <EmptyState Icon={ListChecks} text={plain('mockList.none', mode)} />
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {/* Above the list, in DESIGN.md's order: topic, then mode. */}
-      <div className={`${CARD} flex flex-col gap-3`}>
-        <label htmlFor="mock-topic" className="text-sm font-medium">
+      <div className={`${CARD} flex flex-col gap-3 p-4`}>
+        <label htmlFor="mock-topic" className="text-sm leading-5 font-medium">
           <Lines keyName="mockList.topic" mode={mode} />
         </label>
         <select
@@ -212,9 +199,10 @@ export function MockList({
           ))}
         </select>
 
-        <fieldset className="flex flex-col gap-3">
-          <legend className="text-sm font-medium">{plain('mockList.mode', mode)}</legend>
-          <div className="flex gap-2">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="pb-2 text-sm leading-5 font-medium">{plain('mockList.mode', mode)}</legend>
+          {/* A 2-way segmented switch: one track, two 48 px halves. */}
+          <div className="flex gap-1 rounded-[10px] border border-border bg-background p-1">
             {ATTEMPT_MODES.map((one) => (
               <button
                 key={one}
@@ -225,6 +213,11 @@ export function MockList({
                 onClick={() => setAttemptMode(one)}
                 className={attemptMode === one ? SWITCH_ON : SWITCH_OFF}
               >
+                {one === 'exam' ? (
+                  <Timer aria-hidden="true" className="size-5" strokeWidth={2} />
+                ) : (
+                  <BookOpenCheck aria-hidden="true" className="size-5" strokeWidth={2} />
+                )}
                 {plain(one === 'exam' ? 'mockList.exam' : 'mockList.practice', mode)}
               </button>
             ))}
@@ -232,145 +225,200 @@ export function MockList({
         </fieldset>
       </div>
 
-      {sets.map((set) => (
-        <section key={set.id} className={`${CARD} flex flex-col gap-3`}>
-          <h2 className="flex flex-wrap items-center gap-2 text-[18px] leading-6 font-bold">
-            <span>{set.title}</span>
-            {/* Price or "Unlocked", never both. Prices are tabular. */}
-            <span className={`${BADGE} tabular-nums`}>
-              {priceLabels(set, mode).join(' / ')}
-            </span>
-          </h2>
-
-          {set.tests.length === 0 ? (
-            <p role="status" className="text-muted-foreground">
-              {plain('mockList.noTests', mode)}
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {set.tests.map((test) => (
-                <li
-                  key={test.id}
-                  className="flex flex-col gap-2 border-t border-border pt-2 md:flex-row md:items-center md:justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    {/* Locked: the lock is not colour alone, it has a name a
-                        screen reader reads out. */}
-                    {test.open ? null : (
-                      <Lock
-                        aria-label={plain('mockList.locked', mode)}
-                        role="img"
-                        className="size-5 text-muted-foreground"
-                      />
-                    )}
-                    <span className="font-medium">{test.title}</span>
-                    {isTaken(test) ? (
-                      <>
-                        <Check
-                          aria-label={plain('mockList.taken', mode)}
-                          role="img"
-                          className="size-5 text-correct"
-                        />
-                        <span
-                          aria-label={`${plain('mockList.score', mode)}: ${test.score}`}
-                          className="tabular-nums font-medium"
-                        >
-                          {test.score}
-                        </span>
-                      </>
-                    ) : null}
-                  </span>
-
-                  {/* An open test gets exactly one button: Review once it has
-                      been taken, Attempt before that. A locked test gets none:
-                      the set has ONE Unlock button, under the list. */}
-                  {test.open ? (
-                    <Link
-                      href={mockPlayerPath(teacherId, test.id, {
-                        mode: attemptMode,
-                        topicId,
-                      })}
-                      prefetch={false}
-                      aria-label={`${test.title}: ${plain(
-                        isTaken(test) ? 'mockList.review' : 'mockList.attempt',
-                        mode,
-                      )}`}
-                      className={ACTION}
-                    >
-                      <span className="flex flex-col items-start">
-                        <Lines
-                          keyName={isTaken(test) ? 'mockList.review' : 'mockList.attempt'}
-                          mode={mode}
-                        />
-                      </span>
-                    </Link>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* One button for the whole set, not one per row (DESIGN.md). */}
-          {set.unlocked ? null : (
-            <>
-              <label htmlFor={`coupon-${set.id}`} className="text-sm font-medium">
-                <Lines keyName="checkout.coupon" mode={mode} />
-              </label>
-              <input
-                id={`coupon-${set.id}`}
-                name="coupon"
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={MAX_COUPON_LENGTH}
-                value={coupons[set.id] ?? ''}
-                onChange={(event) =>
-                  setCoupons((was) => ({ ...was, [set.id]: event.target.value }))
-                }
-                aria-label={plain('checkout.coupon', mode)}
-                className={`${FIELD} uppercase`}
-              />
-              <button
-                type="button"
-                onClick={() => void unlock(set)}
-                // Disabled only while THIS set's order is being made, so the
-                // other sets on the page stay tappable.
-                disabled={unlocking?.setId === set.id && unlocking.kind === 'working'}
-                aria-label={unlockLabels(set.priceInr, mode).join(' / ')}
-                className={`${UNLOCK} tabular-nums disabled:opacity-60`}
+      {sets.map((set) => {
+        const taken = set.tests.filter((test) => isTaken(test)).length;
+        const total = set.tests.length;
+        return (
+          <section key={set.id} className={`${CARD} flex flex-col gap-3 p-4`}>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="min-w-0 text-[18px] leading-7 font-bold">{set.title}</h2>
+              {/* Price or "Unlocked", never both. Prices are tabular. */}
+              <span
+                className={`${BADGE} shrink-0 tabular-nums ${
+                  set.unlocked
+                    ? 'border-correct-icon bg-correct-soft text-correct'
+                    : 'border-primary bg-primary/10 text-primary'
+                }`}
               >
-                <span className="flex flex-col items-center">
-                  {unlockLabels(set.priceInr, mode).map((line, index) => (
-                    <span key={line} className={index === 0 ? undefined : 'text-xs'}>
-                      {line}
-                    </span>
-                  ))}
-                </span>
-              </button>
-              {unlocking?.setId === set.id ? (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className={
-                    unlocking.kind === 'error'
-                      ? 'text-sm text-wrong'
-                      : 'text-sm text-muted-foreground'
-                  }
+                {set.unlocked ? <LockOpen aria-hidden="true" className="size-4" /> : null}
+                {priceLabels(set, mode).join(' / ')}
+              </span>
+            </div>
+
+            {total > 0 ? (
+              <div className="flex items-center gap-3">
+                <div
+                  aria-hidden="true"
+                  className="h-2 grow overflow-hidden rounded-full bg-border"
                 >
-                  {plain(
-                    unlocking.kind === 'working'
-                      ? 'checkout.opening'
-                      : unlocking.kind === 'free'
-                        ? 'checkout.unlockedFree'
-                        : unlocking.message,
-                    mode,
-                  )}
+                  <span
+                    className="block h-full bg-primary"
+                    style={{ width: `${(taken / total) * 100}%` }}
+                  />
+                </div>
+                <p className="shrink-0 text-sm leading-5 font-medium tabular-nums text-muted-foreground">
+                  {taken}/{total} {plain('sui.takenOf', mode)}
                 </p>
-              ) : null}
-            </>
-          )}
-        </section>
-      ))}
+              </div>
+            ) : null}
+
+            {set.tests.length === 0 ? (
+              <p role="status" className="text-muted-foreground">
+                {plain('mockList.noTests', mode)}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {set.tests.map((test, rowIndex) => (
+                  <li
+                    key={test.id}
+                    className="flex items-center gap-3 rounded-[10px] border border-border bg-background p-3"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-card text-sm font-bold tabular-nums text-muted-foreground ring-1 ring-border"
+                    >
+                      {rowIndex + 1}
+                    </span>
+
+                    <div className="flex min-w-0 grow flex-col gap-1">
+                      <span className="text-base leading-6 font-medium">{test.title}</span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        {/* Locked: the lock is not colour alone, it has a name a
+                            screen reader reads out. */}
+                        {test.open ? null : (
+                          <>
+                            <Lock
+                              aria-label={plain('mockList.locked', mode)}
+                              role="img"
+                              className="size-5 text-muted-foreground"
+                            />
+                            <span aria-hidden="true" className="text-sm leading-5 text-muted-foreground">
+                              {plain('mockList.locked', mode)}
+                            </span>
+                          </>
+                        )}
+                        {test.isFreeSample ? (
+                          <span className={`${BADGE} border-primary text-primary`}>
+                            {plain('mocks.freeSample', mode)}
+                          </span>
+                        ) : null}
+                        {isTaken(test) ? (
+                          <>
+                            <Check
+                              aria-label={plain('mockList.taken', mode)}
+                              role="img"
+                              className="size-5 text-correct"
+                            />
+                            <span
+                              aria-label={`${plain('mockList.score', mode)}: ${test.score}`}
+                              className="inline-flex items-baseline gap-1 text-sm leading-5 text-muted-foreground"
+                            >
+                              <span aria-hidden="true">{plain('mockList.score', mode)}</span>
+                              <span className="text-base leading-6 font-bold tabular-nums text-foreground">
+                                {test.score}
+                              </span>
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
+                    </div>
+
+                    {/* An open test gets exactly one button: Review once it has
+                        been taken, Attempt before that. A locked test gets none:
+                        the set has ONE Unlock button, under the list. */}
+                    {test.open ? (
+                      <Link
+                        href={mockPlayerPath(teacherId, test.id, {
+                          mode: attemptMode,
+                          topicId,
+                        })}
+                        prefetch={false}
+                        aria-label={`${test.title}: ${plain(
+                          isTaken(test) ? 'mockList.review' : 'mockList.attempt',
+                          mode,
+                        )}`}
+                        className={isTaken(test) ? ACTION : ACTION_PRIMARY}
+                      >
+                        <span className="flex flex-col items-center">
+                          <Lines
+                            keyName={isTaken(test) ? 'mockList.review' : 'mockList.attempt'}
+                            mode={mode}
+                          />
+                        </span>
+                        <ChevronRight aria-hidden="true" className="size-4" strokeWidth={2.5} />
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* One button for the whole set, not one per row (DESIGN.md). */}
+            {set.unlocked ? null : (
+              <div className="flex flex-col gap-3 rounded-[10px] border border-primary/30 bg-primary/5 p-3">
+                <p className="flex items-start gap-2 text-sm leading-5">
+                  <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span>{plain('sui.unlockHint', mode)}</span>
+                </p>
+                <label htmlFor={`coupon-${set.id}`} className="text-sm leading-5 font-medium">
+                  <Lines keyName="checkout.coupon" mode={mode} />
+                </label>
+                <input
+                  id={`coupon-${set.id}`}
+                  name="coupon"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={MAX_COUPON_LENGTH}
+                  value={coupons[set.id] ?? ''}
+                  onChange={(event) =>
+                    setCoupons((was) => ({ ...was, [set.id]: event.target.value }))
+                  }
+                  aria-label={plain('checkout.coupon', mode)}
+                  className={`${FIELD} uppercase`}
+                />
+                <button
+                  type="button"
+                  onClick={() => void unlock(set)}
+                  // Disabled only while THIS set's order is being made, so the
+                  // other sets on the page stay tappable.
+                  disabled={unlocking?.setId === set.id && unlocking.kind === 'working'}
+                  aria-label={unlockLabels(set.priceInr, mode).join(' / ')}
+                  className={`${UNLOCK} tabular-nums disabled:opacity-60`}
+                >
+                  <span className="flex flex-col items-center">
+                    {unlockLabels(set.priceInr, mode).map((line, index) => (
+                      <span key={line} className={index === 0 ? undefined : 'text-xs'}>
+                        {line}
+                      </span>
+                    ))}
+                  </span>
+                </button>
+                {unlocking?.setId === set.id ? (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={
+                      unlocking.kind === 'error'
+                        ? 'text-sm text-wrong'
+                        : 'text-sm text-muted-foreground'
+                    }
+                  >
+                    {plain(
+                      unlocking.kind === 'working'
+                        ? 'checkout.opening'
+                        : unlocking.kind === 'free'
+                          ? 'checkout.unlockedFree'
+                          : unlocking.message,
+                      mode,
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

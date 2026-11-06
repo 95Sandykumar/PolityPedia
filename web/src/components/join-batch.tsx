@@ -25,7 +25,9 @@
  * The `BrowserBatchesClient` is a prop so the test can inject a fake: no real
  * network call and no key in any test (web/CLAUDE.md).
  */
+import { UsersRound } from 'lucide-react';
 import Link from 'next/link';
+import { IconChip } from '@/components/student-ui';
 import { useMemo, useState } from 'react';
 import { createBrowserBatchesClient } from '@/lib/batches/browser-batches-client';
 import {
@@ -105,7 +107,8 @@ export function JoinBatch({
 
   if (joined) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
+        <IconChip Icon={UsersRound} size="lg" />
         <Title mode={mode} />
         <p role="status" className={`${CARD} text-foreground`}>
           {plain('join.done', mode)}
@@ -119,9 +122,10 @@ export function JoinBatch({
   }
 
   return (
-    <form onSubmit={join} className="flex flex-col gap-3" noValidate>
+    <form onSubmit={join} className="flex flex-col gap-4" noValidate>
+      <IconChip Icon={UsersRound} size="lg" />
       <Title mode={mode} />
-      <p className="text-muted-foreground">{plain('join.hint', mode)}</p>
+      <p className="text-base leading-6 text-muted-foreground">{plain('join.hint', mode)}</p>
 
       {problem ? (
         <p role="alert" className={`${CARD} text-wrong`}>
@@ -160,7 +164,7 @@ export function JoinBatch({
 
 function Title({ mode }: { mode: LangMode }) {
   return (
-    <h1 className="text-xl font-semibold text-foreground">
+    <h1 className="text-[22px] leading-8 font-bold text-foreground">
       {labels('join.title', mode).map((line, index) => (
         <span key={line} className={index === 0 ? 'block' : 'block text-base font-normal'}>
           {line}

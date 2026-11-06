@@ -14,9 +14,10 @@
  * is a client component, so the choices are state and not a page load.
  */
 import { MockList } from '@/components/mock-list';
+import { BackLink, PageHeader } from '@/components/student-ui';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readMockList } from '@/lib/set-access/student-page';
-import { labels } from '@/lib/i18n';
+import { plain } from '@/lib/i18n';
 
 export default async function TeacherMocksPage({
   params,
@@ -30,19 +31,14 @@ export default async function TeacherMocksPage({
 
   return (
     <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels('tile.mocks', mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </h1>
+      <BackLink href={`/t/${teacherId}`} mode={mode} />
+      <PageHeader titleKey="tile.mocks" mode={mode} />
 
       {configured ? (
         <MockList sets={sets} teacherId={teacherId} mode={mode} />
       ) : (
         <p role="status" className="text-muted-foreground">
-          {labels('mockList.notConfigured', mode).join(' / ')}
+          {plain('mockList.notConfigured', mode)}
         </p>
       )}
     </section>

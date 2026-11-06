@@ -1,4 +1,6 @@
-import { DEFAULT_MODE, labels, type LangMode, type MessageKey } from '@/lib/i18n';
+import { Clock } from 'lucide-react';
+import { EmptyState, PageHeader } from '@/components/student-ui';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 
 export function PlaceholderPage({
   titleKey,
@@ -8,17 +10,9 @@ export function PlaceholderPage({
   mode?: LangMode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels(titleKey, mode).map((s) => (
-          <span key={s} className="block">
-            {s}
-          </span>
-        ))}
-      </h1>
-      <p className="text-muted-foreground">
-        {labels('placeholder.soon', mode).join(' / ')}
-      </p>
+    <section className="flex flex-col gap-4">
+      <PageHeader titleKey={titleKey} mode={mode} />
+      <EmptyState Icon={Clock} text={plain('placeholder.soon', mode)} />
     </section>
   );
 }

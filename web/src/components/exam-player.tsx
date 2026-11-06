@@ -30,7 +30,8 @@
  * refuse a late answer, so a student who changes the device clock gets a
  * prettier countdown and writes nothing.
  */
-import { Check, Clock, LayoutGrid, X } from 'lucide-react';
+import { Check, Clock, LayoutGrid, ListChecks, X } from 'lucide-react';
+import { EmptyState } from '@/components/student-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { optionLetter, progressLabel, type AttemptAnswer } from '@/lib/attempts/types';
 import {
@@ -53,12 +54,12 @@ const CARD = 'rounded-[10px] border border-border bg-card p-3';
 
 const OPTION_BASE =
   'flex min-h-14 w-full items-center gap-3 rounded-[10px] border px-3 py-2 text-left ' +
-  'text-base transition-colors duration-100';
+  'text-base leading-6 transition-colors duration-100';
 
 const OPTION_STATE: Record<OptionState, string> = {
   idle: 'border-border bg-card text-foreground',
   // Before submit the ONLY state a tap produces: chosen. Not right, not wrong.
-  chosen: 'border-primary bg-card text-foreground',
+  chosen: 'border-primary bg-primary/5 text-foreground ring-1 ring-primary',
   right: 'border-correct-icon bg-correct-soft text-correct',
   wrong: 'border-wrong-icon bg-wrong-soft text-wrong',
 };
@@ -237,11 +238,7 @@ export function ExamPlayer({
   );
 
   if (total === 0 || !question) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {plain('player.none', mode)}
-      </p>
-    );
+    return <EmptyState Icon={ListChecks} text={plain('player.none', mode)} />;
   }
 
   const answer = answers.get(question.id);
@@ -282,7 +279,7 @@ export function ExamPlayer({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
+      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-1 border-b border-border bg-background px-4 py-2 md:-mx-6 md:px-6">
         {examName ? (
           <p className="text-sm font-medium text-muted-foreground">{examName}</p>
         ) : null}
@@ -324,10 +321,13 @@ export function ExamPlayer({
           {left !== null ? (
             <p
               data-testid="exam-timer"
+              // The clock text comes from Date.now(), so the server and the
+              // browser are a second apart on first paint. Expected, not a bug.
+              suppressHydrationWarning
               data-tone={tone}
               role="timer"
               aria-label={plain('exam.timeLeft', mode)}
-              className={`flex shrink-0 items-center gap-1 text-base font-bold tabular-nums ${TONE_CLASS[tone]}`}
+              className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-base font-bold tabular-nums ${TONE_CLASS[tone]} ${tone === 'calm' ? 'border-border' : 'border-current'}`}
             >
               <Clock aria-hidden="true" className="size-5" />
               {timerLabel(left)}
@@ -410,7 +410,7 @@ export function ExamPlayer({
                 >
                   <span
                     aria-hidden="true"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-full border border-current text-sm font-medium"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-current text-base leading-6 font-bold"
                   >
                     {optionLetter(optionIdx)}
                   </span>
@@ -465,10 +465,15 @@ export function ExamPlayer({
 
       {/* Sticky bottom action bar (DESIGN.md section 5), with the safe area. */}
       <div
-        className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-background py-2"
+        className="sticky bottom-[calc(3.5rem+1px+env(safe-area-inset-bottom))] z-10 -mx-4 grid grid-cols-2 items-stretch gap-2 border-t border-border bg-background px-4 py-2 md:-mx-6 md:px-6"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
       >
-        <button type="button" onClick={() => go(-1)} disabled={index === 0} className={QUIET}>
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          disabled={index === 0}
+          className={`${QUIET} order-1`}
+        >
           {plain('player.prev', mode)}
         </button>
 
@@ -478,14 +483,14 @@ export function ExamPlayer({
             data-testid="exam-mark"
             aria-pressed={marked}
             onClick={toggleMark}
-            className={marked ? `${OUTLINE} border-marked text-marked` : OUTLINE}
+            className={`${marked ? `${OUTLINE} border-marked text-marked` : OUTLINE} order-3`}
           >
             {plain('player.mark', mode)}
           </button>
         ) : null}
 
         {!last ? (
-          <button type="button" onClick={() => go(1)} className={`${PRIMARY} grow`}>
+          <button type="button" onClick={() => go(1)} className={`${PRIMARY} order-2`}>
             {plain('player.next', mode)}
           </button>
         ) : null}
@@ -494,7 +499,7 @@ export function ExamPlayer({
           <p
             data-testid="exam-score"
             role="status"
-            className="grow text-right text-base font-bold tabular-nums"
+            className="order-5 col-span-2 text-center text-base font-bold tabular-nums"
           >
             {plain('player.score', mode)} {finalScore ?? 0} / {totalMarks(total, marking)}
           </p>
@@ -506,7 +511,7 @@ export function ExamPlayer({
             data-testid="exam-submit"
             onClick={() => void submit()}
             disabled={submitting}
-            className={`${PRIMARY} ${last ? 'grow' : ''}`}
+            className={last ? `${PRIMARY} order-4 col-span-2` : `${OUTLINE} order-4`}
           >
             {plain(submitting ? 'exam.submitting' : 'exam.submit', mode)}
           </button>

@@ -14,10 +14,19 @@
  *
  * Issue 07 adds the next exam date pill. The nearest FUTURE date is picked on
  * the server as well, so a past date never reaches the browser.
+ *
+ * Student-ui pass (2026-11-06): the hero also gets the exams this teacher
+ * teaches, and each tile gets a count. Both are extra read-only lookups that
+ * fail soft: a failed one just leaves that line out.
  */
 import { TeacherPortfolio } from '@/components/teacher-portfolio';
 import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
+import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
 import { labels } from '@/lib/i18n';
+import {
+  readPortfolioCounts,
+  readTeacherExamNames,
+} from '../../_data/student-ui-data';
 
 export default async function TeacherPortfolioPage({
   params,
@@ -48,11 +57,19 @@ export default async function TeacherPortfolioPage({
     );
   }
 
+  const [counts, catalogue] = await Promise.all([
+    readPortfolioCounts(session, teacher),
+    readExamCatalogue(session),
+  ]);
+  const exams = await readTeacherExamNames(session, teacher.userId, catalogue);
+
   return (
     <TeacherPortfolio
       teacher={teacher}
       following={following}
       nextExam={nextExam}
+      counts={counts}
+      exams={exams}
       mode={mode}
       configured={configured}
     />

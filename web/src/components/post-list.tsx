@@ -21,8 +21,10 @@
  * Postgres has the same check in 0009. Four layers, because a `javascript:`
  * href is a script a student would tap.
  */
-import { ExternalLink } from 'lucide-react';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { AlertTriangle, Bell, ExternalLink, Info, Megaphone } from 'lucide-react';
+import { CARD, EmptyState, SectionTitle } from '@/components/student-ui';
+import { DEFAULT_MODE, plain, type Lang, type LangMode, type MessageKey } from '@/lib/i18n';
+import { formatExamDate, isIsoDate } from '@/lib/teacher-exams/types';
 import { normalizeLink, sortPosts, type FeedPost, type TeacherPost } from '@/lib/posts/types';
 import { cn } from '@/lib/utils';
 
@@ -33,8 +35,44 @@ const PRIORITY_KEY: Record<number, MessageKey | null> = {
   2: 'posts.priority2',
 };
 
+/**
+ * Look per priority (student-ui pass). The colour is never alone: the badge
+ * names the level in words and the icon differs (alert, info, megaphone).
+ * Urgent uses the amber `--marked` token, important the primary, normal stays
+ * a plain border.
+ */
+const LOOK: Record<
+  number,
+  { Icon: typeof Bell; bar: string; chip: string; badge: string }
+> = {
+  0: {
+    Icon: Megaphone,
+    bar: 'border-l-border',
+    chip: 'bg-primary/10 text-primary',
+    badge: '',
+  },
+  1: {
+    Icon: Info,
+    bar: 'border-l-primary',
+    chip: 'bg-primary/10 text-primary',
+    badge: 'border-primary text-primary',
+  },
+  2: {
+    Icon: AlertTriangle,
+    bar: 'border-l-marked',
+    chip: 'bg-marked/10 text-marked',
+    badge: 'border-marked text-marked',
+  },
+};
+
 function isFeedPost(post: TeacherPost | FeedPost): post is FeedPost {
   return typeof (post as FeedPost).teacherName === 'string';
+}
+
+/** `2026-11-05T...` -> `5 Nov`, in Latin digits, or nothing if unreadable. */
+function postDate(createdAt: string, lang: Lang): string {
+  const day = createdAt.slice(0, 10);
+  return isIsoDate(day) ? formatExamDate(day, lang) : '';
 }
 
 export function PostList({
@@ -49,20 +87,19 @@ export function PostList({
   titleKey: MessageKey;
   emptyKey: MessageKey;
   mode?: LangMode;
-  /** False when the Supabase env vars are missing. */
   configured?: boolean;
-  /** True on Home, where notices from several teachers are mixed together. */
   showAuthor?: boolean;
 }) {
   // h2, not h1: both pages that use this already have their own page title.
+  const dateLang: Lang = mode === 'hi' ? 'hi' : 'en';
+  const ordered = sortPosts(posts as readonly (TeacherPost | FeedPost)[]);
   const title = (
-    <h2 className="text-[18px] leading-6 font-bold">
-      {labels(titleKey, mode).map((line) => (
-        <span key={line} className="block">
-          {line}
-        </span>
-      ))}
-    </h2>
+    <SectionTitle
+      Icon={Bell}
+      titleKey={titleKey}
+      mode={mode}
+      count={configured && ordered.length > 0 ? ordered.length : undefined}
+    />
   );
 
   if (!configured) {
@@ -78,65 +115,86 @@ export function PostList({
 
   // `sortPosts` keeps the element type, so a FeedPost stays a FeedPost and the
   // author name is still on the row after the sort.
-  const ordered = sortPosts(posts as readonly (TeacherPost | FeedPost)[]);
-
   return (
     <section className="flex flex-col gap-3">
       {title}
 
       {ordered.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {plain(emptyKey, mode)}
-        </p>
+        <EmptyState
+          Icon={Bell}
+          text={plain(emptyKey, mode)}
+          action={
+            showAuthor ? { href: '/teachers', label: plain('sui.findTeachers', mode) } : undefined
+          }
+        />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {ordered.map((post) => {
             const author = showAuthor && isFeedPost(post) ? post.teacherName : null;
             // Checked once more right before it becomes an href.
             const href = normalizeLink(post.link);
             const badgeKey = PRIORITY_KEY[post.priority] ?? null;
+            const look = LOOK[Math.min(Math.max(post.priority, 0), 2)] ?? LOOK[0];
+            const date = postDate(post.createdAt, dateLang);
 
             return (
               <li
                 key={post.id}
-                className="flex flex-col gap-1 rounded-[10px] border border-border bg-card p-3"
+                className={cn(CARD, 'flex gap-3 border-l-4 p-3', look.bar)}
               >
-                {badgeKey || author ? (
-                  <div className="flex items-center gap-2">
-                    {badgeKey ? (
-                      // Colour never works alone (DESIGN.md section 3): the
-                      // badge says the word too.
-                      <span
-                        className={cn(
-                          'rounded-full border px-2 text-xs font-medium',
-                          post.priority >= 2
-                            ? 'border-marked text-marked'
-                            : 'border-primary text-primary',
-                        )}
-                      >
-                        {plain(badgeKey, mode)}
-                      </span>
-                    ) : null}
-                    {author ? (
-                      <span className="text-sm text-muted-foreground">{author}</span>
-                    ) : null}
-                  </div>
-                ) : null}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'flex size-9 shrink-0 items-center justify-center rounded-[10px]',
+                    look.chip,
+                  )}
+                >
+                  <look.Icon className="size-5" strokeWidth={2} />
+                </span>
 
-                {href ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    // An outside page must never get a handle on our tab.
-                    rel="noopener noreferrer"
-                    className="flex min-h-12 items-center gap-2 text-base font-medium text-primary"
-                  >
-                    <span>{post.heading}</span>
-                    <ExternalLink size={20} strokeWidth={2} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <span className="text-base font-medium">{post.heading}</span>
-                )}
+                <div className="flex min-w-0 grow flex-col gap-1">
+                  {badgeKey || author || date ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {badgeKey ? (
+                        // Colour never works alone (DESIGN.md section 3): the
+                        // badge says the word too.
+                        <span
+                          className={cn(
+                            'rounded-full border px-2 text-xs leading-5 font-medium',
+                            look.badge,
+                          )}
+                        >
+                          {plain(badgeKey, mode)}
+                        </span>
+                      ) : null}
+                      {author ? (
+                        <span className="text-sm leading-5 font-medium text-muted-foreground">
+                          {author}
+                        </span>
+                      ) : null}
+                      {date ? (
+                        <span className="text-sm leading-5 text-muted-foreground tabular-nums">
+                          {date}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      // An outside page must never get a handle on our tab.
+                      rel="noopener noreferrer"
+                      className="flex min-h-12 items-center gap-2 text-base leading-6 font-medium text-primary"
+                    >
+                      <span>{post.heading}</span>
+                      <ExternalLink size={20} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-base leading-6 font-medium">{post.heading}</span>
+                  )}
+                </div>
               </li>
             );
           })}
