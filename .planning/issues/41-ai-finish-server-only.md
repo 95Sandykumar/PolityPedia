@@ -1,6 +1,6 @@
 ---
 id: 41-ai-finish-server-only
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -26,3 +26,5 @@ PGlite tests, each failing before the fix: as an authenticated user, `finish_ai_
 
 ## Notes / scope guard
 Do not change the exam locks (0030, 0036, 0037), webhooks, sessions, or the claim functions' limits. Do not add the key to any `NEXT_PUBLIC_` variable. Do not touch `.env.local`.
+
+<!-- ralph 2026-11-06T20:55:42.204Z: committed + tests pass -->
