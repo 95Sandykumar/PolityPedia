@@ -48,6 +48,20 @@ export interface AuthSession {
   expiresAt?: number;
 }
 
+/**
+ * What the caller ALREADY knew about the user, handed to `refreshSession` so a
+ * failed profile read cannot downgrade them (issue 39-profile-read-keeps-role).
+ *
+ * The role lives in the `profiles` table, not in the token, so every token
+ * response is followed by a read. When that read does not answer, the renewed
+ * session keeps these values instead of inventing `student`. A first sign-in
+ * has no previous role, so it keeps the fail-closed default.
+ */
+export interface PreviousRole {
+  role: Role;
+  teacherStatus?: TeacherStatus;
+}
+
 /** Server side. Holds the Supabase key, so it never ships to the browser. */
 export interface ServerAuthClient {
   /** False when the Supabase env vars are missing, so pages can say so. */
@@ -61,8 +75,12 @@ export interface ServerAuthClient {
   /**
    * Swap a refresh token for a fresh access token (issue 33-session-refresh).
    * Throws when the refresh token was revoked or already spent.
+   *
+   * `previous` is what the old cookie said (issue 39-profile-read-keeps-role).
+   * Pass it on every renew: it is the floor the role cannot fall below when
+   * the profile read fails. Omit it only where there is no previous session.
    */
-  refreshSession(refreshToken: string): Promise<AuthSession>;
+  refreshSession(refreshToken: string, previous?: PreviousRole): Promise<AuthSession>;
   /** Revoke this session at Supabase (issue 33-session-refresh). */
   signOut(accessToken: string): Promise<void>;
   /** Where to send the browser to start Google sign-in. */

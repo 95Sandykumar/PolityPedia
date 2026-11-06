@@ -12,7 +12,13 @@
 import { isTeacherStatus, type TeacherStatus } from '@/lib/teachers/types';
 import { AuthCallError } from './auth-error';
 import { readSupabaseEnv, type SupabaseEnv } from './env';
-import { isRole, type AuthSession, type Role, type ServerAuthClient } from './types';
+import {
+  isRole,
+  type AuthSession,
+  type PreviousRole,
+  type Role,
+  type ServerAuthClient,
+} from './types';
 
 interface TokenResponse {
   access_token?: unknown;
@@ -85,22 +91,38 @@ export function createSupabaseAuthClient(
 
   /**
    * Read the signed-in user's own profile role with their access token, so RLS
-   * (`profiles_select_own`) decides what is visible. Falls back to `student`,
-   * the same default as the profiles table, when the row is not readable yet.
+   * (`profiles_select_own`) decides what is visible.
+   *
+   * `fallback` is what comes back when the read does not ANSWER: a 5xx, a 429,
+   * a 401 or a thrown `fetch` (issue 39-profile-read-keeps-role). On a renew
+   * that is the role the old cookie carried, so one bad Supabase minute can
+   * never demote an admin for the 7 days the cookie lives. On a first sign-in
+   * there is nothing to keep, so it is `student`, the table's own default.
+   *
+   * An answer that IS ok wins, even when it says `student`: that is a real
+   * demotion on the server and it has to land.
    */
-  async function readRole(accessToken: string): Promise<Role> {
+  async function readRole(accessToken: string, fallback: Role): Promise<Role> {
     const { url, anonKey } = required();
-    const res = await doFetch(url + '/rest/v1/profiles?select=role', {
-      method: 'GET',
-      headers: {
-        apikey: anonKey,
-        authorization: 'Bearer ' + accessToken,
-        accept: 'application/json',
-      },
-      cache: 'no-store',
-    });
-    if (!res.ok) return 'student';
-    const rows = (await res.json()) as unknown;
+    let res: Response;
+    try {
+      res = await doFetch(url + '/rest/v1/profiles?select=role', {
+        method: 'GET',
+        headers: {
+          apikey: anonKey,
+          authorization: 'Bearer ' + accessToken,
+          accept: 'application/json',
+        },
+        cache: 'no-store',
+      });
+    } catch {
+      // A thrown `fetch` must not throw out of here: on a renew the token
+      // response before it is already spent, so the NEW tokens would be lost
+      // and the user locked out. Nothing is logged: every value is a secret.
+      return fallback;
+    }
+    if (!res.ok) return fallback;
+    const rows = (await res.json().catch(() => null)) as unknown;
     const first = Array.isArray(rows) ? (rows[0] as { role?: unknown } | undefined) : undefined;
     return isRole(first?.role) ? first.role : 'student';
   }
@@ -109,33 +131,48 @@ export function createSupabaseAuthClient(
    * A teacher's own `teachers.status` (issue 05-teacher-invite-approval), read
    * with their access token so `teachers_select_own` decides. Only asked for
    * when the role is `teacher`, so a student still signs in with one call.
-   * Anything unreadable comes back as `pending`: the guard fails closed.
+   *
+   * `fallback` works like the one in `readRole`
+   * (issue 39-profile-read-keeps-role): the status the old cookie carried on a
+   * renew, and `pending` on a first sign-in, so a new teacher fails closed.
    */
-  async function readTeacherStatus(accessToken: string): Promise<TeacherStatus> {
+  async function readTeacherStatus(
+    accessToken: string,
+    fallback: TeacherStatus,
+  ): Promise<TeacherStatus> {
     const { url, anonKey } = required();
-    const res = await doFetch(url + '/rest/v1/teachers?select=status', {
-      method: 'GET',
-      headers: {
-        apikey: anonKey,
-        authorization: 'Bearer ' + accessToken,
-        accept: 'application/json',
-      },
-      cache: 'no-store',
-    });
-    if (!res.ok) return 'pending';
-    const rows = (await res.json()) as unknown;
+    let res: Response;
+    try {
+      res = await doFetch(url + '/rest/v1/teachers?select=status', {
+        method: 'GET',
+        headers: {
+          apikey: anonKey,
+          authorization: 'Bearer ' + accessToken,
+          accept: 'application/json',
+        },
+        cache: 'no-store',
+      });
+    } catch {
+      return fallback;
+    }
+    if (!res.ok) return fallback;
+    const rows = (await res.json().catch(() => null)) as unknown;
     const first = Array.isArray(rows) ? (rows[0] as { status?: unknown } | undefined) : undefined;
     return isTeacherStatus(first?.status) ? first.status : 'pending';
   }
 
-  async function toSession(payload: unknown): Promise<AuthSession> {
+  /**
+   * `previous` is absent on a first sign-in and present on a renew, where it
+   * is the floor the role cannot fall below (issue 39-profile-read-keeps-role).
+   */
+  async function toSession(payload: unknown, previous?: PreviousRole): Promise<AuthSession> {
     const body = (payload ?? {}) as TokenResponse;
     const accessToken = body.access_token;
     const userId = body.user?.id;
     if (typeof accessToken !== 'string' || typeof userId !== 'string') {
       throw new Error('Supabase auth returned no session');
     }
-    const role = await readRole(accessToken);
+    const role = await readRole(accessToken, previous?.role ?? 'student');
     const expiresAt = expiryOf(body, Date.now());
     return {
       accessToken,
@@ -143,7 +180,14 @@ export function createSupabaseAuthClient(
       userId,
       role,
       ...(expiresAt === undefined ? {} : { expiresAt }),
-      ...(role === 'teacher' ? { teacherStatus: await readTeacherStatus(accessToken) } : {}),
+      ...(role === 'teacher'
+        ? {
+            teacherStatus: await readTeacherStatus(
+              accessToken,
+              previous?.teacherStatus ?? 'pending',
+            ),
+          }
+        : {}),
     };
   }
 
@@ -173,12 +217,16 @@ export function createSupabaseAuthClient(
      * Issue 33-session-refresh. Supabase ROTATES the refresh token, so the one
      * passed in is dead after this call: the caller must store what comes back
      * or the session is lost.
+     *
+     * `previous` holds the renewed session at the role the old one had when
+     * the profile read does not answer (issue 39-profile-read-keeps-role).
      */
-    async refreshSession(refreshToken) {
+    async refreshSession(refreshToken, previous) {
       return toSession(
         await authPost('/auth/v1/token?grant_type=refresh_token', {
           refresh_token: refreshToken,
         }),
+        previous,
       );
     },
 

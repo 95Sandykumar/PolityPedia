@@ -63,7 +63,17 @@ export async function refreshIfNeeded({
   if (!session.refreshToken) return { kind: 'failed' };
 
   try {
-    const renewed = await client.refreshSession(session.refreshToken);
+    // What this user ALREADY was goes with the renew
+    // (issue 39-profile-read-keeps-role). The role lives in the `profiles`
+    // table, so the client reads it after every token response; when that read
+    // does not answer it keeps these values instead of inventing `student`.
+    // Without this, one 500 from the profile read wrote `role: 'student'` into
+    // the cookie and an admin or an approved teacher was a student for the 7
+    // days the cookie lives.
+    const renewed = await client.refreshSession(session.refreshToken, {
+      role: session.role,
+      ...(session.teacherStatus === undefined ? {} : { teacherStatus: session.teacherStatus }),
+    });
     return { kind: 'refreshed', session: renewed };
   } catch (error) {
     // THE ONLY ERROR THAT ENDS A SESSION is Supabase refusing the token
