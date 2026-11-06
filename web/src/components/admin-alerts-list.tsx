@@ -31,6 +31,7 @@
  * reaches the page.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarClock, Check, ListChecks, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { createBrowserAlertsClient } from '@/lib/ledger/browser-alerts-client';
 import {
   alertRupees,
@@ -39,11 +40,49 @@ import {
   type ReconcileAlertRow,
   type ReconcileKind,
 } from '@/lib/ledger/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import {
+  Banner,
+  CARD,
+  Chip,
+  EmptyState,
+  Lines,
+  OUTLINE_BUTTON,
+  PageHeader,
+  SkeletonBlock,
+} from '@/components/admin-ui';
 
-/** DESIGN.md: 48 px touch target, radius 10, 1 px border, tokens only. */
-const SECONDARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground transition-colors duration-100 disabled:opacity-60';
+type Severity = 'high' | 'medium' | 'low';
+
+/**
+ * How loud a kind is. HIGH: money moved with no matching sale of ours, or the
+ * two amounts or currencies disagree, or a charge landed on a plan that is
+ * unknown or stopped. MEDIUM: a state to look at. LOW: an event we can never
+ * accept, which is noise to read once. A kind this build does not know is
+ * MEDIUM: never hide it, never shout about it.
+ */
+const SEVERITY: Record<ReconcileKind, Severity> = {
+  no_purchase: 'high',
+  not_paid: 'medium',
+  amount_mismatch: 'high',
+  no_payment: 'high',
+  currency_mismatch: 'high',
+  plan_mismatch: 'medium',
+  bad_event: 'low',
+  unreadable_purchase: 'medium',
+  unknown_subscription: 'high',
+  cancelled_subscription: 'high',
+};
+
+const SEVERITY_KEY: Record<Severity, MessageKey> = {
+  high: 'adminAlerts.sevHigh',
+  medium: 'adminAlerts.sevMedium',
+  low: 'adminAlerts.sevLow',
+};
+
+function severityOf(kind: string): Severity {
+  return isReconcileKind(kind) ? SEVERITY[kind] : 'medium';
+}
 
 /**
  * One kind, two labels: what it is, and what Boss does about it.
@@ -86,18 +125,6 @@ function kindLabels(kind: string): { name: MessageKey; detail: MessageKey } {
   return isReconcileKind(kind) ? KIND_LABELS[kind] : UNKNOWN_LABELS;
 }
 
-function Lines({ keyName, mode }: { keyName: MessageKey; mode: LangMode }) {
-  return (
-    <>
-      {labels(keyName, mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </>
-  );
-}
-
 /**
  * The day the job found it, as `YYYY-MM-DD HH:MM` in UTC.
  *
@@ -110,23 +137,6 @@ function foundAt(iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return iso;
   return at.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-}
-
-function Field({
-  label,
-  mode,
-  children,
-}: {
-  label: MessageKey;
-  mode: LangMode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-muted-foreground">{plain(label, mode)}</span>
-      {children}
-    </div>
-  );
 }
 
 export function AdminAlertsList({
@@ -164,19 +174,15 @@ export function AdminAlertsList({
     void load();
   }, [configured, load]);
 
-  const title = (
-    <h1 className="text-[22px] leading-7 font-bold">
-      <Lines keyName="alerts.title" mode={mode} />
-    </h1>
-  );
+  const title = <Lines keyName="alerts.title" mode={mode} />;
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        {title}
-        <p role="status" className="text-muted-foreground">
+      <section className="flex flex-col gap-4">
+        <PageHeader title={title} />
+        <Banner tone="info" role="status">
           {plain('alerts.notConfigured', mode)}
-        </p>
+        </Banner>
       </section>
     );
   }
@@ -202,107 +208,160 @@ export function AdminAlertsList({
   const lang: 'en' | 'hi' = mode === 'hi' ? 'hi' : 'en';
 
   return (
-    <section className="flex flex-col gap-3">
-      {title}
-      <p className="text-sm text-muted-foreground">{plain('alerts.hint', mode)}</p>
+    <section className="flex flex-col gap-4">
+      <PageHeader
+        title={title}
+        hint={plain('alerts.hint', mode)}
+        aside={
+          rows !== null && rows.length > 0 ? (
+            <Chip tone="danger" icon={<ShieldAlert aria-hidden="true" className="size-3.5" />}>
+              <span className="tabular-nums">{rows.length}</span> {plain('alerts.open', mode)}
+            </Chip>
+          ) : null
+        }
+      />
 
       {failed ? (
-        <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
+        <Banner tone="error" role="alert">
           {plain(failed === 'failed' ? 'alerts.failed' : 'alerts.readFailed', mode)}
-        </p>
+        </Banner>
       ) : null}
 
       {done ? (
-        <p role="status" className="rounded-[10px] border border-border bg-card p-3 text-correct">
+        <Banner tone="success" role="status">
           {plain(done === 'resolvedOne' ? 'alerts.resolvedOne' : 'alerts.alreadyResolved', mode)}
-        </p>
+        </Banner>
       ) : null}
 
       {rows === null && !failed ? (
-        <p role="status" aria-busy="true" className="text-muted-foreground">
-          {plain('alerts.loading', mode)}
-        </p>
+        <div role="status" aria-busy="true" className="flex flex-col gap-3">
+          <span className="sr-only">{plain('alerts.loading', mode)}</span>
+          <SkeletonBlock className="h-[260px]" />
+        </div>
       ) : null}
 
       {rows !== null && rows.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
+        <EmptyState icon={<ShieldCheck className="size-8" />}>
           {plain('alerts.empty', mode)}
-        </p>
+        </EmptyState>
       ) : null}
 
       {rows !== null && rows.length > 0 ? (
         <ul className="flex flex-col gap-3">
-          {rows.map((row) => (
-            <li
-              key={row.id}
-              className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-3"
-            >
-              <Field label="alerts.kind" mode={mode}>
-                <span className="text-base font-bold">
-                  <Lines keyName={kindLabels(row.kind).name} mode={mode} />
-                </span>
-              </Field>
+          {rows.map((row) => {
+            const severity = severityOf(row.kind);
+            const differ = row.expectedPaise !== row.actualPaise;
+            return (
+              <li key={row.id} className={CARD + ' flex flex-col'}>
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border p-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <Chip
+                      tone={
+                        severity === 'high' ? 'danger' : severity === 'medium' ? 'warn' : 'neutral'
+                      }
+                      icon={<ShieldAlert aria-hidden="true" className="size-3.5" />}
+                    >
+                      {plain(SEVERITY_KEY[severity], mode)}
+                    </Chip>
+                    <span className="min-w-0 text-lg leading-6 font-bold">
+                      <Lines keyName={kindLabels(row.kind).name} mode={mode} />
+                    </span>
+                  </div>
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <CalendarClock aria-hidden="true" className="size-4" />
+                    <span className="sr-only">{plain('alerts.when', mode)}</span>
+                    <span className="tabular-nums">{foundAt(row.createdAtIso)}</span>
+                  </span>
+                </div>
 
-              {/* The raw text, for a kind a newer migration added. Boss can
-                  read it out to the developer; without it the row would be a
-                  problem with no name. */}
-              {isReconcileKind(row.kind) ? null : (
-                <Field label="alerts.kindRaw" mode={mode}>
-                  <span className="font-mono text-sm break-all">{row.kind}</span>
-                </Field>
-              )}
+                <div className="grid gap-3 p-3 lg:grid-cols-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1 rounded-[10px] border border-border bg-background p-3">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {plain('alerts.expected', mode)}
+                        </span>
+                        <span className="text-[22px] leading-7 font-bold tabular-nums">
+                          {alertRupees(row.expectedPaise, lang)}
+                        </span>
+                      </div>
+                      <div
+                        className={
+                          'flex flex-col gap-1 rounded-[10px] border p-3 ' +
+                          (differ
+                            ? 'border-wrong-icon bg-wrong-soft text-wrong'
+                            : 'border-border bg-background')
+                        }
+                      >
+                        <span
+                          className={
+                            'text-sm font-medium ' +
+                            (differ ? 'text-wrong' : 'text-muted-foreground')
+                          }
+                        >
+                          {plain('alerts.actual', mode)}
+                        </span>
+                        <span className="text-[22px] leading-7 font-bold tabular-nums">
+                          {alertRupees(row.actualPaise, lang)}
+                        </span>
+                      </div>
+                    </div>
 
-              <Field label="alerts.when" mode={mode}>
-                <span className="text-base tabular-nums">{foundAt(row.createdAtIso)}</span>
-              </Field>
+                    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                      <dt className="text-muted-foreground">{plain('alerts.payment', mode)}</dt>
+                      {/* The id, not a name. It is what a human looks the
+                          problem up by at Razorpay, and nobody's email belongs
+                          here. */}
+                      <dd className="font-mono text-xs break-all">{row.subject}</dd>
+                      {row.orderId ? (
+                        <>
+                          <dt className="text-muted-foreground">{plain('alerts.order', mode)}</dt>
+                          <dd className="font-mono text-xs break-all">{row.orderId}</dd>
+                        </>
+                      ) : null}
+                      {/* The raw text, for a kind a newer migration added.
+                          Boss can read it out to the developer; without it the
+                          row would be a problem with no name. */}
+                      {isReconcileKind(row.kind) ? null : (
+                        <>
+                          <dt className="text-muted-foreground">
+                            {plain('alerts.kindRaw', mode)}
+                          </dt>
+                          <dd className="font-mono text-xs break-all">{row.kind}</dd>
+                        </>
+                      )}
+                    </dl>
+                  </div>
 
-              <Field label="alerts.payment" mode={mode}>
-                {/* The id, not a name. It is what a human looks the problem
-                    up by at Razorpay, and nobody's email belongs here. */}
-                <span className="font-mono text-sm break-all">{row.subject}</span>
-              </Field>
+                  <div className="flex gap-3 rounded-[10px] border border-l-4 border-border border-l-primary bg-background p-3">
+                    <ListChecks
+                      aria-hidden="true"
+                      className="mt-0.5 size-5 shrink-0 text-primary"
+                    />
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="text-sm font-bold">{plain('alerts.detail', mode)}</span>
+                      <span className="text-base">
+                        <Lines keyName={kindLabels(row.kind).detail} mode={mode} />
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-              {row.orderId ? (
-                <Field label="alerts.order" mode={mode}>
-                  <span className="font-mono text-sm break-all">{row.orderId}</span>
-                </Field>
-              ) : null}
-
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium text-muted-foreground">
-                  {plain('alerts.expected', mode)}
-                </span>
-                <span className="text-base tabular-nums">
-                  {alertRupees(row.expectedPaise, lang)}
-                </span>
-              </div>
-
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium text-muted-foreground">
-                  {plain('alerts.actual', mode)}
-                </span>
-                <span className="text-[18px] leading-6 font-bold tabular-nums">
-                  {alertRupees(row.actualPaise, lang)}
-                </span>
-              </div>
-
-              <Field label="alerts.detail" mode={mode}>
-                <span className="text-sm">
-                  <Lines keyName={kindLabels(row.kind).detail} mode={mode} />
-                </span>
-              </Field>
-
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void resolve(row)}
-                aria-label={plain('alerts.resolve', mode)}
-                className={SECONDARY_BUTTON}
-              >
-                {plain(busy === row.id ? 'alerts.resolving' : 'alerts.resolve', mode)}
-              </button>
-            </li>
-          ))}
+                <div className="flex justify-end border-t border-border p-3">
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void resolve(row)}
+                    aria-label={plain('alerts.resolve', mode)}
+                    className={OUTLINE_BUTTON}
+                  >
+                    <Check aria-hidden="true" className="size-5" />
+                    {plain(busy === row.id ? 'alerts.resolving' : 'alerts.resolve', mode)}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </section>

@@ -31,7 +31,7 @@ export default async function AdminTeachersPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1120px] px-4 py-4">
+    <main className="py-4">
       <AdminTeachersList teachers={teachers} configured={configured} />
     </main>
   );

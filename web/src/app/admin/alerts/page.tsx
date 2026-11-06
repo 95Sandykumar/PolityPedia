@@ -15,7 +15,7 @@ import { readSupabaseEnv } from '@/lib/auth/env';
 
 export default function AdminAlertsPage() {
   return (
-    <main className="mx-auto w-full max-w-[1120px] px-4 py-4">
+    <main className="py-4">
       <AdminAlertsList configured={readSupabaseEnv() !== null} />
     </main>
   );
