@@ -159,10 +159,11 @@ export function isClaimCode(value: unknown): value is ClaimCode {
  * A claim secret, or null (issue 37-ai-claim-secret).
  *
  * The one-time uuid `claim_ai_explanation()` hands back to the call that
- * created or took over a claim. `finish_*` and `fail_*` need it, besides
- * `claimed_by`, so the student's OWN browser cannot refund a call our server
- * is still making. Without it the 30-a-day cap never filled: claim, post
- * `rpc/fail_ai_explanation` yourself, claim again.
+ * created or took over a claim. `finish_*` and `fail_*` need it, and since
+ * issue 41-ai-finish-server-only it is the ONLY identity they check: those
+ * four functions are granted to `service_role` alone, a service-role call
+ * has no `auth.uid()`, and the refund is aimed at the `claimed_by` stored on
+ * the row.
  *
  * SERVER MEMORY ONLY. It lives in a local variable for the length of one
  * model call. It is never a reply field, never a cookie, never logged.
@@ -296,7 +297,15 @@ export interface AiClient {
   get(request: RevisionRequest): Promise<Explanation | null>;
   /** What the prompt is built from. Null when the question is not readable. */
   question(questionId: string): Promise<QuestionForExplain | null>;
-  /** Save a finished explanation. Needs the claim's own secret. */
+  /**
+   * Save a finished explanation. Needs the claim's own secret.
+   *
+   * SERVER-ONLY KEY (issue 41-ai-finish-server-only). The Supabase
+   * implementation posts this with `SUPABASE_SERVICE_ROLE_KEY`, not the
+   * student's token, and THROWS when that key is not set. Either throw (no
+   * key, or Postgres refusing) is a failure the caller must treat as "the
+   * explanation was not saved", because that is exactly what it means.
+   */
   finish(
     request: RevisionRequest,
     result: ExplainResult,
@@ -304,6 +313,9 @@ export interface AiClient {
   ): Promise<void>;
   /**
    * Mark it failed and give the student their 1 of 30 back.
+   *
+   * SERVER-ONLY KEY too (issue 41): a student's own browser calling this is
+   * how the 30-a-day cap stayed at 0.
    *
    * `secret` is required, not optional: a null one is refused by Postgres,
    * and making the argument explicit is what stops a future caller from

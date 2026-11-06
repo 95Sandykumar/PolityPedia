@@ -342,7 +342,12 @@ describe('an edit cannot pretend to be an AI call', () => {
     expect((await stored(liveQuestion))?.status).toBe('ready');
 
     // The AI finish path now saves nothing, because no row is generating.
-    const saved = await db.asUser(student, async (sql) => {
+    //
+    // Posted as OUR SERVER (`db.asService`), because issue
+    // 41-ai-finish-server-only granted this function to `service_role` alone.
+    // The eight-argument shape with no secret is still accepted and still
+    // refused, which is the fail-closed promise from issue 37.
+    const saved = await db.asService(async (sql) => {
       const r = await sql.query<{ saved: boolean }>(
         `select public.finish_ai_explanation(
                   $1, 'en', $2::jsonb, '[]'::jsonb, 'claude-haiku-5-5', 1, 1, 0

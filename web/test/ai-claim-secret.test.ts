@@ -27,8 +27,17 @@
  * between that read and the upsert, was refunded twice. The authoritative
  * read is now `select ... for update`.
  *
- * Seed with `db.admin` (bypasses RLS), act through `db.asUser` (Postgres
- * evaluates every policy and every `auth.uid()` for real).
+ * SINCE ISSUE 41-ai-finish-server-only the paragraph above is only half the
+ * story, and this file was updated to match. The app DOES have a server-only
+ * key now, and `finish_*` / `fail_*` are granted to `service_role` alone, so
+ * the browser cannot reach them at all. The secret rules below are unchanged
+ * and still the thing under test; the calls are simply made the way the route
+ * makes them, through `db.asService`. The refusal itself is proved in
+ * `test/ai-finish-server-only.test.ts`.
+ *
+ * Seed with `db.admin` (bypasses RLS), act through `db.asUser` (a browser,
+ * where Postgres evaluates every policy and every `auth.uid()` for real) or
+ * `db.asService` (our own server).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb, type TestDb } from './db';
@@ -87,6 +96,17 @@ function claim(userId: string, questionId: string, lang = 'en'): Promise<ClaimOu
   });
 }
 
+/**
+ * THE FOUR FINISH/FAIL HELPERS RUN AS OUR SERVER (issue
+ * 41-ai-finish-server-only). 0040 granted all four to `service_role` alone,
+ * so a `db.asUser` call would not return `false` any more: it would be
+ * refused outright. `test/ai-finish-server-only.test.ts` is where that
+ * refusal is proved; here the secret rules are what is under test, so the
+ * calls are made the way the route makes them.
+ *
+ * `userId` stays in each signature only to keep every assertion below
+ * reading the way it did. The SECRET is the identity now.
+ */
 function finish(
   userId: string,
   questionId: string,
@@ -94,7 +114,7 @@ function finish(
   sources: unknown[] = [GOOD_SOURCE],
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       `select public.finish_ai_explanation(
                 $1, $2, $3::jsonb, $4::jsonb, 'claude-haiku-5-5', 900, 450, 2, $5::uuid
@@ -111,7 +131,7 @@ function finishWithNoSecretArgument(
   questionId: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       `select public.finish_ai_explanation(
                 $1, $2, $3::jsonb, '[]'::jsonb, 'claude-haiku-5-5', 900, 450, 2
@@ -128,7 +148,7 @@ function failCall(
   secret: string | null,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ gave_back: boolean }>(
       'select public.fail_ai_explanation($1, $2, $3::uuid) as gave_back',
       [questionId, lang, secret],
@@ -143,7 +163,7 @@ function failWithNoSecretArgument(
   questionId: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ gave_back: boolean }>(
       'select public.fail_ai_explanation($1, $2) as gave_back',
       [questionId, lang],
@@ -169,7 +189,7 @@ function finishAudio(
   path?: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       'select public.finish_explanation_audio($1, $2, $3, $4::uuid) as saved',
       [questionId, lang, path ?? audioPath(questionId, lang), secret],
@@ -184,7 +204,7 @@ function failAudio(
   secret: string | null,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ released: boolean }>(
       'select public.fail_explanation_audio($1, $2, $3::uuid) as released',
       [questionId, lang, secret],
@@ -199,7 +219,7 @@ function finishAudioWithNoSecretArgument(
   questionId: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       'select public.finish_explanation_audio($1, $2, $3) as saved',
       [questionId, lang, audioPath(questionId, lang)],
@@ -213,7 +233,7 @@ function failAudioWithNoSecretArgument(
   questionId: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ released: boolean }>(
       'select public.fail_explanation_audio($1, $2) as released',
       [questionId, lang],
@@ -422,11 +442,24 @@ describe('fail_ai_explanation: the refund needs the secret', () => {
     expect((await stored(liveQuestion))?.claim_secret_hash).toBeNull();
   });
 
-  it('still refuses another student holding the right secret', async () => {
+  it('cannot be called by another student at all', async () => {
     const { secret } = await claim(userA, liveQuestion);
 
-    // Belt and braces: the owner check from issue 32 is still there.
-    expect(await failCall(userB, liveQuestion, secret)).toBe(false);
+    // Issue 32 answered this with an owner check (`claimed_by = auth.uid()`).
+    // Issue 41 answers it one level up: `authenticated` has no EXECUTE on
+    // this function, so B's key never reaches the body. That is strictly
+    // stronger, because it also stops A, whose own browser was the hole.
+    await expect(
+      db.asUser(userB, (sql) =>
+        sql.query('select public.fail_ai_explanation($1, $2, $3::uuid)', [
+          liveQuestion,
+          'en',
+          secret,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/i);
+
+    expect((await stored(liveQuestion))?.status).toBe('generating');
     expect(await usedToday(userA)).toBe(1);
     expect(await usedToday(userB)).toBe(0);
   });
@@ -560,12 +593,33 @@ describe('explanation audio: the same secret rule', () => {
     expect(await failAudio(userA, liveQuestion, secret)).toBe(false);
   });
 
-  it('still refuses another student holding the right secret', async () => {
+  it('cannot be called by another student at all', async () => {
     await seedReady(liveQuestion);
     const { secret } = await claimAudio(userA, liveQuestion);
 
-    expect(await finishAudio(userB, liveQuestion, secret)).toBe(false);
-    expect(await failAudio(userB, liveQuestion, secret)).toBe(false);
+    // The same step up as the text half (issue 41): not an owner check
+    // inside the function, but no EXECUTE for `authenticated` on it.
+    await expect(
+      db.asUser(userB, (sql) =>
+        sql.query('select public.finish_explanation_audio($1, $2, $3, $4::uuid)', [
+          liveQuestion,
+          'en',
+          audioPath(liveQuestion),
+          secret,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/i);
+
+    await expect(
+      db.asUser(userB, (sql) =>
+        sql.query('select public.fail_explanation_audio($1, $2, $3::uuid)', [
+          liveQuestion,
+          'en',
+          secret,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/i);
+
     expect((await stored(liveQuestion))?.audio_status).toBe('making');
   });
 
@@ -602,17 +656,24 @@ describe('a teacher edit does not inherit the secret', () => {
     const { secret } = await claim(userA, liveQuestion);
     expect(await finish(userA, liveQuestion, secret)).toBe(true);
 
-    const before = await stored(liveQuestion);
-    expect(before?.claim_secret_hash).toMatch(/^[0-9a-f]{64}$/);
+    // A finished call clears its own hash since issue 41: the call is over,
+    // so its secret is dead.
+    expect((await stored(liveQuestion))?.claim_secret_hash).toBeNull();
 
+    // Put a hash back by hand, so the PIN has something to pin. A real row
+    // in this state is one the model is still writing.
     await db.admin.query(
       `update public.ai_explanations
-       set audio_status = 'ready', audio_path = $2,
+       set claim_secret_hash = repeat('c', 64),
+           audio_status = 'ready', audio_path = $2,
            audio_claimed_by = $3, audio_claimed_at = now(),
            audio_claim_secret_hash = repeat('a', 64)
        where question_id = $1 and lang = 'en'`,
       [liveQuestion, audioPath(liveQuestion), userA],
     );
+
+    const before = await stored(liveQuestion);
+    expect(before?.claim_secret_hash).toBe('c'.repeat(64));
 
     // The teacher corrects the text. Their own hash may not go on the row.
     await db.asUser(teacher, (sql) =>

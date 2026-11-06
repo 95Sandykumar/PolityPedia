@@ -83,13 +83,19 @@ function claimAudio(userId: string, questionId: string, lang = 'en'): Promise<st
   });
 }
 
+/**
+ * Finish and release the voice claim as OUR SERVER does (issue
+ * 41-ai-finish-server-only): both functions are granted to `service_role`
+ * alone now. `userId` stays in the signature because it is how the held
+ * secret is looked up.
+ */
 function finishAudio(
   userId: string,
   questionId: string,
   path?: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       'select public.finish_explanation_audio($1, $2, $3, $4::uuid) as saved',
       [
@@ -104,7 +110,7 @@ function finishAudio(
 }
 
 function failAudio(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ released: boolean }>(
       'select public.fail_explanation_audio($1, $2, $3::uuid) as released',
       [questionId, lang, heldSecret('audio', userId, questionId, lang)],

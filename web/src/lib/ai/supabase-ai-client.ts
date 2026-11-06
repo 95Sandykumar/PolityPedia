@@ -6,17 +6,28 @@
  * this file can never break a build that has no environment variables
  * (web/CLAUDE.md).
  *
- * Authorisation: the client carries the SIGNED-IN STUDENT'S OWN access token.
- * `claim_ai_explanation()` reads `auth.uid()` from that token, so the plan
- * gate, the question visibility rule and the 30-a-day counter are all decided
- * by Postgres for the right person. There is no service-role key here, so a
- * bug in a route handler cannot hand a student somebody else's quota.
+ * Authorisation: TWO KEYS, and which call gets which is the whole of issue
+ * 41-ai-finish-server-only.
  *
- * Security: tokens are secrets. No console call lives in this file, and the
- * errors it throws carry only a fixed message plus the HTTP status, never a
- * response body.
+ *  * `claim`, `get` and `question` carry the SIGNED-IN STUDENT'S OWN access
+ *    token. `claim_ai_explanation()` reads `auth.uid()` from it, so the plan
+ *    gate, the question visibility rule, the exam lock and the 30-a-day
+ *    counter are all decided by Postgres for the right person, and a bug in a
+ *    route handler cannot hand a student somebody else's quota.
+ *  * `finish` and `fail` carry the SERVER-ONLY key, through
+ *    `createAiServiceRpc()`. Those two functions are granted to
+ *    `service_role` alone since `0040_ai_finish_server_only.sql`, because a
+ *    student holding their own claim secret could otherwise post
+ *    `rpc/finish_ai_explanation` from the browser with text they wrote, and
+ *    every student after them would read it. There is NO fallback to the
+ *    student's token: with no key set, both throw.
+ *
+ * Security: tokens and keys are secrets. No console call lives in this file,
+ * and the errors it throws carry only a fixed message plus the HTTP status,
+ * never a response body.
  */
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
+import { createAiServiceRpc } from './service-env';
 import { readOptions, type QuestionOptions } from '@/lib/questions/types';
 import {
   isExplanationStatus,
@@ -109,6 +120,10 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
   // Kept as a getter, never read here: lazy env (web/CLAUDE.md).
   const env = () => readSupabaseEnv(options.env ?? process.env);
   const doFetch: typeof fetch = (...args) => (options.fetchImpl ?? fetch)(...args);
+
+  // The server-only caller for `finish` and `fail` (issue 41). It reads its
+  // own env inside every call, so this line costs nothing at import time.
+  const serviceRpc = createAiServiceRpc({ env: options.env, fetchImpl: options.fetchImpl });
 
   function required(): SupabaseEnv {
     const found = env();
@@ -302,7 +317,11 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       result: ExplainResult,
       secret: string | null,
     ): Promise<void> {
-      const saved = await rpc('finish_ai_explanation', {
+      // THE SERVER-ONLY KEY, never the student's token (issue 41). With no
+      // key set this throws, and the route's catch turns that into the normal
+      // failure path: the student is told to try again, and the stale-claim
+      // rule gives the 1 of 30 back.
+      const saved = await serviceRpc('finish_ai_explanation', {
         question_id: request.questionId,
         lang: request.lang,
         body: result.body,
@@ -324,7 +343,11 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
     },
 
     async fail(request: RevisionRequest, secret: string | null): Promise<void> {
-      await rpc('fail_ai_explanation', {
+      // The server-only key again (issue 41). The refund is the reason: a
+      // student's own browser calling this is how the 30-a-day cap stayed at
+      // 0. Postgres now finds the claim by its secret and pays back the
+      // `claimed_by` on the row.
+      await serviceRpc('fail_ai_explanation', {
         question_id: request.questionId,
         lang: request.lang,
         // No secret, no refund (issue 37-ai-claim-secret).

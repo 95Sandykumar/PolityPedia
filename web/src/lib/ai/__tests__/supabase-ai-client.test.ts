@@ -3,19 +3,32 @@
  *
  * No real network call and no real key (web/CLAUDE.md). What is checked:
  *
- *  * the student's OWN access token goes on every call, so Postgres RLS and
- *    `auth.uid()` decide (there is no service-role key here);
+ *  * WHICH KEY GOES ON WHICH CALL (issue 41-ai-finish-server-only). `claim`,
+ *    `get` and `question` carry the student's OWN access token, so Postgres
+ *    RLS and `auth.uid()` decide. `finish` and `fail` carry the SERVER-ONLY
+ *    key, because 0040 granted those two functions to `service_role` alone;
+ *  * with no server-only key set, `finish` and `fail` THROW, and never fall
+ *    back to the student's token;
  *  * `claim` passes the one word through, and anything it does not know
  *    fails closed to `no_plan`, never to `claimed`;
  *  * a saved row is turned into something the UI can draw, and a broken one
  *    is reported as not readable rather than as an empty explanation;
- *  * `finish` treats "saved nothing" as a failure, so the route refunds.
+ *  * `finish` treats "saved nothing" as a failure, so the route refunds;
+ *  * neither the claim secret nor either key ever reaches a thrown message.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseAiClient } from '../supabase-ai-client';
 import type { ExplainResult, RevisionRequest } from '../types';
 
 const ENV = {
+  NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key-not-real',
+  // Server only, never `NEXT_PUBLIC_` (issue 41-ai-finish-server-only).
+  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key-not-real',
+};
+
+/** The same install with the server-only key missing. */
+const ENV_NO_SERVICE_KEY = {
   NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key-not-real',
 };
@@ -223,6 +236,15 @@ describe('createSupabaseAiClient: finish and fail', () => {
 
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/rpc/finish_ai_explanation');
+
+    // THE SERVER-ONLY KEY, in both headers, and NOT the student's token
+    // (issue 41-ai-finish-server-only). 0040 revoked this function from
+    // `authenticated`, so the student's token would simply be refused.
+    const headers = init.headers as Record<string, string>;
+    expect(headers.apikey).toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+    expect(headers.authorization).toBe('Bearer ' + ENV.SUPABASE_SERVICE_ROLE_KEY);
+    expect(headers.authorization).not.toContain('student-token');
+
     expect(JSON.parse(String(init.body))).toMatchObject({
       question_id: REQUEST.questionId,
       lang: 'en',
@@ -247,11 +269,78 @@ describe('createSupabaseAiClient: finish and fail', () => {
     await clientWith(fetchImpl as unknown as typeof fetch).fail(REQUEST, CLAIM_SECRET);
     expect(fetchImpl.mock.calls[0][0]).toContain('/rpc/fail_ai_explanation');
     const init = fetchImpl.mock.calls[0][1] as RequestInit;
+
+    // The server-only key again. The refund is why: a student's own browser
+    // calling this is how the 30-a-day cap stayed at 0 (issue 41).
+    const headers = init.headers as Record<string, string>;
+    expect(headers.apikey).toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+    expect(headers.authorization).toBe('Bearer ' + ENV.SUPABASE_SERVICE_ROLE_KEY);
+
     expect(JSON.parse(String(init.body))).toEqual({
       question_id: REQUEST.questionId,
       lang: 'en',
       claim_secret: CLAIM_SECRET,
     });
+  });
+
+  it('keeps the student token on CLAIM, which is where auth.uid() decides', async () => {
+    // The split, in one test: the plan gate, the mock paywall, the exam lock
+    // and the 30-a-day cap all read `auth.uid()`, so the claim has to stay on
+    // the student's own token (issue 41).
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      jsonResponse(200, { code: 'claimed', secret: CLAIM_SECRET }),
+    );
+    const client = clientWith(fetchImpl as unknown as typeof fetch);
+    await client.claim(REQUEST);
+    await client.fail(REQUEST, CLAIM_SECRET);
+
+    const claimHeaders = (fetchImpl.mock.calls[0][1] as RequestInit).headers as Record<
+      string,
+      string
+    >;
+    const failHeaders = (fetchImpl.mock.calls[1][1] as RequestInit).headers as Record<
+      string,
+      string
+    >;
+    expect(claimHeaders.authorization).toBe('Bearer student-token');
+    expect(claimHeaders.apikey).toBe(ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    expect(failHeaders.authorization).toBe('Bearer ' + ENV.SUPABASE_SERVICE_ROLE_KEY);
+    // The student's key never carries the server-only one, in either header.
+    expect(claimHeaders.apikey).not.toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+  });
+
+  it('throws on finish and fail with no server-only key, and never falls back', async () => {
+    // This is the SAFE direction. The route's catch turns the throw into the
+    // normal failure path: the student is told to try again, and the
+    // stale-claim rule gives the 1 of 30 back. Falling back to the student's
+    // token would be a 403 dressed up as "saved nothing".
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, true));
+    const client = clientWith(fetchImpl as unknown as typeof fetch, ENV_NO_SERVICE_KEY);
+
+    await expect(client.finish(REQUEST, RESULT, CLAIM_SECRET)).rejects.toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY/,
+    );
+    await expect(client.fail(REQUEST, CLAIM_SECRET)).rejects.toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY/,
+    );
+    // Nothing was posted anywhere: no request with the wrong key went out.
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('never puts the secret or either key in a thrown message', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      // A PostgREST body that quotes a token, which is what must not escape.
+      jsonResponse(401, { message: 'JWT ' + ENV.SUPABASE_SERVICE_ROLE_KEY }),
+    );
+    const client = clientWith(fetchImpl as unknown as typeof fetch);
+
+    const thrown = await client.finish(REQUEST, RESULT, CLAIM_SECRET).catch((e: Error) => e);
+    const text = String((thrown as Error).message);
+    expect(text).toContain('401');
+    expect(text).not.toContain(CLAIM_SECRET);
+    expect(text).not.toContain(ENV.SUPABASE_SERVICE_ROLE_KEY);
+    expect(text).not.toContain(ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    expect(text).not.toContain('student-token');
   });
 
   it('still posts a null secret rather than dropping the field', async () => {

@@ -8,6 +8,12 @@
  * RLS is enforced by Postgres itself, never faked in JS: `asUser()` does
  * `SET ROLE authenticated`, and that role has no BYPASSRLS, so every policy is
  * evaluated for real. See `test/profiles.test.ts` for the guard test that proves it.
+ *
+ * `asService()` is the THIRD role, and it is not a convenience: a function
+ * granted to `service_role` alone is a different security claim from one
+ * granted to `authenticated`, and the only way to test that claim is to hold
+ * both keys. See `test/ai-finish-server-only.test.ts`
+ * (issue 41-ai-finish-server-only).
  */
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -26,12 +32,19 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * must NOT live in a migration file.
  */
 const SUPABASE_STUB = `
-  -- Roles. Neither is a superuser and neither has BYPASSRLS, so RLS is real.
+  -- Roles. Neither API role is a superuser and neither has BYPASSRLS, so RLS
+  -- is real for every student request.
   create role anon nologin noinherit;
   create role authenticated nologin noinherit;
 
+  -- The SERVER-ONLY role, exactly as a real Supabase project has it: it
+  -- BYPASSES RLS, which is why its key never leaves our server. Functions
+  -- granted to this role alone (the webhook ones in 0027, the AI finish and
+  -- fail in 0040) are unreachable from a browser. That is the whole point.
+  create role service_role nologin noinherit bypassrls;
+
   create schema if not exists auth;
-  grant usage on schema auth to anon, authenticated;
+  grant usage on schema auth to anon, authenticated, service_role;
 
   create table auth.users (
     id uuid primary key default gen_random_uuid(),
@@ -46,14 +59,22 @@ const SUPABASE_STUB = `
     select nullif(current_setting('${JWT_SUB}', true), '')::uuid
   $$;
 
-  grant execute on function auth.uid() to anon, authenticated;
+  grant execute on function auth.uid() to anon, authenticated, service_role;
 
   -- Supabase grants the API roles access to the public schema, and sets default
   -- privileges so every table a later migration creates is reachable too.
-  grant usage on schema public to anon, authenticated;
-  alter default privileges in schema public grant all on tables to anon, authenticated;
-  alter default privileges in schema public grant all on sequences to anon, authenticated;
-  alter default privileges in schema public grant execute on functions to anon, authenticated;
+  --
+  -- service_role is in these lists because a real Supabase project puts it
+  -- there. That is WHY a migration that wants a function to be server-only
+  -- has to spell out its REVOKEs: the default grant has already handed
+  -- EXECUTE to anon and authenticated by the time the migration ends.
+  grant usage on schema public to anon, authenticated, service_role;
+  alter default privileges in schema public
+    grant all on tables to anon, authenticated, service_role;
+  alter default privileges in schema public
+    grant all on sequences to anon, authenticated, service_role;
+  alter default privileges in schema public
+    grant execute on functions to anon, authenticated, service_role;
 `;
 
 export interface TestDb {
@@ -70,6 +91,15 @@ export interface TestDb {
   asUser<T>(id: string, fn: (sql: PGlite) => Promise<T>): Promise<T>;
   /** Run `fn` with role `anon` and no `auth.uid()` (a visitor who is not signed in). */
   asAnon<T>(fn: (sql: PGlite) => Promise<T>): Promise<T>;
+  /**
+   * Run `fn` with role `service_role` and NO `auth.uid()`.
+   *
+   * This is our own server holding `SUPABASE_SERVICE_ROLE_KEY`: the webhook,
+   * the nightly job, and the AI finish/fail calls. A service-role token has
+   * no `sub` claim, so `auth.uid()` is NULL here, which is exactly why a
+   * server-only function may not depend on it.
+   */
+  asService<T>(fn: (sql: PGlite) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
@@ -101,7 +131,7 @@ export async function createTestDb(): Promise<TestDb> {
   // Serialise asUser/asAnon blocks so two of them can never overlap.
   let lock: Promise<unknown> = Promise.resolve();
 
-  async function withSession<T>(role: 'authenticated' | 'anon', uid: string | null, fn: (sql: PGlite) => Promise<T>) {
+  async function withSession<T>(role: 'authenticated' | 'anon' | 'service_role', uid: string | null, fn: (sql: PGlite) => Promise<T>) {
     const run = lock.then(async () => {
       await db.exec(`set role ${role}`);
       await db.query(`select set_config($1, $2, false)`, [JWT_SUB, uid ?? '']);
@@ -134,6 +164,10 @@ export async function createTestDb(): Promise<TestDb> {
 
     asAnon(fn) {
       return withSession('anon', null, fn);
+    },
+
+    asService(fn) {
+      return withSession('service_role', null, fn);
     },
 
     close() {
