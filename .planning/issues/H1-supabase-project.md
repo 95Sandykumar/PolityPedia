@@ -1,6 +1,6 @@
 ---
 id: H1-supabase-project
-status: todo
+status: done
 type: human
 depends_on: [02-db-harness]
 ---
@@ -24,3 +24,5 @@ A Supabase project in Mumbai exists, the migrations are applied, and `web/.env.l
 
 ## Notes / scope guard
 Do this any time after issue 02. Ralph does not need it.
+
+<!-- 2026-11-06: project fkcuqwywxpvoxgzszhdq (Mumbai), 37 migrations, buckets via web/supabase/storage-setup.sql, email code (6 digits) and Google sign-in both tested by Boss, profiles row verified. -->
