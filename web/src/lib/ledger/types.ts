@@ -92,10 +92,25 @@ export type ReconcileKind =
    * data, which makes every other conclusion of that night suspect, because a
    * dropped purchase makes its captured payment look like `no_purchase`.
    */
-  | 'unreadable_purchase';
+  | 'unreadable_purchase'
+  /**
+   * A subscription charge whose de-dupe row is already committed but whose
+   * month cannot be granted, so Razorpay's retry of the same payment id is
+   * dropped as "already seen" and buys nothing either
+   * (issue 40-charge-alerts). Money was taken; a human has to act.
+   *
+   *   `unknown_subscription`    a charge for a Razorpay subscription id we
+   *                             have no row for. Often OUR OWN RACE, where
+   *                             `charged` landed before we wrote the id, so a
+   *                             real student may have paid.
+   *   `cancelled_subscription`  a charge that landed after the subscription
+   *                             was cancelled. Refund it by hand.
+   */
+  | 'unknown_subscription'
+  | 'cancelled_subscription';
 
 /**
- * Every kind, in the order `reconcile_alerts_kind_check` lists them (0035).
+ * Every kind, in the order `reconcile_alerts_kind_check` lists them (0039).
  *
  * ONE list, exported, because there used to be three: this file, the server
  * alerts client and the browser alerts client each kept their own copy and two
@@ -110,6 +125,8 @@ export const RECONCILE_KINDS: readonly ReconcileKind[] = [
   'plan_mismatch',
   'bad_event',
   'unreadable_purchase',
+  'unknown_subscription',
+  'cancelled_subscription',
 ];
 
 /** True for a kind THIS BUILD has words for. See `ReconcileAlertRow.kind`. */

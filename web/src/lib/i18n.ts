@@ -534,6 +534,14 @@ export const dictionary = {
     'alerts.kindBadEvent': 'An event we can never accept',
     'alerts.detailBadEvent':
       'Razorpay sent something we cannot act on, however often it is retried. Open the event at Razorpay and deal with that payment by hand.',
+    // The two DROPPED subscription charges (0039, issue 40-charge-alerts). The
+    // retry buys nothing, so only a human can finish these.
+    'alerts.kindUnknownSubscription': 'A charge for a plan we have no record of',
+    'alerts.detailUnknownSubscription':
+      'A month was charged for a subscription id we do not hold. It may be a real student whose plan row was written a moment later. Find the payment at Razorpay: open the month by hand, or refund it.',
+    'alerts.kindCancelledSubscription': 'A charge after the plan was stopped',
+    'alerts.detailCancelledSubscription':
+      'A month was charged for a subscription that is already cancelled, and no month was added. Refund that payment at Razorpay and check the plan is really closed there.',
     // A kind this build has no words for: the database is ahead of the build.
     'alerts.kindUnknown': 'A problem this app does not know yet',
     'alerts.kindRaw': 'Kind',
@@ -1028,6 +1036,13 @@ export const dictionary = {
     'alerts.kindBadEvent': 'ऐसा इवेंट जो कभी नहीं चलेगा',
     'alerts.detailBadEvent':
       'Razorpay ने कुछ ऐसा भेजा जिस पर हम कुछ नहीं कर सकते, कितनी बार भी कोशिश हो। Razorpay पर इवेंट खोलें और वह पेमेंट हाथ से निपटाएँ।',
+    // छूटे हुए दो सब्सक्रिप्शन चार्ज (0039).
+    'alerts.kindUnknownSubscription': 'ऐसे प्लान का चार्ज जो हमारे पास नहीं है',
+    'alerts.detailUnknownSubscription':
+      'जिस सब्सक्रिप्शन आईडी का महीना कटा, वह हमारे पास नहीं है। हो सकता है छात्र असली हो और उसकी पंक्ति एक पल बाद बनी हो। Razorpay पर पेमेंट देखें: महीना हाथ से खोलें, या पैसा लौटाएँ।',
+    'alerts.kindCancelledSubscription': 'प्लान बंद होने के बाद का चार्ज',
+    'alerts.detailCancelledSubscription':
+      'जो सब्सक्रिप्शन पहले ही रद्द है, उसका महीना कटा, और कोई महीना नहीं जोड़ा गया। Razorpay पर वह पैसा लौटाएँ और देखें कि प्लान वहाँ सच में बंद है।',
     // ऐसी किस्म जिसके लिए इस ऐप में शब्द नहीं हैं।
     'alerts.kindUnknown': 'ऐसी दिक्कत जो यह ऐप अभी नहीं जानता',
     'alerts.kindRaw': 'किस्म',

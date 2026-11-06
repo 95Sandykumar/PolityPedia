@@ -88,8 +88,12 @@ function restReply(kind: string): typeof fetch {
 }
 
 describe('the kind list matches the database', () => {
-  it('holds all eight kinds the check constraint allows', () => {
-    expect([...RECONCILE_KINDS]).toEqual([
+  it('holds the eight kinds 0035 allows, in order, before any later ones', () => {
+    // 0039 appended two more (issue 40-charge-alerts); their own list test
+    // lives in `charge-alert-kinds.test.tsx`. These eight must stay, and stay
+    // in this order, because `reconcile_alerts_kind_check` still allows them
+    // and every existing alert row carries one of them.
+    expect([...RECONCILE_KINDS].slice(0, 8)).toEqual([
       'no_purchase',
       'not_paid',
       'amount_mismatch',
