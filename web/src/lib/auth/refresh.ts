@@ -18,6 +18,7 @@
  *
  * Security: nothing here is logged. Every value in sight is a secret.
  */
+import { refusedRefreshToken } from './auth-error';
 import { needsRefresh, type AuthSession } from './session';
 import type { ServerAuthClient } from './types';
 
@@ -26,8 +27,22 @@ export type RefreshOutcome =
   | { kind: 'fresh'; session: AuthSession }
   /** New tokens. The caller MUST write them back into the cookie. */
   | { kind: 'refreshed'; session: AuthSession }
-  /** Revoked or spent. The caller MUST clear the cookie. */
-  | { kind: 'failed' };
+  /**
+   * Revoked or spent: SUPABASE said no, with a 400 or a 401. The caller MUST
+   * clear the cookie, because nothing will ever renew this session again.
+   */
+  | { kind: 'failed' }
+  /**
+   * We could not ask (issue 38-session-and-alerts-fixes): a 5xx, a timeout or
+   * a dead network. The caller MUST KEEP THE COOKIE and carry on with the
+   * session handed back here. Nothing says this token is bad, the old access
+   * token may still have minutes on it, and the next request tries again.
+   *
+   * This used to be `failed` too, which cleared the cookie: one bad Supabase
+   * minute signed a student out in the middle of a three hour mock test and
+   * turned their answer-save POST into a redirect to /sign-in.
+   */
+  | { kind: 'unavailable'; session: AuthSession };
 
 export interface RefreshInput {
   session: AuthSession;
@@ -50,13 +65,18 @@ export async function refreshIfNeeded({
   try {
     const renewed = await client.refreshSession(session.refreshToken);
     return { kind: 'refreshed', session: renewed };
-  } catch {
-    // Fixed path, no message: the thrown error carries an HTTP status.
-    return { kind: 'failed' };
+  } catch (error) {
+    // THE ONLY ERROR THAT ENDS A SESSION is Supabase refusing the token
+    // itself: 400 for one already spent, 401 for one revoked. A 5xx, a
+    // timeout and a thrown `fetch` all fail OPEN, because an outage is not a
+    // sign-out. Nothing is logged: every value in sight is a secret.
+    if (refusedRefreshToken(error)) return { kind: 'failed' };
+    return { kind: 'unavailable', session };
   }
 }
 
 export interface RefreshReply {
+  /** 200 carry on, 401 sign in again, 503 Supabase could not be reached. */
   status: number;
   /** The session to write into the cookie, or null to leave it alone. */
   session: AuthSession | null;
@@ -70,6 +90,10 @@ export interface RefreshReply {
  * 200 means "carry on": either the token was still good or it was renewed.
  * 401 means the student has to sign in again, and the cookie is cleared so the
  * middleware agrees with the answer.
+ * 503 means Supabase could not be reached, so NOTHING was decided
+ * (issue 38-session-and-alerts-fixes). The cookie stays exactly as it was and
+ * the caller may try again. It is not a 200, because nothing was renewed, and
+ * it is not a 401, because the student is not signed out.
  */
 export async function handleRefresh({
   session,
@@ -87,5 +111,8 @@ export async function handleRefresh({
     return { status: 200, session: outcome.session, clearCookie: false };
   }
   if (outcome.kind === 'fresh') return { status: 200, session: null, clearCookie: false };
+  if (outcome.kind === 'unavailable') {
+    return { status: 503, session: null, clearCookie: false };
+  }
   return { status: 401, session: null, clearCookie: true };
 }

@@ -34,6 +34,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createBrowserAlertsClient } from '@/lib/ledger/browser-alerts-client';
 import {
   alertRupees,
+  isReconcileKind,
   type BrowserAlertsClient,
   type ReconcileAlertRow,
   type ReconcileKind,
@@ -44,17 +45,37 @@ import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/l
 const SECONDARY_BUTTON =
   'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground transition-colors duration-100 disabled:opacity-60';
 
-/** One kind, two labels: what it is, and what Boss does about it. */
+/**
+ * One kind, two labels: what it is, and what Boss does about it.
+ *
+ * All EIGHT kinds `reconcile_alerts_kind_check` allows, not five. The three
+ * the webhook writes (0034) were missing until
+ * issue 38-session-and-alerts-fixes, and a missing entry here crashed the row
+ * rather than drawing it.
+ */
 const KIND_LABELS: Record<ReconcileKind, { name: MessageKey; detail: MessageKey }> = {
   no_purchase: { name: 'alerts.kindNoPurchase', detail: 'alerts.detailNoPurchase' },
   not_paid: { name: 'alerts.kindNotPaid', detail: 'alerts.detailNotPaid' },
   amount_mismatch: { name: 'alerts.kindAmountMismatch', detail: 'alerts.detailAmountMismatch' },
   no_payment: { name: 'alerts.kindNoPayment', detail: 'alerts.detailNoPayment' },
+  currency_mismatch: {
+    name: 'alerts.kindCurrencyMismatch',
+    detail: 'alerts.detailCurrencyMismatch',
+  },
+  plan_mismatch: { name: 'alerts.kindPlanMismatch', detail: 'alerts.detailPlanMismatch' },
+  bad_event: { name: 'alerts.kindBadEvent', detail: 'alerts.detailBadEvent' },
   unreadable_purchase: {
     name: 'alerts.kindUnreadablePurchase',
     detail: 'alerts.detailUnreadablePurchase',
   },
 };
+
+/** The words for a kind, or the GENERIC pair when this build has none. */
+const UNKNOWN_LABELS = { name: 'alerts.kindUnknown', detail: 'alerts.detailUnknown' } as const;
+
+function kindLabels(kind: string): { name: MessageKey; detail: MessageKey } {
+  return isReconcileKind(kind) ? KIND_LABELS[kind] : UNKNOWN_LABELS;
+}
 
 function Lines({ keyName, mode }: { keyName: MessageKey; mode: LangMode }) {
   return (
@@ -209,9 +230,18 @@ export function AdminAlertsList({
             >
               <Field label="alerts.kind" mode={mode}>
                 <span className="text-base font-bold">
-                  <Lines keyName={KIND_LABELS[row.kind].name} mode={mode} />
+                  <Lines keyName={kindLabels(row.kind).name} mode={mode} />
                 </span>
               </Field>
+
+              {/* The raw text, for a kind a newer migration added. Boss can
+                  read it out to the developer; without it the row would be a
+                  problem with no name. */}
+              {isReconcileKind(row.kind) ? null : (
+                <Field label="alerts.kindRaw" mode={mode}>
+                  <span className="font-mono text-sm break-all">{row.kind}</span>
+                </Field>
+              )}
 
               <Field label="alerts.when" mode={mode}>
                 <span className="text-base tabular-nums">{foundAt(row.createdAtIso)}</span>
@@ -249,7 +279,7 @@ export function AdminAlertsList({
 
               <Field label="alerts.detail" mode={mode}>
                 <span className="text-sm">
-                  <Lines keyName={KIND_LABELS[row.kind].detail} mode={mode} />
+                  <Lines keyName={kindLabels(row.kind).detail} mode={mode} />
                 </span>
               </Field>
 

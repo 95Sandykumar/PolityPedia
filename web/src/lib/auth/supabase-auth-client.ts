@@ -10,6 +10,7 @@
  * only a fixed message plus the HTTP status, never a response body.
  */
 import { isTeacherStatus, type TeacherStatus } from '@/lib/teachers/types';
+import { AuthCallError } from './auth-error';
 import { readSupabaseEnv, type SupabaseEnv } from './env';
 import { isRole, type AuthSession, type Role, type ServerAuthClient } from './types';
 
@@ -74,7 +75,11 @@ export function createSupabaseAuthClient(
       body: JSON.stringify(body),
       cache: 'no-store',
     });
-    if (!res.ok) throw new Error('Supabase auth call failed with status ' + res.status);
+    // AuthCallError and not a plain Error: the STATUS has to survive the
+    // throw, because 400 and 401 mean "this token is dead, sign out" while a
+    // 500 or a timeout means "ask again later, keep the cookie"
+    // (issue 38-session-and-alerts-fixes). Same message as before.
+    if (!res.ok) throw new AuthCallError(res.status);
     return res.status === 204 ? null : ((await res.json()) as unknown);
   }
 

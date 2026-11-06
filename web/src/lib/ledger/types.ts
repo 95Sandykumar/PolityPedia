@@ -65,12 +65,27 @@ export interface ReconcilePurchase {
  *   `not_paid`        we have the row, it never turned `paid`. Webhook lost.
  *   `amount_mismatch` both say paid, and disagree about how much.
  *   `no_payment`      our row says `paid`, the gateway captured nothing.
+ *
+ * The next three are not the nightly job's at all. `currency_mismatch`,
+ * `plan_mismatch` and `bad_event` are written by the WEBHOOK (0034), into the
+ * same table and under the same `(kind, subject)` UNIQUE, so Boss reads one
+ * list. They were missing from this type until
+ * issue 38-session-and-alerts-fixes, and a reader that did not know a kind
+ * dropped the row: a refused payment never reached `/admin/alerts` at all.
+ *
+ *   `currency_mismatch` money arrived in something that is not rupees.
+ *   `plan_mismatch`     a charge for a plan the subscription is not on.
+ *   `bad_event`         an event that can never succeed however often it is
+ *                       retried.
  */
 export type ReconcileKind =
   | 'no_purchase'
   | 'not_paid'
   | 'amount_mismatch'
   | 'no_payment'
+  | 'currency_mismatch'
+  | 'plan_mismatch'
+  | 'bad_event'
   /**
    * The job read our own `purchases` and could not parse N rows
    * (issue 35-reconcile-visible). Not a gateway mismatch: a problem with OUR
@@ -78,6 +93,29 @@ export type ReconcileKind =
    * dropped purchase makes its captured payment look like `no_purchase`.
    */
   | 'unreadable_purchase';
+
+/**
+ * Every kind, in the order `reconcile_alerts_kind_check` lists them (0035).
+ *
+ * ONE list, exported, because there used to be three: this file, the server
+ * alerts client and the browser alerts client each kept their own copy and two
+ * of them went stale (issue 38-session-and-alerts-fixes).
+ */
+export const RECONCILE_KINDS: readonly ReconcileKind[] = [
+  'no_purchase',
+  'not_paid',
+  'amount_mismatch',
+  'no_payment',
+  'currency_mismatch',
+  'plan_mismatch',
+  'bad_event',
+  'unreadable_purchase',
+];
+
+/** True for a kind THIS BUILD has words for. See `ReconcileAlertRow.kind`. */
+export function isReconcileKind(value: unknown): value is ReconcileKind {
+  return typeof value === 'string' && (RECONCILE_KINDS as readonly string[]).includes(value);
+}
 
 /** The `unreadable_purchase` subject. One strange night is one line. */
 export function unreadableSubject(sinceIso: string): string {
@@ -198,7 +236,18 @@ export interface ReconcileStore {
 /** One open alert, as `/admin/alerts` shows it. */
 export interface ReconcileAlertRow {
   id: string;
-  kind: ReconcileKind;
+  /**
+   * The `kind` text EXACTLY as the table holds it, not a narrowed union
+   * (issue 38-session-and-alerts-fixes).
+   *
+   * A read is not a write. `ReconcileAlertInput.kind` is a `ReconcileKind`,
+   * because we only ever write kinds we mean; but the database can be one
+   * migration ahead of the deployed build, and a reader that insisted on its
+   * own list DROPPED the row instead. An alert is money: it renders as a
+   * generic line with this text on it rather than vanishing. Use
+   * `isReconcileKind()` to find out whether this build has words for it.
+   */
+  kind: string;
   /** The payment id, or `order:<order id>`. What a human looks it up by. */
   subject: string;
   orderId: string | null;

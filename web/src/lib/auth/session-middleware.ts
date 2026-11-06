@@ -6,9 +6,17 @@
  *  1. Read the session cookie.
  *  2. Renew the access token if it is inside the two minute window. New tokens
  *     are written back into the SAME httpOnly cookie, so the request carries
- *     on signed in. A renewal that fails clears the cookie and the student is
- *     asked to sign in again.
+ *     on signed in. A renewal SUPABASE REFUSED clears the cookie and the
+ *     student is asked to sign in again; a renewal that could not be made at
+ *     all (a 5xx, a timeout, a dead network) changes nothing and the request
+ *     carries on with the cookie it arrived with
+ *     (issue 38-session-and-alerts-fixes).
  *  3. Ask the pure `guard()` for a verdict, then continue or redirect.
+ *
+ * An `/api/*` request is never redirected (issue 38-session-and-alerts-fixes).
+ * A 307 to an HTML sign-in page is not an answer a `fetch` caller can read: it
+ * follows the redirect, gets a page, and the player's one 401 retry never
+ * happens. API paths get `401 {"error":"sign in"}` instead.
  *
  * `src/middleware.ts` is a two line adapter over this, because `config.matcher`
  * has to stay a literal string in that file (a Next.js build-time rule) and
@@ -47,6 +55,33 @@ function ownsItsCookie(pathname: string): boolean {
   return pathname === AUTH_ROUTES || pathname.startsWith(AUTH_ROUTES + '/');
 }
 
+/** Everything the browser calls with `fetch` rather than by navigating. */
+const API_ROUTES = '/api';
+
+function isApiPath(pathname: string): boolean {
+  return pathname === API_ROUTES || pathname.startsWith(API_ROUTES + '/');
+}
+
+/**
+ * What a request with a dead session gets back.
+ *
+ * Three different answers, because three different callers ask
+ * (issue 38-session-and-alerts-fixes):
+ *
+ *  * an `/api/*` call gets 401 JSON. It was made with `fetch`, so a redirect
+ *    to an HTML page would be followed silently and read as a success body;
+ *    that is exactly how a 307 ate the exam player's 401 retry.
+ *  * the sign-in page itself gets to stay where it is, or the redirect loops.
+ *  * every other page gets sent to sign-in.
+ */
+function refusedResponse(pathname: string, request: NextRequest): NextResponse {
+  if (isApiPath(pathname)) {
+    return NextResponse.json({ error: 'sign in' }, { status: 401 });
+  }
+  if (pathname === SIGN_IN_PATH) return NextResponse.next();
+  return NextResponse.redirect(new URL(SIGN_IN_PATH, request.nextUrl.origin));
+}
+
 export interface RespondInput {
   request: NextRequest;
   client: ServerAuthClient;
@@ -75,14 +110,13 @@ export async function respondToRequest({
       session = null;
       clear = true;
     }
+    // `unavailable` falls through ON PURPOSE: Supabase could not be reached,
+    // so nothing is known, the cookie is left exactly as it arrived and the
+    // request continues with it (issue 38-session-and-alerts-fixes).
   }
 
   if (clear) {
-    // Already on the sign-in page: clear and stay, or the redirect loops.
-    const response =
-      pathname === SIGN_IN_PATH
-        ? NextResponse.next()
-        : NextResponse.redirect(new URL(SIGN_IN_PATH, request.nextUrl.origin));
+    const response = refusedResponse(pathname, request);
     response.cookies.set(SESSION_COOKIE, '', clearedSessionCookieOptions());
     return response;
   }

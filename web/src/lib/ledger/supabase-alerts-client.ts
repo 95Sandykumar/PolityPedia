@@ -23,7 +23,7 @@
  * alert body names somebody's payment).
  */
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
-import { isUuid, type AlertsClient, type ReconcileAlertRow, type ReconcileKind } from './types';
+import { isUuid, type AlertsClient, type ReconcileAlertRow } from './types';
 
 const ALERTS = '/rest/v1/reconcile_alerts';
 
@@ -37,14 +37,17 @@ const ALERT_COLUMNS = 'id,kind,subject,order_id,expected_paise,actual_paise,crea
  */
 const MAX_ALERTS = 200;
 
-/** Same list as `reconcile_alerts_kind_check` in 0029 plus 0035. */
-const KINDS: readonly ReconcileKind[] = [
-  'no_purchase',
-  'not_paid',
-  'amount_mismatch',
-  'no_payment',
-  'unreadable_purchase',
-];
+/**
+ * The longest `kind` the table can hold, as a sanity bound
+ * (issue 38-session-and-alerts-fixes).
+ *
+ * This used to be a LIST of the kinds this file knew, and a kind that was not
+ * on it made `readAlertRow` return null, so the row was dropped. The list went
+ * stale the day 0034 taught the webhook three more kinds, and a refused
+ * payment stopped reaching the screen. Length is all that is checked now:
+ * naming the kinds is the screen's job, not the reader's.
+ */
+const MAX_KIND_LENGTH = 40;
 
 export interface SupabaseAlertsClientOptions {
   /** The admin's Supabase access token, from the session cookie. */
@@ -88,18 +91,23 @@ function paise(value: unknown): number | null {
  * A row we cannot read is DROPPED rather than drawn with a guess. An alert is
  * a question Boss acts on with real money, so a half-read one is worse than a
  * missing one: the missing one is still counted by the badge.
+ *
+ * AN UNFAMILIAR `kind` IS NOT UNREADABLE (issue 38-session-and-alerts-fixes).
+ * Every other field still parsed, so the row goes through with its text
+ * intact and the screen draws a generic line. Dropping it hid real money
+ * problems: the three kinds 0034 added were invisible here for two issues.
  */
 function readAlertRow(raw: AlertRaw): ReconcileAlertRow | null {
   if (!isUuid(raw?.id)) return null;
-  const kind = text(raw?.kind, 40);
-  if (!kind || !(KINDS as readonly string[]).includes(kind)) return null;
+  const kind = text(raw?.kind, MAX_KIND_LENGTH);
+  if (!kind) return null;
   const subject = text(raw?.subject, 160);
   if (!subject) return null;
   const createdAtIso = text(raw?.created_at, 40);
   if (!createdAtIso) return null;
   return {
     id: raw.id,
-    kind: kind as ReconcileKind,
+    kind,
     subject,
     orderId: text(raw?.order_id, 80),
     expectedPaise: paise(raw?.expected_paise),

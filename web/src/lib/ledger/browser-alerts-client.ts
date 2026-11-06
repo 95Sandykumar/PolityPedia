@@ -14,16 +14,17 @@ import {
   isUuid,
   type BrowserAlertsClient,
   type ReconcileAlertRow,
-  type ReconcileKind,
 } from './types';
 
-const KINDS: readonly ReconcileKind[] = [
-  'no_purchase',
-  'not_paid',
-  'amount_mismatch',
-  'no_payment',
-  'unreadable_purchase',
-];
+/**
+ * The longest `kind` the table can hold
+ * (issue 38-session-and-alerts-fixes).
+ *
+ * A stale LIST of kinds used to live here, and it dropped every row whose kind
+ * was not on it, which hid the three kinds the webhook writes (0034). The
+ * screen names the kinds; this file only checks the shape.
+ */
+const MAX_KIND_LENGTH = 40;
 
 interface ListReply {
   alerts?: unknown;
@@ -44,12 +45,13 @@ function readAlert(raw: unknown): ReconcileAlertRow | null {
   const { id, kind, subject, orderId, expectedPaise, actualPaise, createdAtIso } =
     raw as Record<string, unknown>;
   if (!isUuid(id)) return null;
-  if (typeof kind !== 'string' || !(KINDS as readonly string[]).includes(kind)) return null;
+  // Shape only: a kind this build cannot name still draws as a generic row.
+  if (typeof kind !== 'string' || kind.length === 0 || kind.length > MAX_KIND_LENGTH) return null;
   if (typeof subject !== 'string' || subject.length === 0) return null;
   if (typeof createdAtIso !== 'string' || createdAtIso.length === 0) return null;
   return {
     id,
-    kind: kind as ReconcileKind,
+    kind,
     subject,
     orderId: typeof orderId === 'string' && orderId.length > 0 ? orderId : null,
     expectedPaise: paise(expectedPaise),
