@@ -211,3 +211,95 @@ describe('createSupabaseAiClient: finish and fail', () => {
     expect(fetchImpl.mock.calls[0][0]).toContain('/rpc/fail_ai_explanation');
   });
 });
+
+/**
+ * Neither piece of answer key material is a COLUMN of this read any more
+ * (issues 30-exam-key-lock and 36-exam-leaks-close).
+ *
+ * `prompt.ts` sends the correct option to the model and quotes the teacher's
+ * prose beside it, so this is the file that holds both at once. Each now
+ * arrives through its own definer function, and each of those refuses while
+ * the student has an open exam sitting. Asking for either column in the
+ * select would make the WHOLE request 403 and break Revision for everybody.
+ */
+describe('createSupabaseAiClient: question reads no key columns', () => {
+  const ROW = {
+    stem: 'Which house is the Council of States?',
+    options: ['Lok Sabha', 'Rajya Sabha', 'Both', 'Neither'],
+    topic_id: null,
+    papers: { exams: { name_en: 'UGC NET' } },
+  };
+
+  /** The table read, then the two RPCs, each answering only to its own url. */
+  function routed(
+    key: unknown[] = [{ correct_idx: 1 }],
+    prose: unknown[] = [{ teacher_explanation: 'Article 80.' }],
+  ) {
+    return vi.fn(async (url: string, _init: RequestInit) => {
+      if (url.includes('/rpc/question_explanations')) return jsonResponse(200, prose);
+      if (url.includes('/rpc/question_keys')) return jsonResponse(200, key);
+      return jsonResponse(200, [ROW]);
+    });
+  }
+
+  it('names neither correct_idx nor teacher_explanation in the select', async () => {
+    const fetchImpl = routed();
+    await clientWith(fetchImpl as unknown as typeof fetch).question(REQUEST.questionId);
+
+    const [url] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/questions?select=');
+    expect(url).not.toContain('correct_idx');
+    expect(url).not.toContain('teacher_explanation');
+  });
+
+  it('builds the prompt input from both definer functions', async () => {
+    const fetchImpl = routed();
+    const found = await clientWith(fetchImpl as unknown as typeof fetch).question(
+      REQUEST.questionId,
+    );
+
+    expect(found).toEqual({
+      exam: 'UGC NET',
+      topic: null,
+      stem: ROW.stem,
+      options: ROW.options,
+      correctIdx: 1,
+      teacherExplanation: 'Article 80.',
+    });
+    expect(
+      fetchImpl.mock.calls.some((one) => String(one[0]).includes('/rpc/question_explanations')),
+    ).toBe(true);
+  });
+
+  it('still returns a question when only the prose is refused', async () => {
+    // The prose is optional in the prompt, so a 403 on it only makes a
+    // thinner prompt. It must not cost the student their claim.
+    const fetchImpl = vi.fn(async (url: string, _init: RequestInit) => {
+      if (url.includes('/rpc/question_explanations')) return jsonResponse(403, { code: '42501' });
+      if (url.includes('/rpc/question_keys')) return jsonResponse(200, [{ correct_idx: 1 }]);
+      return jsonResponse(200, [ROW]);
+    });
+
+    const found = await clientWith(fetchImpl as unknown as typeof fetch).question(
+      REQUEST.questionId,
+    );
+    expect(found?.correctIdx).toBe(1);
+    expect(found?.teacherExplanation).toBeNull();
+  });
+
+  it('returns null when the KEY is refused, which is what mid-exam looks like', async () => {
+    // No key, no explanation: the route turns this null into 404 and gives
+    // the claim back without charging anybody (F-E5).
+    const fetchImpl = vi.fn(async (url: string, _init: RequestInit) => {
+      if (url.includes('/rpc/question_explanations')) {
+        return jsonResponse(200, [{ teacher_explanation: 'Article 80.' }]);
+      }
+      if (url.includes('/rpc/question_keys')) return jsonResponse(403, { code: '42501' });
+      return jsonResponse(200, [ROW]);
+    });
+
+    expect(
+      await clientWith(fetchImpl as unknown as typeof fetch).question(REQUEST.questionId),
+    ).toBeNull();
+  });
+});

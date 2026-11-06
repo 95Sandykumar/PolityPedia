@@ -320,10 +320,16 @@ export function sortQuestions(questions: readonly Question[]): Question[] {
 /** What a question read wants beyond the ids (issue 30-exam-key-lock). */
 export interface QuestionReadOptions {
   /**
-   * Ask `question_keys()` for the answer key too, and merge it in.
+   * Ask `question_keys()` for the answer key AND `question_explanations()`
+   * for the teacher's prose, and merge both in (issues 30-exam-key-lock and
+   * 36-exam-leaks-close).
    *
-   * Default false. A reader that does not need the key must not ask for it:
-   * asking is what gets REFUSED mid-exam, and a key that was never fetched
+   * ONE flag for both, because Postgres refuses both through the same gate
+   * for the same reason: the prose names the right option in words, so it is
+   * answer key material too.
+   *
+   * Default false. A reader that does not need them must not ask: asking is
+   * what gets REFUSED mid-exam, and key material that was never fetched
    * cannot be shipped to a phone by a later bug.
    */
   keys?: boolean;
@@ -374,6 +380,22 @@ export interface QuestionsClient {
    * `QuestionsClient`.
    */
   readKeys?(questionIds: readonly string[]): Promise<Map<string, number>>;
+  /**
+   * `question_explanations()`: the teacher's prose explanation for questions
+   * the caller has already read, and the only route to it since
+   * `0037_exam_leaks_close.sql` took the column privilege away
+   * (issue 36-exam-leaks-close).
+   *
+   * The twin of `readKeys`: question id -> prose, with any question the
+   * caller may not have (or that has no explanation stored) simply missing,
+   * and the same `ExamKeyLocked` error while an exam sitting of that test is
+   * open. The prose says which option is right in words, which is why it
+   * travels the same way the key does.
+   *
+   * OPTIONAL, so every fake written before this issue is still a whole
+   * `QuestionsClient`.
+   */
+  readExplanations?(questionIds: readonly string[]): Promise<Map<string, string>>;
   /**
    * Store one question. The owner is the session user, never a field of the
    * input, and the row is always a DRAFT. Throws an error named

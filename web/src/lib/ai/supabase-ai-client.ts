@@ -58,7 +58,8 @@ interface StoredQuestion {
   options?: unknown;
   // No `correct_idx`: it is not selectable off the table any more and arrives
   // through `question_keys()` instead (issue 30-exam-key-lock).
-  teacher_explanation?: unknown;
+  // No `teacher_explanation` either: same story, through
+  // `question_explanations()` (issue 36-exam-leaks-close).
   topic_id?: unknown;
   exams?: unknown;
   papers?: unknown;
@@ -166,6 +167,36 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
     return key;
   }
 
+  /**
+   * One question's teacher prose through `question_explanations()`, or null
+   * (issue 36-exam-leaks-close).
+   *
+   * NULL, never a throw, for every refusal including the exam lock, the same
+   * choice `keyFor` makes. A missing explanation is NOT fatal here: the
+   * prompt has an optional block for it (`prompt.ts`), so an explanation the
+   * caller may not read simply does not go to the model. The exam gate is
+   * enforced by `keyFor` returning null, which stops the whole call.
+   */
+  async function explanationFor(questionId: string): Promise<string | null> {
+    const found = env();
+    if (!found) return null;
+
+    const res = await doFetch(found.url + RPC + 'question_explanations', {
+      method: 'POST',
+      headers: restHeaders({ accept: 'application/json' }),
+      body: JSON.stringify({ question_ids: [questionId] }),
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+
+    const rows = (await res.json()) as unknown;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    const prose = (rows[0] as { teacher_explanation?: unknown }).teacher_explanation;
+    if (typeof prose !== 'string' || prose.trim().length === 0) return null;
+    return prose;
+  }
+
   return {
     isConfigured() {
       return env() !== null;
@@ -214,12 +245,14 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       const found = env();
       if (!found) return null;
 
-      // NO `correct_idx` IN THIS SELECT (issue 30-exam-key-lock). The column
-      // privilege is gone, so asking for it would make the whole request 403.
-      // One request still, with the paper's exam name embedded, so the prompt
-      // has the exam without a second round trip. RLS applies to both.
+      // NO `correct_idx` (issue 30-exam-key-lock) AND NO
+      // `teacher_explanation` (issue 36-exam-leaks-close) IN THIS SELECT. The
+      // column privilege is gone on both, so asking for either would make the
+      // whole request 403. One request still, with the paper's exam name
+      // embedded, so the prompt has the exam without a second round trip. RLS
+      // applies to both.
       const res = await doFetch(
-        `${found.url}${QUESTIONS}?select=stem,options,teacher_explanation,topic_id,` +
+        `${found.url}${QUESTIONS}?select=stem,options,topic_id,` +
           `papers(exams(name_en))&id=eq.${encodeURIComponent(questionId)}`,
         { method: 'GET', headers: restHeaders({ accept: 'application/json' }), cache: 'no-store' },
       );
@@ -233,12 +266,20 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       const options: QuestionOptions | null = readOptions(row.options);
       if (stem.length === 0 || !options) return null;
 
-      // THE KEY, through the one route to it. An explanation of a question
-      // whose right answer we do not know would be a guess, so no key means
-      // NO EXPLANATION: the route turns this null into 404 and releases the
-      // claim without charging the student. That is also what happens mid
-      // exam, which is the point (F-E5).
-      const correctIdx = await keyFor(questionId);
+      // THE KEY MATERIAL, through the one route to each (issues
+      // 30-exam-key-lock and 36-exam-leaks-close). Both refuse mid-exam, so
+      // both are asked for together and neither is a column of the read
+      // above.
+      //
+      // An explanation of a question whose right answer we do not know would
+      // be a guess, so NO KEY MEANS NO EXPLANATION: the route turns this null
+      // into 404 and releases the claim without charging the student. That is
+      // also what happens mid exam, which is the point (F-E5). The prose is
+      // optional in the prompt, so a null there only makes a thinner prompt.
+      const [correctIdx, teacherExplanation] = await Promise.all([
+        keyFor(questionId),
+        explanationFor(questionId),
+      ]);
       if (correctIdx === null) return null;
 
       return {
@@ -248,10 +289,7 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
         topic: null,
         stem,
         options,
-        teacherExplanation:
-          typeof row.teacher_explanation === 'string' && row.teacher_explanation.trim().length > 0
-            ? row.teacher_explanation
-            : null,
+        teacherExplanation,
         correctIdx,
       };
     },

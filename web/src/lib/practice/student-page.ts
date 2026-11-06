@@ -97,11 +97,14 @@ export async function readMockPracticeData(
     () => null as MockTest | null,
   );
 
-  // WITH THE KEY, and that is the gate (issue 30-exam-key-lock). D3 shows the
-  // result after every tap, so practice cannot work without the key, and
-  // `question_keys()` REFUSES it while an exam sitting of this same test is
-  // open. `ExamKeyLocked` is caught apart from every other failure, because
-  // "finish your exam first" and "not set up yet" are different sentences.
+  // WITH THE KEY MATERIAL, and that is the gate (issues 30-exam-key-lock and
+  // 36-exam-leaks-close). D3 shows the result after every tap, so practice
+  // cannot work without the key, and `question_keys()` REFUSES it while an
+  // exam sitting of this same test is open. The teacher's prose travels the
+  // same way now, through `question_explanations()`, and raises the same
+  // refusal. `ExamKeyLocked` is caught apart from every other failure,
+  // because "finish your exam first" and "not set up yet" are different
+  // sentences.
   let examOpen = false;
   const [questions, exams, set] = await Promise.all([
     (

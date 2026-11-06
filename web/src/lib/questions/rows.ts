@@ -25,15 +25,19 @@ export const JOB_COLUMNS =
   'id,teacher_id,paper_id,pdf_path,status,attempts,error,question_count';
 
 /**
- * NO `correct_idx` (issue 30-exam-key-lock). The column privilege on it was
- * revoked from `anon` and `authenticated` in `0030_exam_key_lock.sql`, so a
- * select that asked for it would be refused 403 for EVERY caller, teacher
- * included. The key arrives separately, through `question_keys()`, which
- * refuses it while the caller has an open exam sitting (F-E5).
+ * NO `correct_idx` (issue 30-exam-key-lock) and NO `teacher_explanation`
+ * (issue 36-exam-leaks-close). The column privilege on both was revoked from
+ * `anon` and `authenticated`, so a select that asked for either would be
+ * refused 403 for EVERY caller, teacher included.
+ *
+ * They are both answer key material and they both arrive separately:
+ * `question_keys()` for the key, `question_explanations()` for the prose, and
+ * each refuses while the caller has an open exam sitting (F-E5). The prose is
+ * in the list because it says which option is right in words.
  */
 export const QUESTION_COLUMNS =
   'id,teacher_id,paper_id,test_id,number,stem,options,' +
-  'teacher_explanation,topic_id,lang,image_path,checked,status';
+  'topic_id,lang,image_path,checked,status';
 
 export interface JobRow {
   id?: unknown;
@@ -110,12 +114,14 @@ export function readQuestionRow(raw: QuestionRow | null | undefined): Question |
   const number = whole(raw.number);
   if (number === null) return null;
 
-  // THE KEY IS OPTIONAL (issue 30-exam-key-lock). It is not in
-  // `QUESTION_COLUMNS` any more, so a plain row read has none and the caller
-  // merges one in from `question_keys()` when it is allowed one. A row
-  // WITHOUT a key is a complete question for exam mode, which is the whole
-  // point of F-E5, so it must not be dropped. A key that IS there and is out
-  // of range still fails closed.
+  // THE KEY IS OPTIONAL (issue 30-exam-key-lock), and so is the explanation
+  // (issue 36-exam-leaks-close). Neither is in `QUESTION_COLUMNS` any more,
+  // so a plain row read has neither and the caller merges them in from
+  // `question_keys()` and `question_explanations()` when it is allowed them.
+  // A row WITHOUT them is a complete question for exam mode, which is the
+  // whole point of F-E5, so it must not be dropped. Both are still MAPPED
+  // when a transport hands them over anyway (Realtime pushes whole rows), and
+  // a key that is out of range still fails closed.
   const correctIdx = whole(raw.correct_idx);
   if (correctIdx !== null && (correctIdx < 0 || correctIdx > 3)) return null;
 
