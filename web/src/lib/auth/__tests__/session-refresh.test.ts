@@ -198,3 +198,47 @@ describe('handleRefresh (POST /api/auth/refresh)', () => {
     expect(fake.refreshCalls).toEqual([]);
   });
 });
+
+/**
+ * Issue 39-profile-read-keeps-role: the renew has to tell the client what the
+ * user already was, or a failed profile read turns an admin into a student
+ * inside the fresh cookie.
+ */
+describe('refreshIfNeeded hands the previous role to the client', () => {
+  it('passes the role the cookie already carried', async () => {
+    const fake = createFakeAuthClient();
+
+    await refreshIfNeeded({
+      session: session({ expiresAt: NOW_S - 1, role: 'admin' }),
+      client: fake.client,
+      nowMs: NOW_MS,
+    });
+
+    expect(fake.previousCalls).toEqual([{ role: 'admin' }]);
+  });
+
+  it('passes the teacher status too, so an approved teacher stays approved', async () => {
+    const fake = createFakeAuthClient();
+
+    await refreshIfNeeded({
+      session: session({ expiresAt: NOW_S - 1, role: 'teacher', teacherStatus: 'approved' }),
+      client: fake.client,
+      nowMs: NOW_MS,
+    });
+
+    expect(fake.previousCalls).toEqual([{ role: 'teacher', teacherStatus: 'approved' }]);
+  });
+
+  it('keeps that role on the renewed session the caller writes back', async () => {
+    const fake = createFakeAuthClient({ nextExpiresAt: NOW_S + 3600 });
+
+    const outcome = await refreshIfNeeded({
+      session: session({ expiresAt: NOW_S - 1, role: 'admin' }),
+      client: fake.client,
+      nowMs: NOW_MS,
+    });
+
+    if (outcome.kind !== 'refreshed') throw new Error('expected a refreshed session');
+    expect(outcome.session.role).toBe('admin');
+  });
+});

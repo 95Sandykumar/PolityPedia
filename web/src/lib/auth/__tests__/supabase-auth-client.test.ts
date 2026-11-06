@@ -198,3 +198,167 @@ describe('refreshSession and signOut', () => {
     expect(headers.get('apikey')).toBe('test-anon-key');
   });
 });
+
+/**
+ * Issue 39-profile-read-keeps-role: a failed profile read must not downgrade a
+ * signed-in user.
+ *
+ * `toSession` reads `profiles.role` after EVERY token response, including a
+ * refresh. When that read answered 500, 429 or 401 the old code returned
+ * `student`, the caller wrote it into the cookie, and an admin was a student
+ * for the 7 days the cookie lives. A thrown `fetch` was worse: the whole
+ * refresh threw, so the NEW tokens were dropped although Supabase had already
+ * spent the old refresh token.
+ */
+type ProfileStep = { body: unknown } | { status: number } | { throws: unknown };
+
+function stepFetch(steps: ProfileStep[]) {
+  const calls: Call[] = [];
+  const queue = [...steps];
+  const fn = vi.fn(async (url: string | URL, init: RequestInit = {}) => {
+    calls.push({ url: String(url), init });
+    const step = queue.shift() ?? { body: {} };
+    if ('throws' in step) throw step.throws;
+    const status = 'status' in step ? step.status : 200;
+    const body = 'status' in step ? { message: 'no' } : step.body;
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  return { fn: fn as unknown as typeof fetch, calls };
+}
+
+describe('a refresh keeps the role the user already had', () => {
+  for (const status of [500, 429, 401]) {
+    it(`keeps admin when the profile read answers ${status}`, async () => {
+      const { fn } = stepFetch([{ body: TOKEN_BODY }, { status }]);
+      const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+      const session = await client.refreshSession('r-1', { role: 'admin' });
+
+      expect(session.role).toBe('admin');
+      expect(session.accessToken).toBe('a.b.c');
+      expect(session.teacherStatus).toBeUndefined();
+    });
+  }
+
+  it('keeps admin AND the new tokens when the profile read throws', async () => {
+    const { fn } = stepFetch([
+      { body: { ...TOKEN_BODY, access_token: 'a2.b2.c2', refresh_token: 'r-2' } },
+      { throws: new TypeError('fetch failed') },
+    ]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1', { role: 'admin' });
+
+    // Supabase already rotated the refresh token, so losing this would lock
+    // the user out even though nothing was wrong with their session.
+    expect(session).toEqual({
+      accessToken: 'a2.b2.c2',
+      refreshToken: 'r-2',
+      userId: '11111111-1111-4111-8111-111111111111',
+      role: 'admin',
+    });
+  });
+
+  it('takes the NEW role when the profile read answers ok, so a demotion lands', async () => {
+    const { fn } = stepFetch([{ body: TOKEN_BODY }, { body: [{ role: 'student' }] }]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1', { role: 'admin' });
+
+    expect(session.role).toBe('student');
+    expect(session.teacherStatus).toBeUndefined();
+  });
+
+  it('keeps an approved teacher approved when the teacher-status read fails', async () => {
+    const { fn, calls } = stepFetch([
+      { body: TOKEN_BODY },
+      { body: [{ role: 'teacher' }] },
+      { status: 503 },
+    ]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1', {
+      role: 'teacher',
+      teacherStatus: 'approved',
+    });
+
+    expect(session.role).toBe('teacher');
+    expect(session.teacherStatus).toBe('approved');
+    expect(calls[2].url).toBe('https://proj.supabase.test/rest/v1/teachers?select=status');
+  });
+
+  it('keeps an approved teacher approved when BOTH reads fail', async () => {
+    const { fn } = stepFetch([{ body: TOKEN_BODY }, { status: 500 }, { throws: new Error('x') }]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1', {
+      role: 'teacher',
+      teacherStatus: 'approved',
+    });
+
+    expect(session.role).toBe('teacher');
+    expect(session.teacherStatus).toBe('approved');
+  });
+
+  it('takes a NEW teacher status when the read answers ok, so a suspension lands', async () => {
+    const { fn } = stepFetch([
+      { body: TOKEN_BODY },
+      { body: [{ role: 'teacher' }] },
+      { body: [{ status: 'pending' }] },
+    ]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1', {
+      role: 'teacher',
+      teacherStatus: 'approved',
+    });
+
+    expect(session.teacherStatus).toBe('pending');
+  });
+});
+
+describe('a first sign-in still fails closed, because there is no previous role', () => {
+  it('gives student when the profile read fails on an email code', async () => {
+    const { fn } = stepFetch([{ body: TOKEN_BODY }, { status: 500 }]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.verifyEmailCode('a@b.test', '123456');
+
+    expect(session.role).toBe('student');
+  });
+
+  it('gives student when the profile read throws on a code exchange', async () => {
+    const { fn } = stepFetch([{ body: TOKEN_BODY }, { throws: new TypeError('fetch failed') }]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.exchangeCodeForSession('auth-code-1', 'verifier-1');
+
+    expect(session.role).toBe('student');
+  });
+
+  it('gives a teacher pending when the teacher-status read fails', async () => {
+    const { fn } = stepFetch([
+      { body: TOKEN_BODY },
+      { body: [{ role: 'teacher' }] },
+      { status: 500 },
+    ]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.verifyEmailCode('a@b.test', '123456');
+
+    expect(session.role).toBe('teacher');
+    expect(session.teacherStatus).toBe('pending');
+  });
+
+  it('gives student when a refresh has no previous role either', async () => {
+    const { fn } = stepFetch([{ body: TOKEN_BODY }, { status: 500 }]);
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+
+    const session = await client.refreshSession('r-1');
+
+    expect(session.role).toBe('student');
+  });
+});

@@ -13,7 +13,7 @@
  * (issue 38-session-and-alerts-fixes).
  */
 import { AuthCallError } from './auth-error';
-import type { AuthSession, ServerAuthClient } from './types';
+import type { AuthSession, PreviousRole, Role, ServerAuthClient, TeacherStatus } from './types';
 
 /**
  * How `refreshSession()` fails when it is not an HTTP status
@@ -41,12 +41,29 @@ export interface FakeAuthClientOptions {
   nextExpiresAt?: number;
   /** The user the renewed session belongs to. */
   userId?: string;
+  /**
+   * The role the renewed session comes back with
+   * (issue 39-profile-read-keeps-role): a role CHANGED on the server, which
+   * the real client sees as an ok profile read with a different row.
+   *
+   * Left out, the renewed session keeps the role handed in as `previous`, the
+   * way the real client does, and `student` when there is no previous role.
+   */
+  nextRole?: Role;
+  /** The same for `teachers.status`. */
+  nextTeacherStatus?: TeacherStatus;
 }
 
 export interface FakeAuthClient {
   client: ServerAuthClient;
   /** Every refresh token handed to `refreshSession()`, in order. */
   readonly refreshCalls: string[];
+  /**
+   * The `previous` role handed to `refreshSession()` beside each of those
+   * tokens, in the same order (issue 39-profile-read-keeps-role). `undefined`
+   * for a caller that passed none.
+   */
+  readonly previousCalls: (PreviousRole | undefined)[];
   /** Every access token handed to `signOut()`, in order. */
   readonly signOutCalls: string[];
 }
@@ -56,6 +73,7 @@ const DEFAULT_USER = '11111111-1111-4111-8111-111111111111';
 export function createFakeAuthClient(options: FakeAuthClientOptions = {}): FakeAuthClient {
   const configured = options.configured ?? true;
   const refreshCalls: string[] = [];
+  const previousCalls: (PreviousRole | undefined)[] = [];
   const signOutCalls: string[] = [];
 
   const client: ServerAuthClient = {
@@ -74,8 +92,9 @@ export function createFakeAuthClient(options: FakeAuthClientOptions = {}): FakeA
     googleAuthorizeUrl() {
       return 'https://proj.supabase.test/auth/v1/authorize';
     },
-    async refreshSession(refreshToken: string): Promise<AuthSession> {
+    async refreshSession(refreshToken: string, previous?: PreviousRole): Promise<AuthSession> {
       refreshCalls.push(refreshToken);
+      previousCalls.push(previous);
       // No status at all, exactly like a real `fetch` that never answered.
       if (options.failRefreshWith === 'timeout') {
         throw new DOMException('The operation was aborted', 'AbortError');
@@ -83,12 +102,18 @@ export function createFakeAuthClient(options: FakeAuthClientOptions = {}): FakeA
       if (options.failRefreshWith === 'network') throw new TypeError('fetch failed');
       if (options.refreshStatus !== undefined) throw new AuthCallError(options.refreshStatus);
       if (options.failRefresh) throw new AuthCallError(400);
+      // The role the renewed session carries, the way the real client picks it
+      // (issue 39-profile-read-keeps-role): the server's new value when there
+      // is one, else the role the caller already had, else `student`.
+      const role = options.nextRole ?? previous?.role ?? 'student';
+      const teacherStatus = options.nextTeacherStatus ?? previous?.teacherStatus;
       return {
         accessToken: 'new.access.token',
         refreshToken: 'new-refresh',
         userId: options.userId ?? DEFAULT_USER,
-        role: 'student',
+        role,
         ...(options.nextExpiresAt === undefined ? {} : { expiresAt: options.nextExpiresAt }),
+        ...(role === 'teacher' && teacherStatus !== undefined ? { teacherStatus } : {}),
       };
     },
     async signOut(accessToken: string): Promise<void> {
@@ -97,5 +122,5 @@ export function createFakeAuthClient(options: FakeAuthClientOptions = {}): FakeA
     },
   };
 
-  return { client, refreshCalls, signOutCalls };
+  return { client, refreshCalls, previousCalls, signOutCalls };
 }
