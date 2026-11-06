@@ -17,9 +17,11 @@
  * no real key (web/CLAUDE.md).
  */
 import { useEffect, useMemo, useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { createBrowserAlertsClient } from '@/lib/ledger/browser-alerts-client';
 import type { BrowserAlertsClient } from '@/lib/ledger/types';
 import { DEFAULT_MODE, plain, type LangMode } from '@/lib/i18n';
+import { Chip } from '@/components/admin-ui';
 
 export function AdminOpenAlertsCount({
   client,
@@ -50,10 +52,11 @@ export function AdminOpenAlertsCount({
 
   if (count === null || count === 0) return null;
 
+  // Red pill with a shield icon and the word "open": colour is never alone.
   return (
-    <span className="flex items-center gap-1 text-sm font-bold text-wrong tabular-nums">
-      <span>{count}</span>
-      <span className="font-medium text-muted-foreground">{plain('alerts.open', mode)}</span>
-    </span>
+    <Chip tone="danger" icon={<ShieldAlert aria-hidden="true" className="size-3.5" />}>
+      <span className="font-bold tabular-nums">{count}</span>
+      <span>{plain('alerts.open', mode)}</span>
+    </Chip>
   );
 }

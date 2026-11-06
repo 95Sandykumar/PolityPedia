@@ -16,7 +16,7 @@
  * (web/CLAUDE.md).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AdminPayoutsForm } from '../admin-payouts-form';
 import type { BrowserPayoutsClient, MarkPaidInput, PayoutLine } from '@/lib/ledger/types';
 
@@ -62,27 +62,32 @@ function fake(
   return state;
 }
 
+/** The summary strip repeats the total and the sale count, so read the table. */
+async function inTable() {
+  return within(await screen.findByRole('table'));
+}
+
 describe('the report', () => {
   it('shows the month, the teacher, the sale count and the amount to the paisa', async () => {
     render(<AdminPayoutsForm client={fake().client} />);
 
-    expect(await screen.findByText('Rs 330.16')).toBeTruthy();
+    expect((await inTable()).getByText('Rs 330.16')).toBeTruthy();
     expect(screen.getByText('2026-10')).toBeTruthy();
     expect(screen.getByText(TEACHER)).toBeTruthy();
-    expect(screen.getByText('2')).toBeTruthy();
+    expect((await inTable()).getByText('2')).toBeTruthy();
   });
 
   it('writes a whole-rupee amount with its paise, so it matches the ledger column', async () => {
     const line: PayoutLine = { ...LINE, amountInr: 165 };
     render(<AdminPayoutsForm client={fake({ lines: [line] }).client} />);
 
-    expect(await screen.findByText('Rs 165.00')).toBeTruthy();
+    expect((await inTable()).getByText('Rs 165.00')).toBeTruthy();
   });
 
   it('uses the rupee sign in Hindi', async () => {
     render(<AdminPayoutsForm client={fake().client} mode="hi" />);
 
-    expect(await screen.findByText('₹330.16')).toBeTruthy();
+    expect((await inTable()).getByText('₹330.16')).toBeTruthy();
   });
 
   it('says so when nothing is owed', async () => {
@@ -99,7 +104,7 @@ describe('the report', () => {
     ];
     render(<AdminPayoutsForm client={fake({ lines }).client} />);
 
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
     expect(screen.getAllByRole('button', { name: 'Mark paid' })).toHaveLength(3);
   });
 });
@@ -120,7 +125,7 @@ describe('Mark paid', () => {
   it('sends the teacher, the month and the typed bank reference', async () => {
     const state = fake({ after: [] });
     render(<AdminPayoutsForm client={state.client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Bank reference' }), {
       target: { value: 'UTR123' },
@@ -138,7 +143,7 @@ describe('Mark paid', () => {
   it('sends null when no reference was typed', async () => {
     const state = fake({ after: [] });
     render(<AdminPayoutsForm client={state.client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark paid' }));
 
@@ -149,7 +154,7 @@ describe('Mark paid', () => {
   it('re-reads the report, so the paid line leaves the list from the database', async () => {
     const state = fake({ after: [] });
     render(<AdminPayoutsForm client={state.client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark paid' }));
 
@@ -161,7 +166,7 @@ describe('Mark paid', () => {
   it('says "nothing was owed" instead of claiming a payout, when Postgres answers null', async () => {
     const state = fake({ payoutId: null, after: [] });
     render(<AdminPayoutsForm client={state.client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark paid' }));
 
@@ -172,7 +177,7 @@ describe('Mark paid', () => {
   it('shows one fixed message on a failure, so no policy name reaches the page', async () => {
     const state = fake({ markThrows: true });
     render(<AdminPayoutsForm client={state.client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark paid' }));
 
@@ -197,7 +202,7 @@ describe('Mark paid', () => {
     };
 
     render(<AdminPayoutsForm client={client} />);
-    await screen.findByText('Rs 330.16');
+    (await inTable()).getByText('Rs 330.16');
 
     const button = screen.getByRole('button', { name: 'Mark paid' });
     fireEvent.click(button);
