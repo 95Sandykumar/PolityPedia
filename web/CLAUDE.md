@@ -6,6 +6,7 @@
 - Run `npm test` and `npm run build` inside `web/`. Both must pass with NO environment variables set.
 - Every outside service (Supabase network calls, Claude, Razorpay, YouTube, TTS) sits behind a small interface and is faked in tests. No real network call and no real key in any test.
 - Supabase and env access is lazy (read inside functions, never at import time), so the build works without env vars. Pages render a "not configured" state when keys are missing.
+- Env keys. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are the browser pair. `SUPABASE_SERVICE_ROLE_KEY` is **server only, never `NEXT_PUBLIC_`**: it bypasses every RLS policy, so it is never logged and never reaches a client component. It is read by the Razorpay webhook (`src/lib/purchases/supabase-webhook-store.ts`), the nightly reconcile (`src/lib/ledger/supabase-reconcile-store.ts`), the PDF split worker (`src/lib/split/env.ts`), and the AI claim's finish/fail (`src/lib/ai/service-env.ts`, issue 41). `ANTHROPIC_API_KEY` is server only for the same reason: it spends money. There is no `.env.example` in this repo; real values live in `web/.env.local`, which is gitignored.
 - SQL migrations live in `supabase/migrations/` and start with the issue number (example `0006_follows.sql` for issue 06), so parallel slices never collide. RLS is on for every table.
 - DB tests use PGlite through `test/db.ts` (node env, `db` vitest project). See "Database tests" below.
 - Every label a user sees exists in English and Hindi through `src/lib/i18n.ts` (modes `en | hi | both`, default `en`).
@@ -16,8 +17,8 @@
 
 `test/db.ts` boots a real Postgres in memory (PGlite, WASM), stubs the parts of
 Supabase that migrations depend on (schema `auth`, table `auth.users`,
-`auth.uid()`, roles `anon` and `authenticated`), then applies every file in
-`supabase/migrations/` in file-name order. Tests live in `test/*.test.ts` and
+`auth.uid()`, roles `anon`, `authenticated` and `service_role`), then applies
+every file in `supabase/migrations/` in file-name order. Tests live in `test/*.test.ts` and
 run in the `db` vitest project (node environment). Run them alone with:
 
 ```
@@ -51,6 +52,7 @@ it('a user reads only their own row', async () => {
 | `db.createUser(id?)` | Inserts into the `auth.users` stub. Returns the user id. |
 | `db.asUser(id, fn)` | Runs `fn` with `SET ROLE authenticated` and `auth.uid()` = `id`. |
 | `db.asAnon(fn)` | Runs `fn` with `SET ROLE anon` and no `auth.uid()`. |
+| `db.asService(fn)` | Runs `fn` with `SET ROLE service_role` and no `auth.uid()`: our own server holding `SUPABASE_SERVICE_ROLE_KEY`. Use it for a function granted to `service_role` only, and never for a student request. |
 | `db.migrations` | File names that were applied, in order. |
 | `db.close()` | Shuts the database down. Always call it in `afterAll`. |
 
@@ -67,3 +69,8 @@ Rules:
   run `set role` yourself.
 - A new table needs its own migration file prefixed with its issue number, plus
   `alter table ... enable row level security` and at least one policy.
+- A function that moves money, spends a model call, or writes text every
+  student reads goes to `service_role` only, and its migration spells out
+  `revoke all on function ... from public, anon, authenticated` first: Supabase's
+  default privileges have already granted EXECUTE to `anon` and `authenticated`
+  by then. Examples: `grant_purchase()` (0027), the AI finish and fail (0040).

@@ -15,6 +15,10 @@
  *
  * Seed with `db.admin` (bypasses RLS), assert through `db.asUser` (Postgres
  * evaluates every policy for real).
+ *
+ * The two CLAIM calls run as the student (`db.asUser`). `finish` and `fail`
+ * run as `db.asService`, because issue 41-ai-finish-server-only moved them to
+ * `service_role` only: a student's key cannot reach them at all any more.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearClaimSecrets, heldSecret, readClaim } from './claim-secrets';
@@ -81,8 +85,16 @@ function claim(userId: string, questionId: string, lang = 'en'): Promise<string>
   });
 }
 
+/**
+ * Finish as OUR SERVER does it (issue 41-ai-finish-server-only).
+ *
+ * `finish_ai_explanation` is granted to `service_role` alone now, so this
+ * runs through `db.asService`. `userId` stays in the signature because it is
+ * how the held secret is looked up: the server holds the secret of the claim
+ * that user won, exactly as the route handler holds it in a local variable.
+ */
 function finish(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       `select public.finish_ai_explanation(
                 $1, $2, $3::jsonb, $4::jsonb, 'claude-haiku-5-5', 900, 450, 2, $5::uuid
@@ -99,8 +111,9 @@ function finish(userId: string, questionId: string, lang = 'en'): Promise<boolea
   });
 }
 
+/** Fail as OUR SERVER does it: `service_role` only (issue 41). */
 function failCall(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ gave_back: boolean }>(
       'select public.fail_ai_explanation($1, $2, $3::uuid) as gave_back',
       [questionId, lang, heldSecret('text', userId, questionId, lang)],

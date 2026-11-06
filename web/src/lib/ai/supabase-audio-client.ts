@@ -7,16 +7,27 @@
  * this file can never break a build that has no environment variables
  * (web/CLAUDE.md).
  *
- * Authorisation: the client carries the SIGNED-IN STUDENT'S OWN access token.
- * The three functions in `0025_revision_audio.sql` read `auth.uid()` from
- * that token, so the question visibility rule and the race are decided by
- * Postgres for the right person. There is no service-role key here.
+ * Authorisation: TWO KEYS, split the same way as `supabase-ai-client.ts`
+ * (issue 41-ai-finish-server-only).
  *
- * Security: tokens are secrets. No console call lives in this file, and the
- * errors it throws carry a fixed message plus the HTTP status, never a
- * response body.
+ *  * `claimAudio` carries the SIGNED-IN STUDENT'S OWN access token.
+ *    `claim_explanation_audio()` reads `auth.uid()` from it, so the question
+ *    visibility rule, the exam lock and the race are decided by Postgres for
+ *    the right person.
+ *  * `finishAudio` and `failAudio` carry the SERVER-ONLY key, through
+ *    `createAiServiceRpc()`. Both are granted to `service_role` alone since
+ *    `0040_ai_finish_server_only.sql`: a student holding their own voice
+ *    claim secret could otherwise cancel a voice call that was still running,
+ *    and the next read would start, and bill, a second one for the same
+ *    words. There is NO fallback to the student's token: with no key set,
+ *    both throw.
+ *
+ * Security: tokens and keys are secrets. No console call lives in this file,
+ * and the errors it throws carry a fixed message plus the HTTP status, never
+ * a response body.
  */
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
+import { createAiServiceRpc } from './service-env';
 import {
   readAudioClaimOutcome,
   type AudioClaimOutcome,
@@ -39,6 +50,11 @@ export function createSupabaseAudioClient(
   // Kept as a getter, never read here: lazy env (web/CLAUDE.md).
   const env = () => readSupabaseEnv(options.env ?? process.env);
   const doFetch: typeof fetch = (...args) => (options.fetchImpl ?? fetch)(...args);
+
+  // The server-only caller for `finishAudio` and `failAudio` (issue 41). It
+  // reads its own env inside every call, so this line costs nothing at import
+  // time.
+  const serviceRpc = createAiServiceRpc({ env: options.env, fetchImpl: options.fetchImpl });
 
   function required(): SupabaseEnv {
     const found = env();
@@ -85,7 +101,11 @@ export function createSupabaseAudioClient(
       path: string,
       secret: string | null,
     ): Promise<boolean> {
-      const saved = await rpc('finish_explanation_audio', {
+      // THE SERVER-ONLY KEY, never the student's token (issue 41). With no
+      // key set this throws, and `makeExplanationAudio` treats the throw the
+      // way it treats any other failure: it releases the slot and the
+      // explanation simply has no narration yet.
+      const saved = await serviceRpc('finish_explanation_audio', {
         question_id: request.questionId,
         lang: request.lang,
         audio_path: path,
@@ -96,7 +116,9 @@ export function createSupabaseAudioClient(
     },
 
     async failAudio(request: RevisionRequest, secret: string | null): Promise<void> {
-      await rpc('fail_explanation_audio', {
+      // The server-only key again (issue 41): releasing a voice call we are
+      // still paying for is our decision, not the student's browser's.
+      await serviceRpc('fail_explanation_audio', {
         question_id: request.questionId,
         lang: request.lang,
         // No secret, no release: the claimant's browser must not be able to

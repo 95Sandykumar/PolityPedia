@@ -144,13 +144,26 @@ export interface ExplanationAudioClient {
   isConfigured(): boolean;
   /** The one transaction: visibility, readiness, and the race. */
   claimAudio(request: RevisionRequest): Promise<AudioClaimOutcome>;
-  /** Point the row at the stored object. Needs the claim's own secret. */
+  /**
+   * Point the row at the stored object. Needs the claim's own secret.
+   *
+   * SERVER-ONLY KEY (issue 41-ai-finish-server-only): the Supabase
+   * implementation posts this with `SUPABASE_SERVICE_ROLE_KEY` and throws
+   * when that key is not set. FALSE means Postgres refused the save (a
+   * takeover, a teacher edit, a bad path); a throw means the call did not
+   * happen. Both end the same way: release the slot.
+   */
   finishAudio(
     request: RevisionRequest,
     path: string,
     secret: string | null,
   ): Promise<boolean>;
-  /** Release a claimed slot, so a later read may retry it. Needs the secret. */
+  /**
+   * Release a claimed slot, so a later read may retry it. Needs the secret.
+   *
+   * SERVER-ONLY KEY too (issue 41): cancelling a voice call we are still
+   * paying for is our decision, not the student's browser's.
+   */
   failAudio(request: RevisionRequest, secret: string | null): Promise<void>;
 }
 

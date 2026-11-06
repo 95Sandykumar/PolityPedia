@@ -84,13 +84,23 @@ function claim(userId: string, questionId: string, lang = 'en'): Promise<string>
   });
 }
 
+/**
+ * The four finish/fail calls run as OUR SERVER (issue
+ * 41-ai-finish-server-only): they are granted to `service_role` alone now,
+ * so a student's key cannot reach them at all.
+ *
+ * `userId` stays in every signature because it is how the HELD SECRET is
+ * looked up. "Refuses another student" therefore still means what it meant:
+ * a caller presenting a secret that is not this claim's gets nothing. Only
+ * now the browser cannot even make the call.
+ */
 function finish(
   userId: string,
   questionId: string,
   sources: unknown[] = [GOOD_SOURCE],
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       `select public.finish_ai_explanation(
                 $1, $2, $3::jsonb, $4::jsonb, 'claude-haiku-5-5', 900, 450, 2, $5::uuid
@@ -108,7 +118,7 @@ function finish(
 }
 
 function failCall(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ gave_back: boolean }>(
       'select public.fail_ai_explanation($1, $2, $3::uuid) as gave_back',
       [questionId, lang, heldSecret('text', userId, questionId, lang)],
@@ -133,7 +143,7 @@ function finishAudio(
   path?: string,
   lang = 'en',
 ): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
       'select public.finish_explanation_audio($1, $2, $3, $4::uuid) as saved',
       [
@@ -148,7 +158,7 @@ function finishAudio(
 }
 
 function failAudio(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
-  return db.asUser(userId, async (sql) => {
+  return db.asService(async (sql) => {
     const r = await sql.query<{ released: boolean }>(
       'select public.fail_explanation_audio($1, $2, $3::uuid) as released',
       [questionId, lang, heldSecret('audio', userId, questionId, lang)],
