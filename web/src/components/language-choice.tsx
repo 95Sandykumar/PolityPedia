@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 /** DESIGN.md: 48 px touch target, pill radius 999, 1 px border, tokens only. */
 export const CHIP =
   'flex min-h-12 items-center rounded-full border px-4 text-base transition-colors duration-100';
-export const CHIP_ON = 'border-primary text-primary font-medium';
+export const CHIP_ON = 'border-primary bg-primary/10 text-primary font-medium';
 export const CHIP_OFF = 'border-border bg-card text-foreground';
 
 /**

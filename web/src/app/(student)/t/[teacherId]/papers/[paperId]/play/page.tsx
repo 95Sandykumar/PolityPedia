@@ -17,11 +17,13 @@
  * player never waits between questions (DESIGN.md section 10).
  */
 import { PracticePlayer } from '@/components/practice-player';
+import { BackLink, EmptyState, PageHeader } from '@/components/student-ui';
+import { ListChecks } from 'lucide-react';
 import { readPracticeData, examNameOf } from '@/lib/attempts/student-page';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readLivePapers } from '@/lib/papers/teacher-page';
 import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
-import { labels, plain } from '@/lib/i18n';
+import { plain } from '@/lib/i18n';
 
 export default async function PaperPlayPage({
   params,
@@ -47,13 +49,8 @@ export default async function PaperPlayPage({
 
   return (
     <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels('player.title', mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </h1>
+      <BackLink href={`/t/${teacherId}/papers`} mode={mode} labelKey="sui.backToPapers" />
+      <PageHeader titleKey="player.title" mode={mode} />
 
       {/* No keys, or no sitting to write into: say so rather than take answers
           the player cannot store. */}
@@ -66,9 +63,7 @@ export default async function PaperPlayPage({
           startedAnswers={practice.answers}
         />
       ) : (
-        <p role="status" className="text-muted-foreground">
-          {plain('player.notConfigured', mode)}
-        </p>
+        <EmptyState Icon={ListChecks} text={plain('player.notConfigured', mode)} />
       )}
     </section>
   );

@@ -17,28 +17,48 @@
  * any post whose author is not on it, so Home can never show a stranger's
  * notice even if a query came back wider than asked.
  *
- * Videos and dates come later (issues 07 and 08).
+ * Student-ui pass (2026-11-06): Home now reads as three sections. A "next exam"
+ * card with the days left (the nearest future date across followed teachers),
+ * "Your teachers" as a horizontal avatar strip, then the notices. The page
+ * title is a plain "Home" h1, so the two section headings are both h2.
  */
+import { HomeExamCard } from '@/components/home-exam-card';
 import { PostList } from '@/components/post-list';
+import { PageHeader } from '@/components/student-ui';
 import { TeachersList } from '@/components/teachers-list';
 import { readFollowedTeachers, readStudentContext } from '@/lib/follows/student-page';
 import { readHomePosts } from '@/lib/posts/server-posts';
 import type { FeedPost } from '@/lib/posts/types';
 import type { PublicTeacher } from '@/lib/teachers/types';
+import { readHomeExam } from './_data/student-ui-data';
 
 export default async function HomePage() {
   const { session, configured, mode } = await readStudentContext();
   const teachers: PublicTeacher[] = configured ? await readFollowedTeachers(session) : [];
-  const posts: FeedPost[] = configured ? await readHomePosts(session, teachers) : [];
+  const [posts, homeExam]: [FeedPost[], Awaited<ReturnType<typeof readHomeExam>>] = configured
+    ? await Promise.all([readHomePosts(session, teachers), readHomeExam(session, teachers)])
+    : [[], null];
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader titleKey="nav.home" mode={mode} />
+
+      {homeExam ? (
+        <HomeExamCard
+          exam={homeExam.exam}
+          teacherName={homeExam.teacherName}
+          daysLeft={homeExam.daysLeft}
+          mode={mode}
+        />
+      ) : null}
+
       <TeachersList
         teachers={teachers}
-        titleKey="home.following"
+        titleKey="sui.yourTeachers"
         emptyKey="home.followingNone"
         mode={mode}
         configured={configured}
+        variant="strip"
       />
 
       <PostList

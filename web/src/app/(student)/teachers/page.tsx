@@ -9,12 +9,15 @@
  * Tapping a row opens `/t/<id>`, that teacher's portfolio.
  */
 import { TeachersList } from '@/components/teachers-list';
-import { readApprovedTeachers, readStudentContext } from '@/lib/follows/student-page';
+import { readApprovedTeachers, readFollowedTeachers, readStudentContext } from '@/lib/follows/student-page';
 import type { PublicTeacher } from '@/lib/teachers/types';
 
 export default async function TeachersPage() {
   const { session, configured, mode } = await readStudentContext();
-  const teachers: PublicTeacher[] = configured ? await readApprovedTeachers(session) : [];
+  // The followed list is read too, only so a row can say "Following" (student-ui).
+  const [teachers, followed]: [PublicTeacher[], PublicTeacher[]] = configured
+    ? await Promise.all([readApprovedTeachers(session), readFollowedTeachers(session)])
+    : [[], []];
 
   return (
     <TeachersList
@@ -23,6 +26,7 @@ export default async function TeachersPage() {
       emptyKey="teachers.none"
       mode={mode}
       configured={configured}
+      followedIds={followed.map((teacher) => teacher.userId)}
     />
   );
 }

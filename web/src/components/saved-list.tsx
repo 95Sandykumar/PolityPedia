@@ -27,6 +27,7 @@
  * Remove button names the question number, so "Remove" is never ambiguous.
  */
 import { Bookmark, Play, Trash2, X } from 'lucide-react';
+import { EmptyState } from '@/components/student-ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { playerPath } from '@/lib/attempts/types';
@@ -45,10 +46,10 @@ const CARD = 'rounded-[10px] border border-border bg-card p-3';
 
 /** Pills are 999 px (DESIGN.md section 0) and 48 px tall (section 5). */
 const CHIP =
-  'inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-base font-medium transition-colors duration-100';
+  'inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[8px] px-3 text-base font-medium transition-colors duration-100';
 
-const CHIP_ON = 'border-primary bg-primary text-primary-foreground';
-const CHIP_OFF = 'border-border bg-card text-foreground';
+const CHIP_ON = 'bg-primary text-primary-foreground';
+const CHIP_OFF = 'text-foreground';
 
 /** A destructive action is the one red outline button DESIGN.md allows. */
 const REMOVE =
@@ -129,7 +130,11 @@ export function SavedList({
   return (
     <div className="flex flex-col gap-3">
       {/* The two chips of F-E8. A group, so a screen reader hears what they do. */}
-      <div role="group" aria-label={plain('saved.filter', mode)} className="flex gap-2">
+      <div
+        role="group"
+        aria-label={plain('saved.filter', mode)}
+        className="flex gap-1 rounded-[10px] border border-border bg-card p-1"
+      >
         {SAVED_TAGS.map((tag) => {
           const on = picked === tag;
           return (
@@ -144,8 +149,19 @@ export function SavedList({
               onClick={() => setPicked(on ? null : tag)}
               className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
             >
+              {tag === 'wrong' ? (
+                <X aria-hidden="true" className="size-5" strokeWidth={2} />
+              ) : (
+                <Bookmark aria-hidden="true" className="size-5" strokeWidth={2} />
+              )}
               {plain(TAG_LABEL[tag], mode)}
-              <span className="tabular-nums">{countByTag(live, tag)}</span>
+              <span
+                className={`rounded-full px-2 text-sm leading-6 font-bold tabular-nums ${
+                  on ? 'bg-primary-foreground/20' : 'bg-background'
+                }`}
+              >
+                {countByTag(live, tag)}
+              </span>
             </button>
           );
         })}
@@ -158,9 +174,11 @@ export function SavedList({
       ) : null}
 
       {shown.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('saved.none', mode)}
-        </p>
+        <EmptyState
+          Icon={Bookmark}
+          text={plain('saved.none', mode)}
+          action={{ href: '/practice', label: plain('sui.noSavedAction', mode) }}
+        />
       ) : (
         <ul className="flex flex-col gap-2">
           {shown.map((item) => (
@@ -171,7 +189,7 @@ export function SavedList({
               className={`${CARD} flex flex-col gap-2`}
             >
               <div className="flex items-start gap-2">
-                <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-sm leading-5 font-bold tabular-nums text-muted-foreground ring-1 ring-border">
                   {item.number}
                 </span>
                 <p className="grow text-[17px] leading-[26px] font-medium">{item.stem}</p>

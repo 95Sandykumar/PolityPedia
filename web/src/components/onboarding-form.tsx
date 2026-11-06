@@ -10,15 +10,23 @@
  * The BrowserExamsClient is a prop so the test can inject a fake: no real
  * network call and no real key in any test (web/CLAUDE.md).
  */
+import { BookOpenCheck, Check } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CHIP, CHIP_OFF, CHIP_ON, LanguageChoice } from '@/components/language-choice';
+import { IconChip } from '@/components/student-ui';
+import { LanguageChoice } from '@/components/language-choice';
 import { createBrowserExamsClient } from '@/lib/exams/browser-exams-client';
 import { examLabels, type BrowserExamsClient, type Exam } from '@/lib/exams/types';
 import { DEFAULT_MODE, labels, plain, type LangMode } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-white transition-colors duration-100 disabled:opacity-60';
+  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
+
+/** One exam row: a full-width 56 px tile with a check box on the right. */
+const EXAM_ROW =
+  'flex min-h-14 w-full items-center gap-3 rounded-[10px] border px-3 py-2 text-left text-base leading-6 transition-colors duration-100';
+const EXAM_ON = 'border-primary bg-primary/5 font-medium text-foreground ring-1 ring-primary';
+const EXAM_OFF = 'border-border bg-card text-foreground';
 
 export function OnboardingForm({
   exams,
@@ -80,7 +88,11 @@ export function OnboardingForm({
 
   return (
     <form onSubmit={save} className="flex flex-col gap-6" noValidate>
-      <Title mode={mode} />
+      <div className="flex flex-col gap-3">
+        <IconChip Icon={BookOpenCheck} size="lg" />
+        <Title mode={mode} />
+        <p className="text-base leading-6 text-muted-foreground">{plain('sui.onbHint', mode)}</p>
+      </div>
 
       {failed ? (
         <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
@@ -89,10 +101,15 @@ export function OnboardingForm({
       ) : null}
 
       <fieldset className="flex flex-col gap-3">
-        <legend className="pb-3 text-lg leading-6 font-bold">
+        <legend className="flex w-full items-center gap-2 pb-3 text-lg leading-6 font-bold">
           {plain('onboarding.exams', mode)}
+          {picked.length > 0 ? (
+            <span className="rounded-full bg-primary/10 px-2 text-sm leading-6 font-medium text-primary tabular-nums">
+              {picked.length} {plain('sui.onbPicked', mode)}
+            </span>
+          ) : null}
         </legend>
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex flex-col gap-2">
           {exams.map((exam) => {
             const on = picked.includes(exam.id);
             const lines = examLabels(exam, mode);
@@ -103,14 +120,26 @@ export function OnboardingForm({
                   aria-pressed={on}
                   aria-label={lines.join(' / ')}
                   onClick={() => toggle(exam.id)}
-                  className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
+                  className={cn(EXAM_ROW, on ? EXAM_ON : EXAM_OFF)}
                 >
-                  <span className="flex flex-col items-start">
+                  <span className="flex grow flex-col items-start">
                     {lines.map((line, index) => (
                       <span key={line} className={index === 0 ? undefined : 'text-xs'}>
                         {line}
                       </span>
                     ))}
+                  </span>
+                  {/* A real check, not colour alone (DESIGN.md section 3). */}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'flex size-6 shrink-0 items-center justify-center rounded-[6px] border',
+                      on
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card',
+                    )}
+                  >
+                    {on ? <Check className="size-4" strokeWidth={3} /> : null}
                   </span>
                 </button>
               </li>

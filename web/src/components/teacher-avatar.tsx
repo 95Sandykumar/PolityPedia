@@ -48,7 +48,11 @@ export function TeacherAvatar({
   return (
     <span
       aria-hidden="true"
-      className={cn(shared, 'flex items-center justify-center font-bold text-muted-foreground')}
+      className={cn(
+        shared,
+        // A soft primary tint, so the initial reads as a face and not a blank disc.
+        'flex items-center justify-center border-primary/20 bg-primary/10 font-bold text-primary',
+      )}
       style={{ width: size, height: size, fontSize: Math.round(size / 2.5) }}
     >
       {[...displayName][0] ?? '?'}

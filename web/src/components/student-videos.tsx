@@ -19,8 +19,10 @@
  * A server component: there is nothing to click except the links, so no
  * client bundle is needed at all.
  */
+import { Play, Video } from 'lucide-react';
+import { EmptyState, PageHeader } from '@/components/student-ui';
 import { VideoThumb } from '@/components/video-thumb';
-import { DEFAULT_MODE, labels, plain, type LangMode } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode } from '@/lib/i18n';
 import type { PublicTeacher } from '@/lib/teachers/types';
 import { youTubeWatchUrl } from '@/lib/videos/youtube-url';
 import type { TeacherVideo } from '@/lib/videos/types';
@@ -38,27 +40,14 @@ export function StudentVideos({
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
 }) {
-  const title = (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('videos.title', mode).map((line) => (
-        <span key={line} className="block">
-          {line}
-        </span>
-      ))}
-    </h1>
-  );
+  const title = <PageHeader titleKey="videos.title" mode={mode} />;
 
   /** The muted panel of DESIGN.md section 8. Nothing in it is tappable. */
   function muted(text: string) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         {title}
-        <p
-          role="status"
-          className="rounded-[10px] border border-border bg-muted p-3 text-muted-foreground"
-        >
-          {text}
-        </p>
+        <EmptyState Icon={Video} text={text} />
       </section>
     );
   }
@@ -72,7 +61,7 @@ export function StudentVideos({
   if (videos.length === 0) return muted(plain('videos.none', mode));
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       {title}
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {videos.map((video) => (
@@ -83,12 +72,25 @@ export function StudentVideos({
               // noopener so the YouTube tab can never reach back into our
               // page; noreferrer keeps the student's path to themselves.
               rel="noopener noreferrer"
-              className="flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3 transition-colors duration-100"
+              className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-3 transition-colors duration-100 hover:border-primary"
             >
-              <VideoThumb src={video.thumbUrl} />
+              <span className="relative block">
+                <VideoThumb src={video.thumbUrl} />
+                {/* A play badge on the thumbnail says "this opens a video". */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 flex items-center justify-center"
+                >
+                  <span className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Play className="size-6 translate-x-0.5" fill="currentColor" strokeWidth={0} />
+                  </span>
+                </span>
+              </span>
               {/* No title from oEmbed: show whose video it is, never a blank
                   row and never the raw id. */}
-              <span className="text-sm font-medium">{video.title ?? teacher.displayName}</span>
+              <span className="text-base leading-6 font-medium">
+                {video.title ?? teacher.displayName}
+              </span>
             </a>
           </li>
         ))}

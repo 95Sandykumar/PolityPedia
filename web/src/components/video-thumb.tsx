@@ -24,7 +24,7 @@ export function VideoThumb({ src }: { src: string | null }) {
     return (
       <div
         aria-hidden="true"
-        className="aspect-video w-full rounded-[10px] border border-border bg-muted"
+        className="aspect-video w-full rounded-[10px] border border-border bg-background"
       />
     );
   }
@@ -37,7 +37,7 @@ export function VideoThumb({ src }: { src: string | null }) {
       decoding="async"
       width={THUMB_WIDTH}
       height={THUMB_HEIGHT}
-      className="aspect-video w-full rounded-[10px] border border-border bg-muted object-cover"
+      className="aspect-video w-full rounded-[10px] border border-border bg-background object-cover"
     />
   );
 }

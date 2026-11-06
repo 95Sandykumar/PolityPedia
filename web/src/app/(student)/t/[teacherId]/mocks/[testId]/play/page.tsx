@@ -27,12 +27,14 @@
  * after it, so the countdown on screen is a courtesy and not the gate.
  */
 import { MockExamPlayer } from '@/components/mock-exam-player';
+import { BackLink, EmptyState, PageHeader } from '@/components/student-ui';
+import { ListChecks, Timer } from 'lucide-react';
 import { PracticePlayer } from '@/components/practice-player';
 import { readExamLoad } from '@/lib/exam/student-page';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readMockPracticeData } from '@/lib/practice/student-page';
 import { readRequestedMode, readTopicFilter } from '@/lib/practice/types';
-import { labels, plain } from '@/lib/i18n';
+import { plain } from '@/lib/i18n';
 
 export default async function MockPlayerPage({
   params,
@@ -41,7 +43,7 @@ export default async function MockPlayerPage({
   params: Promise<{ teacherId: string; testId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ testId }, query] = await Promise.all([params, searchParams]);
+  const [{ teacherId, testId }, query] = await Promise.all([params, searchParams]);
   const { session, configured, mode } = await readStudentContext();
 
   // Fails to PRACTICE: a broken query must never start a timed sitting.
@@ -64,13 +66,8 @@ export default async function MockPlayerPage({
 
   return (
     <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
-        {labels(titleKey, mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </h1>
+      <BackLink href={`/t/${teacherId}/mocks`} mode={mode} labelKey="sui.backToMocks" />
+      <PageHeader titleKey={titleKey} mode={mode} />
 
       {/* Scenario B of the 2026-11-05 review (issue 30-exam-key-lock): this
           student is still sitting the SAME test under a clock, and practice
@@ -78,15 +75,21 @@ export default async function MockPlayerPage({
           the answer key and the practice sitting; this line is only how the
           student is told WHY, in their own language. */}
       {practice?.examOpen ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('player.examOpen', mode)}
-        </p>
+        <EmptyState
+          Icon={Timer}
+          text={plain('player.examOpen', mode)}
+          action={{
+            href: `/t/${teacherId}/mocks/${testId}/play?mode=exam`,
+            label: plain('mockList.exam', mode),
+          }}
+        />
       ) : /* No keys, a locked test, or no sitting to write into: say so rather
              than take answers the player cannot store. */
       !sitting ? (
-        <p role="status" className="text-muted-foreground">
-          {plain(attemptMode === 'exam' ? 'exam.notConfigured' : 'player.notConfigured', mode)}
-        </p>
+        <EmptyState
+          Icon={ListChecks}
+          text={plain(attemptMode === 'exam' ? 'exam.notConfigured' : 'player.notConfigured', mode)}
+        />
       ) : attemptMode === 'exam' && exam?.attempt ? (
         <MockExamPlayer
           questions={exam.questions}

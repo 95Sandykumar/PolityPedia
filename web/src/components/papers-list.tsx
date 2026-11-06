@@ -14,7 +14,8 @@
  * minted on the server, for a paper the policy already allowed, and it dies a
  * minute later.
  */
-import { Download, ListChecks, Play } from 'lucide-react';
+import { FileText, ListChecks, Play } from 'lucide-react';
+import { EmptyState, IconChip } from '@/components/student-ui';
 import Link from 'next/link';
 import { playerPath } from '@/lib/attempts/types';
 import type { Exam } from '@/lib/exams/types';
@@ -30,9 +31,15 @@ import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/l
 
 const CARD = 'rounded-[10px] border border-border bg-card p-3';
 
+/** The file-type chip on a PDF button (student-ui pass). */
+const CHIP =
+  'rounded-[6px] border border-current px-1.5 text-xs leading-4 font-bold tracking-wide';
+
 /** 48 px tall, the touch-target floor (DESIGN.md section 5). */
 const DOWNLOAD =
-  'inline-flex min-h-12 items-center gap-2 rounded-[10px] border border-primary px-3 text-base font-medium text-primary transition-colors duration-100';
+  'inline-flex min-h-12 items-center gap-2 rounded-[10px] border border-primary bg-card px-3 text-base font-medium text-primary transition-colors duration-100';
+const PRACTICE =
+  'inline-flex min-h-12 items-center gap-2 rounded-[10px] bg-primary px-4 text-base font-medium text-primary-foreground transition-colors duration-100';
 
 const BADGE =
   'rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground';
@@ -66,11 +73,7 @@ export function PapersList({
   const groups = groupPapers(papers, exams);
 
   if (groups.length === 0) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {plain('papers.none', mode)}
-      </p>
-    );
+    return <EmptyState Icon={FileText} text={plain('papers.none', mode)} />;
   }
 
   return (
@@ -87,24 +90,29 @@ export function PapersList({
         return (
           <section key={group.examId} className="flex flex-col gap-3">
             {shown.length > 0 ? (
-              <h2 className="text-[18px] leading-6 font-bold">
-                {shown.map((line, index) => (
-                  <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-                    {line}
-                  </span>
-                ))}
-              </h2>
+              <div className="flex items-center gap-2">
+                <IconChip Icon={FileText} />
+                <h2 className="text-[18px] leading-7 font-bold">
+                  {shown.map((line, index) => (
+                    <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
+                      {line}
+                    </span>
+                  ))}
+                </h2>
+              </div>
             ) : null}
 
             {group.years.map((year) => (
               <div key={year.year} className="flex flex-col gap-2">
-                <h3 className="text-base font-bold tabular-nums">{year.year}</h3>
+                <h3 className="flex items-center gap-3 text-base leading-6 font-bold tabular-nums after:h-px after:grow after:bg-border after:content-['']">
+                  {year.year}
+                </h3>
 
                 {year.months.map((month) => (
                   <div key={String(month.month)} className="flex flex-col gap-2">
                     {/* No heading for "year only": there is no month to name. */}
                     {month.month !== null ? (
-                      <h4 className="text-sm font-medium text-muted-foreground">
+                      <h4 className="text-sm leading-5 font-medium text-muted-foreground">
                         {monthLabels(month.month, mode).map((line, index) => (
                           <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
                             {line}
@@ -117,10 +125,10 @@ export function PapersList({
                       {month.papers.map((paper) => (
                         <li
                           key={paper.id}
-                          className={`${CARD} flex flex-col gap-2 md:flex-row md:items-center md:justify-between`}
+                          className={`${CARD} flex flex-col gap-3 md:flex-row md:items-center md:justify-between`}
                         >
                           <span className="flex items-center gap-2">
-                            <span className="font-medium">{paper.label}</span>
+                            <span className="text-base leading-6 font-bold">{paper.label}</span>
                             {showStatus ? (
                               <span className={BADGE}>
                                 {plain(
@@ -139,7 +147,7 @@ export function PapersList({
                                 href={playerPath(playTeacherId, paper.id)}
                                 prefetch={false}
                                 aria-label={`${paper.label}: ${plain('player.title', mode)}`}
-                                className={DOWNLOAD}
+                                className={PRACTICE}
                               >
                                 <Play aria-hidden="true" className="size-5" />
                                 <span className="flex flex-col items-start">
@@ -227,13 +235,16 @@ function PdfLink({
       aria-label={`${paper.label}: ${plain(labelKey, mode)}`}
       className={DOWNLOAD}
     >
-      <Download aria-hidden="true" className="size-5" />
+      <FileText aria-hidden="true" className="size-5" />
       <span className="flex flex-col items-start">
         {labels(labelKey, mode).map((line, index) => (
           <span key={line} className={index === 0 ? undefined : 'text-xs'}>
             {line}
           </span>
         ))}
+      </span>
+      <span aria-hidden="true" className={CHIP}>
+        PDF
       </span>
     </a>
   );

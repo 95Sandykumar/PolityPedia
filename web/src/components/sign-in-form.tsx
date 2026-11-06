@@ -12,7 +12,9 @@
  * Security: the typed code never appears in an error message, and nothing here
  * is logged.
  */
+import { BookOpenCheck, Mail, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { IconChip } from '@/components/student-ui';
 import { createBrowserAuthClient } from '@/lib/auth/browser-auth-client';
 import type { BrowserAuthClient } from '@/lib/auth/types';
 import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
@@ -24,9 +26,22 @@ const CODE_LENGTH = 6;
 const FIELD =
   'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-white transition-colors duration-100 disabled:opacity-60';
+  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
 const OUTLINE_BUTTON =
   'flex min-h-12 w-full items-center justify-center rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground transition-colors duration-100';
+
+/** The brand block on top of both states: a mark, the name and what the app is for. */
+function Brand({ mode }: { mode: LangMode }) {
+  return (
+    <div className="flex flex-col items-start gap-4 pb-2">
+      <div className="flex items-center gap-3">
+        <IconChip Icon={BookOpenCheck} size="lg" />
+        <p className="text-[22px] leading-8 font-bold">{plain('sui.brand', mode)}</p>
+      </div>
+      <p className="text-base leading-6 text-muted-foreground">{plain('sui.authTagline', mode)}</p>
+    </div>
+  );
+}
 
 function Lines({ keyName, mode }: { keyName: MessageKey; mode: LangMode }) {
   return (
@@ -64,8 +79,9 @@ export function SignInForm({
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        <h1 className="text-[22px] leading-7 font-bold">
+      <section className="flex flex-col gap-4">
+        <Brand mode={mode} />
+        <h1 className="text-[22px] leading-8 font-bold">
           <Lines keyName="auth.title" mode={mode} />
         </h1>
         <p role="status" className="text-muted-foreground">
@@ -108,8 +124,9 @@ export function SignInForm({
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">
+    <section className="flex flex-col gap-4">
+      <Brand mode={mode} />
+      <h1 className="text-[22px] leading-8 font-bold">
         <Lines keyName="auth.title" mode={mode} />
       </h1>
 
@@ -120,7 +137,7 @@ export function SignInForm({
       ) : null}
 
       {step === 'email' ? (
-        <>
+        <div className="flex flex-col gap-4 rounded-[10px] border border-border bg-card p-4">
           <a href={GOOGLE_PATH} aria-label={plain('auth.google', mode)} className={OUTLINE_BUTTON}>
             <span>
               <Lines keyName="auth.google" mode={mode} />
@@ -149,12 +166,20 @@ export function SignInForm({
               aria-label={plain('auth.sendCode', mode)}
               className={PRIMARY_BUTTON}
             >
+              <Mail aria-hidden="true" className="size-5" strokeWidth={2} />
               {plain(busy ? 'auth.sending' : 'auth.sendCode', mode)}
             </button>
+            <p className="text-sm leading-5 text-muted-foreground">
+              {plain('sui.authNoPassword', mode)}
+            </p>
           </form>
-        </>
+        </div>
       ) : (
-        <form onSubmit={verifyCode} className="flex flex-col gap-3" noValidate>
+        <form
+          onSubmit={verifyCode}
+          className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4"
+          noValidate
+        >
           <p className="text-sm text-muted-foreground">{plain('auth.codeSent', mode)}</p>
           <label htmlFor="sign-in-code" className="text-sm font-medium">
             <Lines keyName="auth.code" mode={mode} />
@@ -191,6 +216,10 @@ export function SignInForm({
           </button>
         </form>
       )}
+      <p className="flex items-center gap-2 text-sm leading-5 text-muted-foreground">
+        <ShieldCheck aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
+        {plain('sui.authSafe', mode)}
+      </p>
     </section>
   );
 }

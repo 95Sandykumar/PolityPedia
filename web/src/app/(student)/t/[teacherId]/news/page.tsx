@@ -16,6 +16,7 @@
  * `(student)` group, so the bottom nav stays put.
  */
 import { PostList } from '@/components/post-list';
+import { BackLink, PageHeader } from '@/components/student-ui';
 import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
 import { readTeacherPosts } from '@/lib/posts/server-posts';
 import type { TeacherPost } from '@/lib/posts/types';
@@ -53,8 +54,9 @@ export default async function TeacherNewsPage({
   const posts: TeacherPost[] = await readTeacherPosts(session, teacher.userId);
 
   return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-[22px] leading-7 font-bold">{teacher.displayName}</h1>
+    <section className="flex flex-col gap-4">
+      <BackLink href={`/t/${teacherId}`} mode={mode} />
+      <PageHeader title={teacher.displayName} mode={mode} />
       {/* The author is already the page title, so the rows do not repeat it. */}
       <PostList posts={posts} titleKey="tile.news" emptyKey="posts.none" mode={mode} />
     </section>

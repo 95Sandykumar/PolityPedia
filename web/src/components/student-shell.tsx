@@ -34,8 +34,10 @@ export function StudentShell({
 }) {
   const pathname = usePathname() ?? '/';
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
-      <main className="flex-1 px-4 pt-4 pb-24">{children}</main>
+    <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col md:max-w-[880px]">
+      {/* Phone first: one column, 16 px gutters. From 768 px the content box
+          widens so lists can use two columns; the bottom nav stays 560 wide. */}
+      <main className="flex-1 px-4 pt-5 pb-28 md:px-6 md:pt-8">{children}</main>
       <nav
         aria-label={plain('nav.label', mode)}
         className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
@@ -52,11 +54,19 @@ export function StudentShell({
                   aria-label={plain(key, mode)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-12 flex-col items-center justify-center gap-0.5 py-1 text-sm font-medium transition-colors duration-100',
+                    'relative flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5 text-sm font-medium transition-colors duration-100',
                     active ? 'text-primary' : 'text-muted-foreground',
                   )}
                 >
-                  <Icon size={24} strokeWidth={2} aria-hidden="true" />
+                  {/* The current tab: a bar on top as well as the colour, so
+                      it is not colour alone (DESIGN.md section 3). */}
+                  {active ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-0 h-0.5 w-10 rounded-full bg-primary"
+                    />
+                  ) : null}
+                  <Icon size={24} strokeWidth={active ? 2.25 : 2} aria-hidden="true" />
                   <span>{first}</span>
                   {second ? <span className="text-xs">{second}</span> : null}
                 </Link>

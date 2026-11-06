@@ -34,7 +34,7 @@
  * month, so the card says "Stopped. It works until the date above" rather than
  * hiding a month they can still use.
  */
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Info, Sparkles } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
   createBrowserSubscribeClient,
@@ -174,7 +174,11 @@ export function PlanPicker({
       </p>
 
       {!configured && (
-        <p role="status" className="text-muted-foreground">
+        <p
+          role="status"
+          className="flex items-center gap-2 rounded-[10px] border border-marked bg-card p-3 text-sm leading-5 text-marked"
+        >
+          <Info aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
           {plain('mePlans.notConfigured', mode)}
         </p>
       )}
