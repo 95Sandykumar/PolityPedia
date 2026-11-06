@@ -155,6 +155,44 @@ export function isClaimCode(value: unknown): value is ClaimCode {
   return typeof value === 'string' && (CLAIM_CODES as readonly string[]).includes(value);
 }
 
+/**
+ * A claim secret, or null (issue 37-ai-claim-secret).
+ *
+ * The one-time uuid `claim_ai_explanation()` hands back to the call that
+ * created or took over a claim. `finish_*` and `fail_*` need it, besides
+ * `claimed_by`, so the student's OWN browser cannot refund a call our server
+ * is still making. Without it the 30-a-day cap never filled: claim, post
+ * `rpc/fail_ai_explanation` yourself, claim again.
+ *
+ * SERVER MEMORY ONLY. It lives in a local variable for the length of one
+ * model call. It is never a reply field, never a cookie, never logged.
+ */
+export function readClaimSecret(value: unknown): string | null {
+  return typeof value === 'string' && UUID_RE.test(value) ? value : null;
+}
+
+/** What `claim_ai_explanation()` now answers with: the word, plus the secret. */
+export interface ClaimOutcome {
+  code: ClaimCode;
+  /** Set on `claimed` and nothing else. Never leaves the server. */
+  secret: string | null;
+}
+
+/**
+ * Read the RPC reply into a `ClaimOutcome`.
+ *
+ * Fail-closed twice over: an unknown word reads as `no_plan` (the same choice
+ * the SQL makes for an unknown feature, and it must never read as `claimed`),
+ * and a secret that arrives on any other word is dropped, because only a
+ * `claimed` row has a call of ours in flight to finish.
+ */
+export function readClaimOutcome(value: unknown): ClaimOutcome {
+  if (typeof value !== 'object' || value === null) return { code: 'no_plan', secret: null };
+  const raw = value as Record<string, unknown>;
+  const code: ClaimCode = isClaimCode(raw.code) ? raw.code : 'no_plan';
+  return { code, secret: code === 'claimed' ? readClaimSecret(raw.secret) : null };
+}
+
 // --------------------------------------------------------------------------
 // The request
 // --------------------------------------------------------------------------
@@ -247,16 +285,31 @@ export interface QuestionForExplain {
 export interface AiClient {
   /** False when the Supabase env vars are missing. */
   isConfigured(): boolean;
-  /** The one transaction: plan, saved lookup, 30-a-day, and the race. */
-  claim(request: RevisionRequest): Promise<ClaimCode>;
+  /**
+   * The one transaction: plan, saved lookup, 30-a-day, and the race.
+   *
+   * Returns the word AND, on `claimed` only, the one-time secret that
+   * `finish` and `fail` then need (issue 37-ai-claim-secret).
+   */
+  claim(request: RevisionRequest): Promise<ClaimOutcome>;
   /** Read a saved explanation. Null when there is none to read. */
   get(request: RevisionRequest): Promise<Explanation | null>;
   /** What the prompt is built from. Null when the question is not readable. */
   question(questionId: string): Promise<QuestionForExplain | null>;
-  /** Save a finished explanation. */
-  finish(request: RevisionRequest, result: ExplainResult): Promise<void>;
-  /** Mark it failed and give the student their 1 of 30 back. */
-  fail(request: RevisionRequest): Promise<void>;
+  /** Save a finished explanation. Needs the claim's own secret. */
+  finish(
+    request: RevisionRequest,
+    result: ExplainResult,
+    secret: string | null,
+  ): Promise<void>;
+  /**
+   * Mark it failed and give the student their 1 of 30 back.
+   *
+   * `secret` is required, not optional: a null one is refused by Postgres,
+   * and making the argument explicit is what stops a future caller from
+   * quietly dropping it and wondering why the refund never lands.
+   */
+  fail(request: RevisionRequest, secret: string | null): Promise<void>;
 }
 
 /** 10 a minute per user. In memory: one process, one window (C). */

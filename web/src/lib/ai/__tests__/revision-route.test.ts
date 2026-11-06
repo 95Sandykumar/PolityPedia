@@ -73,10 +73,19 @@ interface FakeOptions {
 /**
  * A fake database with the same decision order as `claim_ai_explanation()`:
  * plan, saved lookup, 30-a-day, then the primary key that decides the race.
+ *
+ * It also copies the CLAIM SECRET rule (issue 37-ai-claim-secret): a claim
+ * hands back a fresh secret, and `finish` / `fail` do nothing at all without
+ * the matching one. So a route that forgets to pass it down fails here, the
+ * same way it would fail against real Postgres.
  */
 function fakeClient(options: FakeOptions = {}) {
   const plan = options.plan ?? true;
   const rows = new Map<string, Explanation>();
+  /** Postgres stores a sha256; the fake keeps the secret itself. Same test. */
+  const secrets = new Map<string, string>();
+  /** Every secret this fake has ever issued, in order. */
+  const issued: string[] = [];
   let used = options.used ?? 0;
 
   const key = (r: RevisionRequest) => r.questionId + '|' + r.lang;
@@ -85,14 +94,16 @@ function fakeClient(options: FakeOptions = {}) {
     isConfigured: () => options.configured ?? true,
 
     async claim(request) {
-      if (!plan) return 'no_plan';
-      if ((options.question ?? QUESTION_ROW) === null) return 'not_found';
+      if (!plan) return { code: 'no_plan', secret: null };
+      if ((options.question ?? QUESTION_ROW) === null) return { code: 'not_found', secret: null };
 
       const found = rows.get(key(request));
-      if (found?.status === 'ready') return 'ready';
-      if (found?.status === 'generating') return 'generating';
+      // A free read and somebody else's call are told no secret, because
+      // neither has a call of ours to finish.
+      if (found?.status === 'ready') return { code: 'ready', secret: null };
+      if (found?.status === 'generating') return { code: 'generating', secret: null };
 
-      if (used >= AI_DAILY_CAP) return 'limit';
+      if (used >= AI_DAILY_CAP) return { code: 'limit', secret: null };
 
       // The primary key decides. In one process that is `Map.has`.
       rows.set(key(request), {
@@ -105,7 +116,11 @@ function fakeClient(options: FakeOptions = {}) {
         editedByTeacher: false,
       });
       used += 1;
-      return 'claimed' satisfies ClaimCode;
+
+      const secret = `claim-secret-${issued.length + 1}`;
+      issued.push(secret);
+      secrets.set(key(request), secret);
+      return { code: 'claimed' satisfies ClaimCode, secret };
     },
 
     async get(request) {
@@ -116,7 +131,13 @@ function fakeClient(options: FakeOptions = {}) {
       return options.question === undefined ? QUESTION_ROW : options.question;
     },
 
-    async finish(request, result) {
+    async finish(request, result, secret) {
+      // `finish_ai_explanation` answers false without the claim's secret,
+      // and `createSupabaseAiClient` turns that false into a throw.
+      if (secret === null || secrets.get(key(request)) !== secret) {
+        throw new Error('finish saved nothing');
+      }
+      secrets.delete(key(request));
       rows.set(key(request), {
         questionId: request.questionId,
         lang: request.lang,
@@ -128,15 +149,19 @@ function fakeClient(options: FakeOptions = {}) {
       });
     },
 
-    async fail(request) {
+    async fail(request, secret) {
       const found = rows.get(key(request));
       if (found?.status !== 'generating') return;
+      // NO SECRET, NO REFUND. This is the hole issue 37 closes: the student's
+      // own browser holds the same access token our server does.
+      if (secret === null || secrets.get(key(request)) !== secret) return;
+      secrets.delete(key(request));
       rows.set(key(request), { ...found, status: 'failed' });
       used = Math.max(used - 1, 0);
     },
   };
 
-  return { client, rows, usedToday: () => used };
+  return { client, rows, issued, usedToday: () => used };
 }
 
 function fakeExplainer(result: ExplainResult = RESULT): Explainer & { calls: number } {
@@ -401,5 +426,132 @@ describe('handleRevision: 10 a minute', () => {
 
     expect(reply.status).toBe(429);
     expect(claim).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * THE CLAIM SECRET (issue 37-ai-claim-secret).
+ *
+ * The hole this closes is not a permission mistake, it is the shape of the
+ * app: there is no service-role key, so every Supabase call carries the
+ * STUDENT'S OWN access token. `claimed_by = auth.uid()` is therefore just as
+ * true in the student's browser as it is in this route, and the student could
+ * post `rpc/fail_ai_explanation` for their own in-flight claim: refund,
+ * reload, repeat. The 30-a-day cap was the model spend ceiling, and it never
+ * filled.
+ *
+ * So the claim now hands back a one-time secret, `finish` and `fail` need it,
+ * and it may only ever live in this file's local variables.
+ */
+describe('handleRevision: the claim secret never leaves the server', () => {
+  it('passes the claim secret to finish', async () => {
+    const t = fakeClient();
+    const finish = vi.spyOn(t.client, 'finish');
+
+    const reply = await run({ client: t.client });
+
+    expect(reply.status).toBe(200);
+    expect(t.issued).toHaveLength(1);
+    expect(finish).toHaveBeenCalledTimes(1);
+    expect(finish.mock.calls[0][2]).toBe(t.issued[0]);
+  });
+
+  it('passes the claim secret to fail, which is what makes the refund work', async () => {
+    const t = fakeClient();
+    const fail = vi.spyOn(t.client, 'fail');
+    const explainer: Explainer = {
+      isConfigured: () => true,
+      async explain() {
+        throw new Error('the model timed out');
+      },
+    };
+
+    const reply = await run({ client: t.client, explainer });
+
+    expect(reply.status).toBe(502);
+    expect(fail).toHaveBeenCalledTimes(1);
+    expect(fail.mock.calls[0][1]).toBe(t.issued[0]);
+    // The refund only landed BECAUSE the secret went with it.
+    expect(t.usedToday()).toBe(0);
+    expect(t.rows.get(`${QUESTION}|en`)?.status).toBe('failed');
+  });
+
+  it('passes it to fail when the question vanishes between claim and read', async () => {
+    const t = fakeClient();
+    const fail = vi.spyOn(t.client, 'fail');
+    vi.spyOn(t.client, 'question').mockResolvedValue(null);
+
+    const reply = await run({ client: t.client });
+
+    expect(reply.status).toBe(404);
+    expect(fail.mock.calls[0][1]).toBe(t.issued[0]);
+    expect(t.usedToday()).toBe(0);
+  });
+
+  it('keeps the secret out of every reply body, saved or fresh', async () => {
+    const t = fakeClient();
+
+    const made = await run({ client: t.client });
+    const saved = await run({ client: t.client });
+
+    const secret = t.issued[0];
+    expect(secret).toBeTruthy();
+    for (const reply of [made, saved]) {
+      expect(reply.status).toBe(200);
+      expect(JSON.stringify(reply.body)).not.toContain(secret);
+      expect(Object.keys(reply.body)).not.toContain('secret');
+    }
+  });
+
+  it('keeps the secret out of a refusal body too', async () => {
+    const t = fakeClient();
+    const explainer: Explainer = {
+      isConfigured: () => true,
+      async explain() {
+        throw new Error('the model timed out');
+      },
+    };
+
+    const reply = await run({ client: t.client, explainer });
+
+    expect(JSON.stringify(reply.body)).not.toContain(t.issued[0]);
+  });
+
+  it('never logs it, because this layer never logs at all', async () => {
+    const t = fakeClient();
+    const spies = [
+      vi.spyOn(console, 'log').mockImplementation(() => {}),
+      vi.spyOn(console, 'info').mockImplementation(() => {}),
+      vi.spyOn(console, 'warn').mockImplementation(() => {}),
+      vi.spyOn(console, 'error').mockImplementation(() => {}),
+      vi.spyOn(console, 'debug').mockImplementation(() => {}),
+    ];
+
+    try {
+      await run({ client: t.client });
+      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+  });
+
+  it('answers 202 and asks for nothing when somebody else holds the claim', async () => {
+    // The browser-side attack ends here. A student who posts
+    // `rpc/claim_ai_explanation` themselves gets a secret, but the row is
+    // then `generating`, so OUR claim answers `generating`, the explainer is
+    // never called, and no Claude call is paid for.
+    const t = fakeClient();
+    const explainer = fakeExplainer();
+
+    // Somebody's claim is already in flight.
+    await t.client.claim({ questionId: QUESTION, lang: 'en' });
+    const before = t.usedToday();
+
+    const reply = await run({ client: t.client, explainer });
+
+    expect(reply.status).toBe(202);
+    expect(reply.body).toEqual({ status: 'generating' });
+    expect(explainer.calls).toBe(0);
+    expect(t.usedToday()).toBe(before);
   });
 });

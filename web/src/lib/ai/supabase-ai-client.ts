@@ -19,11 +19,11 @@
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
 import { readOptions, type QuestionOptions } from '@/lib/questions/types';
 import {
-  isClaimCode,
   isExplanationStatus,
+  readClaimOutcome,
   readSourceUrl,
   type AiClient,
-  type ClaimCode,
+  type ClaimOutcome,
   type ExplainResult,
   type Explanation,
   type ExplanationBody,
@@ -202,14 +202,17 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       return env() !== null;
     },
 
-    async claim(request: RevisionRequest): Promise<ClaimCode> {
-      const code = await rpc('claim_ai_explanation', {
-        question_id: request.questionId,
-        lang: request.lang,
-      });
-      // An unknown word is read as "no plan", the same fail-closed choice the
-      // SQL makes for an unknown feature. It must never read as `claimed`.
-      return isClaimCode(code) ? code : 'no_plan';
+    async claim(request: RevisionRequest): Promise<ClaimOutcome> {
+      // Returns `{code, secret}` since issue 37-ai-claim-secret. The secret
+      // is the only copy there will ever be: the database keeps a sha256 of
+      // it and nothing else, so it cannot be re-read later. It stays in the
+      // caller's local variable and never reaches a reply or a log.
+      return readClaimOutcome(
+        await rpc('claim_ai_explanation', {
+          question_id: request.questionId,
+          lang: request.lang,
+        }),
+      );
     },
 
     async get(request: RevisionRequest): Promise<Explanation | null> {
@@ -294,7 +297,11 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
       };
     },
 
-    async finish(request: RevisionRequest, result: ExplainResult): Promise<void> {
+    async finish(
+      request: RevisionRequest,
+      result: ExplainResult,
+      secret: string | null,
+    ): Promise<void> {
       const saved = await rpc('finish_ai_explanation', {
         question_id: request.questionId,
         lang: request.lang,
@@ -304,17 +311,24 @@ export function createSupabaseAiClient(options: SupabaseAiClientOptions): AiClie
         tokens_in: result.tokensIn,
         tokens_out: result.tokensOut,
         searches: result.searches,
+        // The claim's own secret (issue 37-ai-claim-secret). Without it
+        // Postgres refuses the save, which is what stops another tab from
+        // writing the text every future student reads.
+        claim_secret: secret,
       });
-      // False means no row was `generating`: a teacher edited it, or the row
-      // is gone. Either way the explanation the student just paid for is not
-      // saved, so this is a failure the route must see.
+      // False means no row was `generating`, or the secret did not match: a
+      // teacher edited it, the claim was taken over, or the row is gone.
+      // Either way the explanation the student just paid for is not saved, so
+      // this is a failure the route must see.
       if (saved !== true) throw new Error('Supabase finish saved nothing');
     },
 
-    async fail(request: RevisionRequest): Promise<void> {
+    async fail(request: RevisionRequest, secret: string | null): Promise<void> {
       await rpc('fail_ai_explanation', {
         question_id: request.questionId,
         lang: request.lang,
+        // No secret, no refund (issue 37-ai-claim-secret).
+        claim_secret: secret,
       });
     },
   };

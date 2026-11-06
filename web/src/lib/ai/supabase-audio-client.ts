@@ -18,8 +18,8 @@
  */
 import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
 import {
-  isAudioClaimCode,
-  type AudioClaimCode,
+  readAudioClaimOutcome,
+  type AudioClaimOutcome,
   type ExplanationAudioClient,
 } from './audio';
 import type { RevisionRequest } from './types';
@@ -67,30 +67,41 @@ export function createSupabaseAudioClient(
       return env() !== null;
     },
 
-    async claimAudio(request: RevisionRequest): Promise<AudioClaimCode> {
-      const code = await rpc('claim_explanation_audio', {
-        question_id: request.questionId,
-        lang: request.lang,
-      });
-      // An unknown word is read as `making`: the fail-closed answer, because
-      // it is the one code that makes the caller do nothing at all. It must
-      // never read as `claimed`.
-      return isAudioClaimCode(code) ? code : 'making';
+    async claimAudio(request: RevisionRequest): Promise<AudioClaimOutcome> {
+      // Returns `{code, secret}` since issue 37-ai-claim-secret. The secret
+      // is the only copy there will ever be: the database keeps a sha256 of
+      // it and nothing else. It stays in the background step's local
+      // variable and never reaches a reply or a log.
+      return readAudioClaimOutcome(
+        await rpc('claim_explanation_audio', {
+          question_id: request.questionId,
+          lang: request.lang,
+        }),
+      );
     },
 
-    async finishAudio(request: RevisionRequest, path: string): Promise<boolean> {
+    async finishAudio(
+      request: RevisionRequest,
+      path: string,
+      secret: string | null,
+    ): Promise<boolean> {
       const saved = await rpc('finish_explanation_audio', {
         question_id: request.questionId,
         lang: request.lang,
         audio_path: path,
+        // The claim's own secret (issue 37-ai-claim-secret).
+        claim_secret: secret,
       });
       return saved === true;
     },
 
-    async failAudio(request: RevisionRequest): Promise<void> {
+    async failAudio(request: RevisionRequest, secret: string | null): Promise<void> {
       await rpc('fail_explanation_audio', {
         question_id: request.questionId,
         lang: request.lang,
+        // No secret, no release: the claimant's browser must not be able to
+        // cancel a voice call we are still paying for.
+        claim_secret: secret,
       });
     },
   };

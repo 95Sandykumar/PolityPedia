@@ -31,7 +31,7 @@ import {
   explanationAudioPath,
   explanationAudioUrl,
   explanationSpeechText,
-  type AudioClaimCode,
+  type AudioClaimOutcome,
   type ExplanationAudioClient,
 } from '../audio';
 import { makeExplanationAudio } from '../explanation-audio';
@@ -96,27 +96,43 @@ function fakeAudioClient(
     audioPath: seed.audioPath ?? null,
   });
 
-  const claimAudio = vi.fn(async (request: RevisionRequest): Promise<AudioClaimCode> => {
+  // The claim secret (issue 37-ai-claim-secret). Postgres stores a sha256 of
+  // it; the fake keeps the secret itself, which tests the same thing: a step
+  // that does not pass the claim's own secret back can neither save nor
+  // release the row.
+  const secrets = new Map<string, string>();
+  let issued = 0;
+
+  const claimAudio = vi.fn(async (request: RevisionRequest): Promise<AudioClaimOutcome> => {
     const row = rows.get(key(request));
-    if (!row) return 'not_found';
-    if (!row.ready) return 'not_ready';
-    if (row.audioStatus === 'ready' && row.audioPath) return 'ready';
-    if (row.audioStatus === 'making') return 'making';
+    if (!row) return { code: 'not_found', secret: null };
+    if (!row.ready) return { code: 'not_ready', secret: null };
+    if (row.audioStatus === 'ready' && row.audioPath) return { code: 'ready', secret: null };
+    if (row.audioStatus === 'making') return { code: 'making', secret: null };
     row.audioStatus = 'making';
-    return 'claimed';
+    issued += 1;
+    const secret = `audio-secret-${issued}`;
+    secrets.set(key(request), secret);
+    return { code: 'claimed', secret };
   });
 
-  const finishAudio = vi.fn(async (request: RevisionRequest, path: string) => {
-    const row = rows.get(key(request));
-    if (!row || row.audioStatus !== 'making' || path.trim().length === 0) return false;
-    row.audioStatus = 'ready';
-    row.audioPath = path;
-    return true;
-  });
+  const finishAudio = vi.fn(
+    async (request: RevisionRequest, path: string, secret: string | null) => {
+      const row = rows.get(key(request));
+      if (!row || row.audioStatus !== 'making' || path.trim().length === 0) return false;
+      if (secret === null || secrets.get(key(request)) !== secret) return false;
+      secrets.delete(key(request));
+      row.audioStatus = 'ready';
+      row.audioPath = path;
+      return true;
+    },
+  );
 
-  const failAudio = vi.fn(async (request: RevisionRequest) => {
+  const failAudio = vi.fn(async (request: RevisionRequest, secret: string | null) => {
     const row = rows.get(key(request));
     if (!row || row.audioStatus !== 'making') return;
+    if (secret === null || secrets.get(key(request)) !== secret) return;
+    secrets.delete(key(request));
     row.audioStatus = 'failed';
   });
 
@@ -369,8 +385,11 @@ function fakeAiClient(seed: Explanation | null = null) {
 
   const client: AiClient = {
     isConfigured: () => true,
-    async claim(): Promise<ClaimCode> {
-      return row && row.status === 'ready' ? 'ready' : 'claimed';
+    async claim() {
+      const code: ClaimCode = row && row.status === 'ready' ? 'ready' : 'claimed';
+      // A real claim hands a secret back only on `claimed`
+      // (issue 37-ai-claim-secret), and `finish` below demands it.
+      return { code, secret: code === 'claimed' ? 'text-claim-secret' : null };
     },
     async get() {
       return row;
@@ -378,7 +397,8 @@ function fakeAiClient(seed: Explanation | null = null) {
     async question() {
       return QUESTION_ROW;
     },
-    async finish(request, result) {
+    async finish(request, result, secret) {
+      if (secret !== 'text-claim-secret') throw new Error('finish saved nothing');
       row = {
         questionId: request.questionId,
         lang: request.lang,
@@ -483,5 +503,54 @@ describe('the unconfigured voice provider (X5, human ticket H4)', () => {
     const speech = createUnconfiguredSpeech();
     expect(speech.isConfigured()).toBe(false);
     await expect(speech.speak('anything', 'en')).rejects.toThrow('voice not configured');
+  });
+});
+
+/**
+ * THE AUDIO CLAIM SECRET (issue 37-ai-claim-secret).
+ *
+ * Nothing is refunded for audio, so the hole here is not a free call, it is a
+ * PAID one: release a voice call that is still running and the next read
+ * starts a second one for the same words, billed per character. The claimant
+ * could do that to their own in-flight call all day, because
+ * `audio_claimed_by = auth.uid()` is true in their browser too.
+ */
+describe('makeExplanationAudio: the claim secret never leaves the server', () => {
+  it('passes the secret to finishAudio', async () => {
+    const t = run();
+    expect(await t.go()).toBe('made');
+
+    expect(t.audio.finishAudio).toHaveBeenCalledTimes(1);
+    expect(t.audio.finishAudio.mock.calls[0][2]).toBe('audio-secret-1');
+  });
+
+  it('passes the secret to failAudio, which is what releases the row', async () => {
+    const speech = createMemorySpeech();
+    speech.failNext();
+    const t = run({ speech });
+
+    expect(await t.go()).toBe('failed');
+    expect(t.audio.failAudio).toHaveBeenCalledTimes(1);
+    expect(t.audio.failAudio.mock.calls[0][1]).toBe('audio-secret-1');
+    // The row really moved, so a later read may retry it.
+    expect(t.audio.rows.get(`${QUESTION}:en`)?.audioStatus).toBe('failed');
+  });
+
+  it('returns a word, never the secret', async () => {
+    const t = run();
+    const outcome = await t.go();
+    expect(typeof outcome).toBe('string');
+    expect(outcome).not.toContain('secret');
+  });
+
+  it('asks the voice for nothing when the claim is not ours', async () => {
+    // A student who claims the audio from their own browser gets a secret and
+    // nothing else: our step then reads `making` and stops before the voice.
+    const t = run();
+    await t.audio.client.claimAudio({ questionId: QUESTION, lang: 'en' });
+
+    expect(await t.go()).toBe('making');
+    expect(t.audio.finishAudio).not.toHaveBeenCalled();
+    expect(t.audio.failAudio).not.toHaveBeenCalled();
   });
 });

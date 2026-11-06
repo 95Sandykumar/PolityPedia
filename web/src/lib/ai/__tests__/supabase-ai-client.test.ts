@@ -25,6 +25,12 @@ const REQUEST: RevisionRequest = {
   lang: 'en',
 };
 
+/**
+ * A claim secret (issue 37-ai-claim-secret). Not a real one: the real one is
+ * a `gen_random_uuid()` Postgres keeps only a sha256 of.
+ */
+const CLAIM_SECRET = '33333333-3333-4333-8333-333333333333';
+
 const RESULT: ExplainResult = {
   body: {
     exam: 'UGC NET',
@@ -62,11 +68,13 @@ describe('createSupabaseAiClient: configuration', () => {
 });
 
 describe('createSupabaseAiClient: claim', () => {
-  it('calls the SQL function with the student token and returns its word', async () => {
-    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, 'claimed'));
-    const code = await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST);
+  it('calls the SQL function with the student token and returns its word and secret', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      jsonResponse(200, { code: 'claimed', secret: CLAIM_SECRET }),
+    );
+    const outcome = await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST);
 
-    expect(code).toBe('claimed');
+    expect(outcome).toEqual({ code: 'claimed', secret: CLAIM_SECRET });
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://project.supabase.co/rest/v1/rpc/claim_ai_explanation');
 
@@ -79,9 +87,36 @@ describe('createSupabaseAiClient: claim', () => {
     });
   });
 
-  it('fails closed on a word it does not know', async () => {
-    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, 'whatever'));
-    expect(await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST)).toBe('no_plan');
+  it('fails closed on a word it does not know, and keeps no secret', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      jsonResponse(200, { code: 'whatever', secret: CLAIM_SECRET }),
+    );
+    expect(await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST)).toEqual({
+      code: 'no_plan',
+      secret: null,
+    });
+  });
+
+  it('drops a secret that arrives on any word but claimed', async () => {
+    // Only a `claimed` row has a call of ours in flight, so a secret on
+    // `ready` or `generating` is noise at best (issue 37-ai-claim-secret).
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      jsonResponse(200, { code: 'generating', secret: CLAIM_SECRET }),
+    );
+    expect(await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST)).toEqual({
+      code: 'generating',
+      secret: null,
+    });
+  });
+
+  it('drops a secret that is not a uuid', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) =>
+      jsonResponse(200, { code: 'claimed', secret: 'not-a-uuid' }),
+    );
+    expect(await clientWith(fetchImpl as unknown as typeof fetch).claim(REQUEST)).toEqual({
+      code: 'claimed',
+      secret: null,
+    });
   });
 
   it('throws on an HTTP failure, and never quotes the body', async () => {
@@ -182,9 +217,9 @@ describe('createSupabaseAiClient: question', () => {
 });
 
 describe('createSupabaseAiClient: finish and fail', () => {
-  it('sends the model, tokens and search count for the cost check', async () => {
+  it('sends the model, tokens, search count and the claim secret', async () => {
     const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, true));
-    await clientWith(fetchImpl as unknown as typeof fetch).finish(REQUEST, RESULT);
+    await clientWith(fetchImpl as unknown as typeof fetch).finish(REQUEST, RESULT, CLAIM_SECRET);
 
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/rpc/finish_ai_explanation');
@@ -195,20 +230,37 @@ describe('createSupabaseAiClient: finish and fail', () => {
       tokens_in: 900,
       tokens_out: 450,
       searches: 2,
+      // Issue 37-ai-claim-secret: without this Postgres saves nothing.
+      claim_secret: CLAIM_SECRET,
     });
   });
 
   it('treats "saved nothing" as a failure, so the route gives the call back', async () => {
     const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, false));
     await expect(
-      clientWith(fetchImpl as unknown as typeof fetch).finish(REQUEST, RESULT),
+      clientWith(fetchImpl as unknown as typeof fetch).finish(REQUEST, RESULT, CLAIM_SECRET),
     ).rejects.toThrow(/saved nothing/);
   });
 
-  it('reports the failure to Postgres so the counter is restored', async () => {
+  it('reports the failure to Postgres with the secret, so the counter is restored', async () => {
     const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, true));
-    await clientWith(fetchImpl as unknown as typeof fetch).fail(REQUEST);
+    await clientWith(fetchImpl as unknown as typeof fetch).fail(REQUEST, CLAIM_SECRET);
     expect(fetchImpl.mock.calls[0][0]).toContain('/rpc/fail_ai_explanation');
+    const init = fetchImpl.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual({
+      question_id: REQUEST.questionId,
+      lang: 'en',
+      claim_secret: CLAIM_SECRET,
+    });
+  });
+
+  it('still posts a null secret rather than dropping the field', async () => {
+    // Postgres refuses it, which is the point: fail closed, and never let a
+    // missing secret look like a successful refund.
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse(200, false));
+    await clientWith(fetchImpl as unknown as typeof fetch).fail(REQUEST, null);
+    const init = fetchImpl.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toMatchObject({ claim_secret: null });
   });
 });
 
