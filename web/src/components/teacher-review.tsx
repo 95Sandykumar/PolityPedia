@@ -20,15 +20,24 @@
  * B6: the job status arrives over the `Live` interface (Supabase Realtime in
  * production, a fake in tests). There is no timer in this file.
  *
- * Both panels are always in the DOM. The tab buttons are `md:hidden`, and each
- * panel is `hidden md:block` when its tab is not the open one, so the laptop
+ * Both panels are always in the DOM. The tab buttons are `lg:hidden`, and each
+ * panel is `hidden lg:block` when its tab is not the open one, so the laptop
  * shows two columns and the phone shows one. One tree, no duplicated form.
  *
  * The browser client and the `Live` stream are props so the test injects
  * fakes: no real network call, no socket and no key (web/CLAUDE.md).
  */
+import { Check, ChevronLeft, ChevronRight, ExternalLink, ListChecks, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  BOX,
+  CARD,
+  Field,
+  PageHeader,
+  PRIMARY_BUTTON,
+  QUIET_BUTTON as QUIET,
+} from '@/components/teacher-ui';
 import { paperDownloadPath, type Paper } from '@/lib/papers/types';
 import { isSplitFailure } from '@/lib/split/types';
 import { createBrowserQuestionsClient } from '@/lib/questions/browser-questions-client';
@@ -48,20 +57,20 @@ import {
   type Live,
   type Question,
 } from '@/lib/questions/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
-const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
+const QUIET_BUTTON = cn(QUIET, 'flex-1');
 
-const QUIET_BUTTON =
-  'min-h-12 flex-1 rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground transition-colors duration-100 disabled:opacity-60';
-
-const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 py-2 text-base text-foreground';
-
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
+const AREA = `${BOX} py-2`;
 
 const BADGE = 'rounded-full border border-border px-2 py-0.5 text-xs font-medium';
+
+/**
+ * Where a sticky bar sits so it clears the phone's bottom nav (about 60 px
+ * plus the safe-area inset). On a laptop there is no bottom nav, so 0.
+ */
+const STICKY_BOTTOM = 'bottom-[calc(3.75rem+env(safe-area-inset-bottom))] md:bottom-0';
 
 /** One line per job status. Same five words in both languages. */
 const JOB_LABELS: Record<IngestJobStatus, MessageKey> = {
@@ -170,8 +179,8 @@ export function TeacherReview({
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        <Title mode={mode} />
+      <section className="flex flex-col gap-4">
+        <PageHeader titleKey="review.title" mode={mode} icon={ListChecks} />
         <p role="status" className="text-muted-foreground">
           {plain('review.notConfigured', mode)}
         </p>
@@ -181,8 +190,13 @@ export function TeacherReview({
 
   if (!paper) {
     return (
-      <section className="flex flex-col gap-3">
-        <Title mode={mode} />
+      <section className="flex flex-col gap-4">
+        <PageHeader
+          titleKey="review.title"
+          mode={mode}
+          icon={ListChecks}
+          back={{ href: '/teacher/papers', label: plain('nav.papers', mode) }}
+        />
         <p role="status" className="text-muted-foreground">
           {plain('review.notFound', mode)}
         </p>
@@ -223,14 +237,52 @@ export function TeacherReview({
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <Title mode={mode} />
-      <p className="text-muted-foreground">{plain('review.hint', mode)}</p>
+    <section className="flex flex-col gap-4">
+      <PageHeader
+        titleKey="review.title"
+        mode={mode}
+        icon={ListChecks}
+        subtitle={paper.label}
+        back={{ href: '/teacher/papers', label: plain('nav.papers', mode) }}
+        action={
+          <div className="flex flex-col gap-1 sm:w-60">
+            <button
+              type="button"
+              onClick={publish}
+              disabled={publishing || block !== null}
+              className={PRIMARY_BUTTON}
+            >
+              {plain(publishing ? 'review.publishing' : 'review.publish', mode)}
+            </button>
+
+            {/* A disabled button always says why. */}
+            {block ? (
+              <p className="text-sm text-muted-foreground">{plain(BLOCK_LABELS[block], mode)}</p>
+            ) : null}
+          </div>
+        }
+      />
+
+      <p className="text-sm text-muted-foreground">{plain('review.hint', mode)}</p>
+
+      {problem ? (
+        <p role="alert" className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong">
+          {plain(problem, mode)}
+        </p>
+      ) : null}
+
+      {published ? (
+        <p role="status" className="rounded-[10px] bg-primary/10 p-3 font-medium text-primary">
+          {plain('review.published', mode)}
+        </p>
+      ) : null}
 
       {job ? <JobLine job={job} mode={mode} /> : null}
 
+      {rows.length > 0 ? <CheckedProgress rows={rows} mode={mode} /> : null}
+
       {/* Phone only: DESIGN.md section 8. The laptop shows both columns. */}
-      <div role="tablist" aria-label={plain('review.title', mode)} className="flex gap-2 md:hidden">
+      <div role="tablist" aria-label={plain('review.title', mode)} className="flex gap-2 lg:hidden">
         {(['pdf', 'question'] as const).map((which) => (
           <button
             key={which}
@@ -238,27 +290,37 @@ export function TeacherReview({
             role="tab"
             aria-selected={tab === which}
             onClick={() => setTab(which)}
-            className={`${QUIET_BUTTON} ${tab === which ? 'border-primary text-primary' : ''}`}
+            className={cn(
+              QUIET_BUTTON,
+              tab === which && 'border-primary bg-primary/10 font-bold text-primary',
+            )}
           >
             {plain(which === 'pdf' ? 'review.tabPdf' : 'review.tabQuestion', mode)}
           </button>
         ))}
       </div>
 
-      {/* 1120 px and two columns on the teacher dashboard (DESIGN.md 5). */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className={tab === 'pdf' ? 'flex flex-col gap-2' : 'hidden md:flex md:flex-col md:gap-2'}>
+      {/* 1120 px and two columns on the teacher dashboard (DESIGN.md 5). The
+          PDF stays in view on a laptop while the question list scrolls. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div
+          className={
+            tab === 'pdf'
+              ? 'flex flex-col gap-2 lg:sticky lg:top-4'
+              : 'hidden lg:sticky lg:top-4 lg:flex lg:flex-col lg:gap-2'
+          }
+        >
           <PdfPanel paper={paper} mode={mode} />
         </div>
 
         <div
           className={
-            tab === 'question' ? 'flex flex-col gap-3' : 'hidden md:flex md:flex-col md:gap-3'
+            tab === 'question' ? 'flex flex-col gap-3' : 'hidden lg:flex lg:flex-col lg:gap-3'
           }
         >
           <Walker
             at={at}
-            total={rows.length}
+            rows={rows}
             current={current}
             mode={mode}
             onGo={(next) => {
@@ -293,39 +355,33 @@ export function TeacherReview({
         </div>
       </div>
 
-      {problem ? (
-        <p role="alert" className={`${CARD} text-wrong`}>
-          {plain(problem, mode)}
-        </p>
-      ) : null}
-
-      {published ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('review.published', mode)}
-        </p>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={publish}
-        disabled={publishing || block !== null}
-        className={PRIMARY_BUTTON}
-      >
-        {plain(publishing ? 'review.publishing' : 'review.publish', mode)}
-      </button>
-
-      {/* A disabled button always says why. */}
-      {block ? (
-        <p className="text-sm text-muted-foreground">{plain(BLOCK_LABELS[block], mode)}</p>
-      ) : null}
     </section>
+  );
+}
+
+/** "3 of 12 checked" and a bar, so the teacher sees how far from Publish. */
+function CheckedProgress({ rows, mode }: { rows: readonly Question[]; mode: LangMode }) {
+  const done = rows.filter((one) => one.checked).length;
+  const percent = rows.length === 0 ? 0 : Math.round((done / rows.length) * 100);
+  return (
+    <div className={cn(CARD, 'flex flex-col gap-2')}>
+      <span className="text-sm font-medium tabular-nums">
+        {plain('teacherUi.progress', mode)
+          // Global, because `both` mode joins the English and the Hindi line.
+          .replace(/\{n\}/g, String(done))
+          .replace(/\{total\}/g, String(rows.length))}
+      </span>
+      <div aria-hidden="true" className="h-2 overflow-hidden rounded-full bg-background">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
   );
 }
 
 /** The live job line: one status word, the count so far, and any error. */
 function JobLine({ job, mode }: { job: IngestJob; mode: LangMode }) {
   return (
-    <div className={`${CARD} flex flex-col gap-1`} aria-live="polite">
+    <div className={cn(CARD, 'flex flex-col gap-1')} aria-live="polite">
       <span className="font-medium">{plain(JOB_LABELS[job.status], mode)}</span>
       {job.questionCount > 0 ? (
         <span className="text-sm text-muted-foreground tabular-nums">
@@ -357,14 +413,15 @@ function PdfPanel({ paper, mode }: { paper: Paper; mode: LangMode }) {
       <iframe
         src={href}
         title={plain('review.openPdf', mode)}
-        className="h-[60vh] w-full rounded-[10px] border border-border bg-card md:h-[70vh]"
+        className="h-[60vh] w-full rounded-[10px] border border-border bg-card lg:h-[calc(100dvh-10rem)]"
       />
       <a
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="min-h-12 inline-flex items-center text-base font-medium text-primary"
+        className="inline-flex min-h-12 items-center gap-2 text-base font-medium text-primary"
       >
+        <ExternalLink size={20} strokeWidth={2} aria-hidden="true" />
         {plain('review.openPdf', mode)}
       </a>
     </>
@@ -374,25 +431,26 @@ function PdfPanel({ paper, mode }: { paper: Paper; mode: LangMode }) {
 /** Where the teacher is, the Draft / Checked badge, and the three moves. */
 function Walker({
   at,
-  total,
+  rows,
   current,
   mode,
   onGo,
   onAdd,
 }: {
   at: number;
-  total: number;
+  rows: readonly Question[];
   current: Question | null;
   mode: LangMode;
   onGo: (next: number) => void;
   onAdd: () => void;
 }) {
+  const total = rows.length;
   // `at` can sit one past the end: that is the blank new question, and it
   // counts as a position so the teacher is not told "question 4 of 3".
   const shown = Math.max(total, at + 1);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-muted-foreground tabular-nums">
           {plain('review.question', mode)} {at + 1} {plain('review.of', mode)} {shown}
@@ -406,6 +464,50 @@ function Walker({
         </span>
       </div>
 
+      {/* The numbered question list: one chip per question. The current one is
+          filled, a Checked one carries a tick. The strip scrolls inside its
+          own box, so 100 questions never push the page sideways. The tick and
+          the fill are not the only signal: each chip is named for a screen
+          reader with its number and its state. */}
+      {total > 0 ? (
+        <ol className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" aria-label={plain('review.question', mode)}>
+          {rows.map((one, index) => {
+            const isCurrent = index === at;
+            return (
+              <li key={one.id} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onGo(index)}
+                  aria-current={isCurrent ? 'step' : undefined}
+                  aria-label={`${plain('review.question', mode)} ${one.number}, ${plain(
+                    one.checked ? 'review.checked' : 'review.draft',
+                    mode,
+                  )}`}
+                  className={cn(
+                    'relative flex min-h-12 min-w-12 items-center justify-center rounded-[10px] border px-2 text-base font-bold tabular-nums transition-colors duration-100',
+                    isCurrent
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : one.checked
+                        ? 'border-correct bg-correct-soft text-correct'
+                        : 'border-border bg-card text-foreground hover:bg-background',
+                  )}
+                >
+                  {one.number}
+                  {one.checked ? (
+                    <Check
+                      size={12}
+                      strokeWidth={3}
+                      aria-hidden="true"
+                      className="absolute top-1 right-1"
+                    />
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+
       <div className="flex gap-2">
         <button
           type="button"
@@ -413,6 +515,7 @@ function Walker({
           disabled={at === 0}
           className={QUIET_BUTTON}
         >
+          <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
           {plain('review.prev', mode)}
         </button>
         <button
@@ -422,6 +525,7 @@ function Walker({
           className={QUIET_BUTTON}
         >
           {plain('review.next', mode)}
+          <ChevronRight size={20} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
@@ -429,8 +533,9 @@ function Walker({
         type="button"
         onClick={onAdd}
         disabled={total >= MAX_QUESTIONS_PER_PAPER}
-        className={QUIET_BUTTON}
+        className={cn(QUIET_BUTTON, 'flex-none border-dashed text-primary')}
       >
+        <Plus size={20} strokeWidth={2} aria-hidden="true" />
         {plain('review.add', mode)}
       </button>
     </div>
@@ -527,13 +632,7 @@ export function QuestionForm({
   }
 
   return (
-    <form onSubmit={save} className={`${CARD} flex flex-col gap-3`} noValidate>
-      {problem ? (
-        <p role="alert" className="text-wrong">
-          {plain(problem, mode)}
-        </p>
-      ) : null}
-
+    <form onSubmit={save} className={cn(CARD, 'flex flex-col gap-3')} noValidate>
       <Field labelKey="review.number" mode={mode}>
         <input
           type="number"
@@ -553,15 +652,23 @@ export function QuestionForm({
           value={stem}
           aria-label={plain('review.stem', mode)}
           onChange={(event) => setStem(event.target.value)}
-          className={BOX}
+          className={AREA}
         />
       </Field>
 
       {/* The four options, each with its own "this is the right one" radio.
           A radio and not a dropdown: DESIGN.md wants the answer visible next
-          to the text it belongs to. */}
+          to the text it belongs to. The right one's row is tinted, so which
+          answer is marked is readable at a glance (and the radio says it too). */}
+      <p className="text-sm font-medium text-muted-foreground">{plain('review.correct', mode)}</p>
       {OPTION_KEYS.map((labelKey, index) => (
-        <div key={labelKey} className="flex items-end gap-2">
+        <div
+          key={labelKey}
+          className={cn(
+            'flex items-end gap-2 rounded-[10px] border p-2 transition-colors duration-100',
+            correctIdx === index ? 'border-primary bg-primary/10' : 'border-transparent',
+          )}
+        >
           <Field labelKey={labelKey} mode={mode}>
             <input
               type="text"
@@ -595,66 +702,49 @@ export function QuestionForm({
           value={explanation}
           aria-label={plain('review.explanation', mode)}
           onChange={(event) => setExplanation(event.target.value)}
-          className={BOX}
+          className={AREA}
         />
       </Field>
 
-      <label className="flex min-h-12 items-center gap-2">
-        <input
-          type="checkbox"
-          checked={checked}
-          aria-label={plain('review.markChecked', mode)}
-          onChange={(event) => setChecked(event.target.checked)}
-          className="h-5 w-5 accent-primary"
-        />
-        <span className="text-base font-medium">{plain('review.markChecked', mode)}</span>
-      </label>
+      {/* The sticky save bar. It rides the bottom of the screen above the
+          phone's nav while the form is on screen, so Save is never a long
+          scroll away from the fields. The reason a save failed lives here too,
+          where the thumb is. */}
+      <div
+        className={cn(
+          'sticky z-[5] -mx-3 -mb-3 mt-1 flex flex-col gap-2 rounded-b-[10px] border-t border-border bg-card p-3',
+          STICKY_BOTTOM,
+        )}
+      >
+        {problem ? (
+          <p role="alert" className="text-sm font-medium text-wrong">
+            {plain(problem, mode)}
+          </p>
+        ) : null}
 
-      {done ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('review.saved', mode)}
-        </p>
-      ) : null}
+        {done ? (
+          <p role="status" className="text-sm font-medium text-primary">
+            {plain('review.saved', mode)}
+          </p>
+        ) : null}
 
-      <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
-        {plain(busy ? 'review.saving' : 'review.save', mode)}
-      </button>
+        <div className="flex items-center gap-3">
+          <label className="flex min-h-12 flex-1 items-center gap-2">
+            <input
+              type="checkbox"
+              checked={checked}
+              aria-label={plain('review.markChecked', mode)}
+              onChange={(event) => setChecked(event.target.checked)}
+              className="h-5 w-5 shrink-0 accent-primary"
+            />
+            <span className="text-base font-medium">{plain('review.markChecked', mode)}</span>
+          </label>
+
+          <button type="submit" disabled={busy} className={cn(PRIMARY_BUTTON, 'w-auto px-6')}>
+            {plain(busy ? 'review.saving' : 'review.save', mode)}
+          </button>
+        </div>
+      </div>
     </form>
-  );
-}
-
-/** A visible label above the box, plus the same text as the aria-label. */
-function Field({
-  labelKey,
-  mode,
-  children,
-}: {
-  labelKey: MessageKey;
-  mode: LangMode;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex w-full flex-col gap-1">
-      <span className="text-sm font-medium text-muted-foreground">
-        {labels(labelKey, mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Title({ mode }: { mode: LangMode }) {
-  return (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('review.title', mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </h1>
   );
 }

@@ -58,7 +58,7 @@ export function BatchReportTable({
   return (
     <section className="flex flex-col gap-3">
       <Heading labelKey="report.title" mode={mode} />
-      <p className="text-muted-foreground">{plain('report.hint', mode)}</p>
+      <p className="text-sm text-muted-foreground">{plain('report.hint', mode)}</p>
 
       {members.length === 0 ? (
         <p className="text-muted-foreground">{plain('batches.noStudents', mode)}</p>
@@ -70,7 +70,7 @@ export function BatchReportTable({
         <div className={`${CARD} overflow-x-auto p-0`}>
           <table className="w-full border-collapse text-left text-sm">
             <caption className="sr-only">{plain('report.caption', mode)}</caption>
-            <thead>
+            <thead className="bg-background">
               <tr className="border-b border-border">
                 <th scope="col" className="p-3 font-medium text-muted-foreground">
                   {plain('report.student', mode)}
@@ -134,9 +134,15 @@ export function BatchReportTable({
 
 function Heading({ labelKey, mode }: { labelKey: MessageKey; mode: LangMode }) {
   return (
-    <h2 className="text-base font-semibold text-foreground">
+    <h2 className="text-[18px] leading-6 font-bold text-foreground">
       {labels(labelKey, mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-sm font-normal'}>
+        <span
+          key={line}
+          className={
+            (index === 0 ? 'block' : 'block text-sm font-medium text-muted-foreground') +
+            (mode !== 'en' ? ' leading-[26px]' : '')
+          }
+        >
           {line}
         </span>
       ))}

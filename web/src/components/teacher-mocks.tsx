@@ -2,12 +2,16 @@
 
 /**
  * Teacher Mock sets: create a set, price it, then open it to add tests
- * (issue 15-mock-sets-authoring).
+ * (issue 15-mock-sets-authoring, laid out again in teacher-ui).
  *
  * V10 and V11: a set belongs to one exam and one teacher, and the teacher
  * picks the price between Rs 299 and Rs 399. The earning line next to the
  * stepper is the reason the stepper exists: a teacher moving the price should
  * see what the move does to their own pocket, before they commit to it.
+ *
+ * LAYOUT. Title and the one primary action on top, the teacher's sets as
+ * rows (name, exam, price, Live or Draft, Open), and the create form in its
+ * own card: beside the list on a laptop, under it on a phone.
  *
  * Native `<select>` on purpose: a cheap Android phone then shows its own wheel,
  * which beats anything we could ship on 4G (DESIGN.md section 10).
@@ -15,15 +19,29 @@
  * A fresh set is added to the list in place, so the teacher sees it land
  * without a page reload on a connection that drops.
  *
- * Nothing goes live here: the row is a DRAFT and the badge says so. Publish
+ * Nothing goes live here: the row is a DRAFT and the chip says so. Publish
  * lives on the set's own page, behind `publish_mock_set()`.
  *
  * The `BrowserMockSetsClient` is a prop so the test can inject a fake: no real
  * network call and no key in any test (web/CLAUDE.md).
  */
+import { ChevronRight, ListChecks, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PriceStepper } from '@/components/price-stepper';
+import {
+  BOX,
+  CARD,
+  EmptyState,
+  Field,
+  FormPanel,
+  ListLayout,
+  PageHeader,
+  PRIMARY_BUTTON,
+  QUIET_BUTTON,
+  StatusChip,
+  goToForm,
+} from '@/components/teacher-ui';
 import { examLabels, type Exam } from '@/lib/exams/types';
 import { createBrowserMocksClient } from '@/lib/mocks/browser-mocks-client';
 import {
@@ -33,22 +51,15 @@ import {
   type BrowserMockSetsClient,
   type MockSet,
 } from '@/lib/mocks/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
-
-const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
-
-const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
-
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
-
-const BADGE = 'rounded-full border border-border px-2 py-0.5 text-xs font-medium';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 /** The code the client throws -> the one line the teacher reads. */
 const PROBLEM_LABELS: Record<string, MessageKey> = {
   duplicate: 'mocks.duplicate',
 };
+
+const FORM_ID = 'mock-form';
 
 export function TeacherMocks({
   exams,
@@ -84,8 +95,8 @@ export function TeacherMocks({
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        <Title mode={mode} />
+      <section className="flex flex-col gap-4">
+        <PageHeader titleKey="mocks.title" mode={mode} icon={ListChecks} />
         <p role="status" className="text-muted-foreground">
           {plain('mocks.notConfigured', mode)}
         </p>
@@ -124,64 +135,102 @@ export function TeacherMocks({
     }
   }
 
+  const newSet = (
+    <button type="button" onClick={() => goToForm(FORM_ID)} className={PRIMARY_BUTTON}>
+      <Plus size={20} strokeWidth={2} aria-hidden="true" />
+      {plain('teacherUi.newMock', mode)}
+    </button>
+  );
+
   return (
     <section className="flex flex-col gap-6">
-      <form onSubmit={create} className="flex flex-col gap-3" noValidate>
-        <Title mode={mode} />
-        <p className="text-muted-foreground">{plain('mocks.hint', mode)}</p>
+      <PageHeader titleKey="mocks.title" mode={mode} icon={ListChecks} action={newSet} />
 
-        {problem ? (
-          <p role="alert" className={`${CARD} text-wrong`}>
-            {plain(problem, mode)}
-          </p>
-        ) : null}
-
-        <Field labelKey="mocks.exam" mode={mode}>
-          <select
-            value={examId}
-            aria-label={plain('mocks.exam', mode)}
-            onChange={(event) => setExamId(event.target.value)}
-            className={BOX}
-          >
-            {exams.map((exam) => (
-              <option key={exam.id} value={exam.id}>
-                {examLabels(exam, mode).join(' / ')}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field labelKey="mocks.name" mode={mode}>
-          <input
-            type="text"
-            value={title}
-            maxLength={MAX_SET_TITLE_LENGTH}
-            aria-label={plain('mocks.name', mode)}
-            onChange={(event) => setTitle(event.target.value)}
-            className={BOX}
+      <ListLayout
+        list={
+          <MockSetList
+            sets={rows}
+            exams={exams}
+            mode={mode}
+            empty={
+              <EmptyState
+                icon={ListChecks}
+                text={plain('mocks.none', mode)}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => goToForm(FORM_ID)}
+                    className={cn(QUIET_BUTTON, 'lg:hidden')}
+                  >
+                    <Plus size={20} strokeWidth={2} aria-hidden="true" />
+                    {plain('teacherUi.newMock', mode)}
+                  </button>
+                }
+              />
+            }
           />
-        </Field>
+        }
+        form={
+          <FormPanel id={FORM_ID} titleKey="teacherUi.newMock" mode={mode} icon={Plus}>
+            <form onSubmit={create} className="flex flex-col gap-3" noValidate>
+              <p className="text-sm text-muted-foreground">{plain('mocks.hint', mode)}</p>
 
-        <PriceStepper
-          price={price}
-          onChange={setPrice}
-          sharePct={sharePct}
-          mode={mode}
-          busy={busy}
-        />
+              {problem ? (
+                <p
+                  role="alert"
+                  className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+                >
+                  {plain(problem, mode)}
+                </p>
+              ) : null}
 
-        {done ? (
-          <p role="status" className="text-muted-foreground">
-            {plain('mocks.saved', mode)}
-          </p>
-        ) : null}
+              <Field labelKey="mocks.exam" mode={mode}>
+                <select
+                  value={examId}
+                  aria-label={plain('mocks.exam', mode)}
+                  onChange={(event) => setExamId(event.target.value)}
+                  className={BOX}
+                >
+                  {exams.map((exam) => (
+                    <option key={exam.id} value={exam.id}>
+                      {examLabels(exam, mode).join(' / ')}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-        <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
-          {plain(busy ? 'mocks.saving' : 'mocks.create', mode)}
-        </button>
-      </form>
+              <Field labelKey="mocks.name" mode={mode}>
+                <input
+                  type="text"
+                  value={title}
+                  maxLength={MAX_SET_TITLE_LENGTH}
+                  aria-label={plain('mocks.name', mode)}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className={BOX}
+                />
+              </Field>
 
-      <MockSetList sets={rows} exams={exams} mode={mode} />
+              <PriceStepper
+                price={price}
+                onChange={setPrice}
+                sharePct={sharePct}
+                mode={mode}
+                busy={busy}
+              />
+
+              {done ? (
+                <p role="status" className="text-sm font-medium text-primary">
+                  {plain('mocks.saved', mode)}
+                </p>
+              ) : null}
+
+              <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
+                {plain(busy ? 'mocks.saving' : 'mocks.create', mode)}
+              </button>
+            </form>
+          </FormPanel>
+        }
+      />
     </section>
   );
 }
@@ -191,39 +240,35 @@ function MockSetList({
   sets,
   exams,
   mode,
+  empty,
 }: {
   sets: readonly MockSet[];
   exams: readonly Exam[];
   mode: LangMode;
+  empty: React.ReactNode;
 }) {
-  if (sets.length === 0) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {plain('mocks.none', mode)}
-      </p>
-    );
-  }
+  if (sets.length === 0) return <>{empty}</>;
 
   return (
     <ul className="flex flex-col gap-3">
       {sets.map((set) => {
         const exam = exams.find((one) => one.id === set.examId);
         return (
-          <li key={set.id} className={`${CARD} flex items-center justify-between gap-3`}>
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{set.title}</span>
+          <li key={set.id} className={cn(CARD, 'flex items-center justify-between gap-3')}>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="font-medium break-words text-foreground">{set.title}</span>
               <span className="text-sm text-muted-foreground">
                 {/* An exam missing from the catalogue leaves the line without
                     a name rather than hiding the set the teacher just made. */}
                 {exam ? examLabels(exam, mode).join(' / ') : ''}
               </span>
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-2">
                 {/* Latin digits with the rupee sign in both languages
                     (DESIGN.md section 1). */}
-                <span className="tabular-nums font-medium">{'₹' + set.priceInr}</span>
-                <span className={BADGE}>
+                <span className="font-bold tabular-nums">{'₹' + set.priceInr}</span>
+                <StatusChip live={set.status === 'live'}>
                   {plain(set.status === 'live' ? 'mocks.live' : 'mocks.draft', mode)}
-                </span>
+                </StatusChip>
               </span>
             </div>
 
@@ -231,49 +276,14 @@ function MockSetList({
             <Link
               href={mockSetPath(set.id)}
               prefetch={false}
-              className="min-h-12 shrink-0 rounded-[10px] border border-border px-3 py-3 text-sm font-medium text-primary"
+              className={cn(QUIET_BUTTON, 'shrink-0 border-primary text-primary')}
             >
               {plain('mocks.open', mode)}
+              <ChevronRight size={20} strokeWidth={2} aria-hidden="true" />
             </Link>
           </li>
         );
       })}
     </ul>
-  );
-}
-
-/** A visible label above the box, plus the same text as the aria-label. */
-function Field({
-  labelKey,
-  mode,
-  children,
-}: {
-  labelKey: MessageKey;
-  mode: LangMode;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex w-full flex-col gap-1">
-      <span className="text-sm font-medium text-muted-foreground">
-        {labels(labelKey, mode).map((line, index) => (
-          <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-            {line}
-          </span>
-        ))}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Title({ mode }: { mode: LangMode }) {
-  return (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('mocks.title', mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </h1>
   );
 }

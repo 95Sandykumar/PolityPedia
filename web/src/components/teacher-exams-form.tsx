@@ -18,8 +18,10 @@
  * The BrowserTeacherExamsClient is a prop so the test can inject a fake: no
  * real network call and no real key in any test (web/CLAUDE.md).
  */
+import { User } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CHIP, CHIP_OFF, CHIP_ON } from '@/components/language-choice';
+import { BOX, CARD, PageHeader, PRIMARY_BUTTON } from '@/components/teacher-ui';
 import { examLabels, type Exam } from '@/lib/exams/types';
 import { createBrowserTeacherExamsClient } from '@/lib/teacher-exams/browser-teacher-exams-client';
 import {
@@ -27,14 +29,8 @@ import {
   type BrowserTeacherExamsClient,
   type TeacherExam,
 } from '@/lib/teacher-exams/types';
-import { DEFAULT_MODE, labels, plain, type LangMode } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-
-const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
-
-const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
 
 /** What the form holds while the teacher types. Empty string, never null. */
 interface Draft {
@@ -78,8 +74,8 @@ export function TeacherExamsForm({
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        <Title mode={mode} />
+      <section className="flex flex-col gap-4">
+        <PageHeader titleKey="teacherProfile.title" mode={mode} icon={User} />
         <p role="status" className="text-muted-foreground">
           {plain('teacherProfile.notConfigured', mode)}
         </p>
@@ -140,12 +136,19 @@ export function TeacherExamsForm({
   }
 
   return (
-    <form onSubmit={save} className="flex flex-col gap-6" noValidate>
-      <Title mode={mode} />
-      <p className="text-muted-foreground">{plain('teacherProfile.hint', mode)}</p>
+    <form onSubmit={save} className="flex max-w-[760px] flex-col gap-6" noValidate>
+      <PageHeader
+        titleKey="teacherProfile.title"
+        mode={mode}
+        icon={User}
+        subtitle={plain('teacherProfile.hint', mode)}
+      />
 
       {failed ? (
-        <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
+        <p
+          role="alert"
+          className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+        >
           {plain('teacherProfile.failed', mode)}
         </p>
       ) : null}
@@ -156,7 +159,7 @@ export function TeacherExamsForm({
           const lines = examLabels(exam, mode);
           const name = lines.join(' / ');
           return (
-            <li key={exam.id} className="flex flex-col gap-2">
+            <li key={exam.id} className={cn(CARD, 'flex flex-col gap-3')}>
               <button
                 type="button"
                 aria-pressed={draft !== undefined}
@@ -174,7 +177,7 @@ export function TeacherExamsForm({
               </button>
 
               {draft ? (
-                <div className="flex flex-col gap-2 pl-3 md:flex-row">
+                <div className="flex flex-col gap-2 border-t border-border pt-3 md:flex-row">
                   <input
                     type="date"
                     value={draft.date}
@@ -198,27 +201,20 @@ export function TeacherExamsForm({
         })}
       </ul>
 
-      {saved ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('teacherProfile.saved', mode)}
-        </p>
-      ) : null}
+      {/* Sticky, so Save is always one thumb away however long the list is.
+          It sits above the phone's bottom nav (about 60 px) and flush to the
+          bottom of the screen on a laptop. */}
+      <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-[5] -mx-4 flex flex-col gap-2 border-t border-border bg-card px-4 py-3 md:bottom-0 md:mx-0 md:rounded-[10px] md:border">
+        {saved ? (
+          <p role="status" className="text-sm font-medium text-primary">
+            {plain('teacherProfile.saved', mode)}
+          </p>
+        ) : null}
 
-      <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
-        {plain(busy ? 'teacherProfile.saving' : 'teacherProfile.save', mode)}
-      </button>
+        <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
+          {plain(busy ? 'teacherProfile.saving' : 'teacherProfile.save', mode)}
+        </button>
+      </div>
     </form>
-  );
-}
-
-function Title({ mode }: { mode: LangMode }) {
-  return (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('teacherProfile.title', mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </h1>
   );
 }

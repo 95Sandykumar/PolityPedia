@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Teacher Batches: make a batch, then hand over its link (issue 19-batches).
+ * Teacher Batches: make a batch, then hand over its link (issue 19-batches,
+ * laid out again in teacher-ui).
  *
  * V2: "teacher creates many batches ... Student joins by link or code." The
  * code is the batch's address, so the one thing this screen must do well is
@@ -12,6 +13,11 @@
  * The code itself is shown beside the button as well, because a teacher
  * reading it out loud in class has no clipboard.
  *
+ * LAYOUT. Title and the one primary action on top, then one card per batch
+ * (name, student count, Open, and the code with its copy button), with the
+ * create form in its own card beside the list on a laptop and under it on a
+ * phone.
+ *
  * A fresh batch is added to the list in place, so the teacher sees it land
  * without a page reload on a connection that drops.
  *
@@ -21,8 +27,21 @@
  * The `BrowserBatchesClient` is a prop so the test can inject a fake: no real
  * network call and no key in any test (web/CLAUDE.md).
  */
+import { Check, ChevronRight, Copy, Plus, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import {
+  BOX,
+  CARD,
+  EmptyState,
+  Field,
+  FormPanel,
+  ListLayout,
+  PageHeader,
+  PRIMARY_BUTTON,
+  QUIET_BUTTON,
+  goToForm,
+} from '@/components/teacher-ui';
 import { createBrowserBatchesClient } from '@/lib/batches/browser-batches-client';
 import {
   MAX_BATCH_NAME_LENGTH,
@@ -31,18 +50,10 @@ import {
   type BatchRow,
   type BrowserBatchesClient,
 } from '@/lib/batches/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
-const PRIMARY_BUTTON =
-  'min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60';
-
-const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
-
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
-
-const QUIET_BUTTON =
-  'min-h-12 rounded-[10px] border border-border px-3 text-sm font-medium text-primary';
+const FORM_ID = 'batch-form';
 
 export function TeacherBatches({
   batches,
@@ -74,8 +85,8 @@ export function TeacherBatches({
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
-        <Title mode={mode} />
+      <section className="flex flex-col gap-4">
+        <PageHeader titleKey="batches.title" mode={mode} icon={Users} />
         <p role="status" className="text-muted-foreground">
           {plain('batches.notConfigured', mode)}
         </p>
@@ -113,48 +124,79 @@ export function TeacherBatches({
     }
   }
 
+  const newBatch = (
+    <button type="button" onClick={() => goToForm(FORM_ID)} className={PRIMARY_BUTTON}>
+      <Plus size={20} strokeWidth={2} aria-hidden="true" />
+      {plain('teacherUi.newBatch', mode)}
+    </button>
+  );
+
   return (
     <section className="flex flex-col gap-6">
-      <form onSubmit={create} className="flex flex-col gap-3" noValidate>
-        <Title mode={mode} />
-        <p className="text-muted-foreground">{plain('batches.hint', mode)}</p>
+      <PageHeader titleKey="batches.title" mode={mode} icon={Users} action={newBatch} />
 
-        {problem ? (
-          <p role="alert" className={`${CARD} text-wrong`}>
-            {plain(problem, mode)}
-          </p>
-        ) : null}
-
-        <label className="flex w-full flex-col gap-1">
-          <span className="text-sm font-medium text-muted-foreground">
-            {labels('batches.name', mode).map((line, index) => (
-              <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-                {line}
-              </span>
-            ))}
-          </span>
-          <input
-            type="text"
-            value={name}
-            maxLength={MAX_BATCH_NAME_LENGTH}
-            aria-label={plain('batches.name', mode)}
-            onChange={(event) => setName(event.target.value)}
-            className={BOX}
+      <ListLayout
+        list={
+          <BatchList
+            rows={rows}
+            origin={origin}
+            mode={mode}
+            empty={
+              <EmptyState
+                icon={Users}
+                text={plain('batches.none', mode)}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => goToForm(FORM_ID)}
+                    className={cn(QUIET_BUTTON, 'lg:hidden')}
+                  >
+                    <Plus size={20} strokeWidth={2} aria-hidden="true" />
+                    {plain('teacherUi.newBatch', mode)}
+                  </button>
+                }
+              />
+            }
           />
-        </label>
+        }
+        form={
+          <FormPanel id={FORM_ID} titleKey="teacherUi.newBatch" mode={mode} icon={Plus}>
+            <form onSubmit={create} className="flex flex-col gap-3" noValidate>
+              <p className="text-sm text-muted-foreground">{plain('batches.hint', mode)}</p>
 
-        {done ? (
-          <p role="status" className="text-muted-foreground">
-            {plain('batches.saved', mode)}
-          </p>
-        ) : null}
+              {problem ? (
+                <p
+                  role="alert"
+                  className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+                >
+                  {plain(problem, mode)}
+                </p>
+              ) : null}
 
-        <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
-          {plain(busy ? 'batches.saving' : 'batches.create', mode)}
-        </button>
-      </form>
+              <Field labelKey="batches.name" mode={mode}>
+                <input
+                  type="text"
+                  value={name}
+                  maxLength={MAX_BATCH_NAME_LENGTH}
+                  aria-label={plain('batches.name', mode)}
+                  onChange={(event) => setName(event.target.value)}
+                  className={BOX}
+                />
+              </Field>
 
-      <BatchList rows={rows} origin={origin} mode={mode} />
+              {done ? (
+                <p role="status" className="text-sm font-medium text-primary">
+                  {plain('batches.saved', mode)}
+                </p>
+              ) : null}
+
+              <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
+                {plain(busy ? 'batches.saving' : 'batches.create', mode)}
+              </button>
+            </form>
+          </FormPanel>
+        }
+      />
     </section>
   );
 }
@@ -163,37 +205,41 @@ function BatchList({
   rows,
   origin,
   mode,
+  empty,
 }: {
   rows: readonly BatchRow[];
   origin: string;
   mode: LangMode;
+  empty: React.ReactNode;
 }) {
-  if (rows.length === 0) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {plain('batches.none', mode)}
-      </p>
-    );
-  }
+  if (rows.length === 0) return <>{empty}</>;
 
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((row) => (
-        <li key={row.id} className={`${CARD} flex flex-col gap-2`}>
+        <li key={row.id} className={cn(CARD, 'flex flex-col gap-3')}>
           <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{row.name}</span>
-              <span className="text-sm text-muted-foreground">
-                {/* Latin digits in both languages (DESIGN.md section 1). */}
-                {plain('batches.students', mode)}
-                {': '}
-                <span className="tabular-nums">{row.studentCount}</span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="font-medium break-words text-foreground">{row.name}</span>
+              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users size={16} strokeWidth={2} aria-hidden="true" />
+                <span>
+                  {/* Latin digits in both languages (DESIGN.md section 1). */}
+                  {plain('batches.students', mode)}
+                  {': '}
+                  <span className="font-bold text-foreground tabular-nums">{row.studentCount}</span>
+                </span>
               </span>
             </div>
 
             {/* B3: no viewport prefetch. */}
-            <Link href={batchPath(row.id)} prefetch={false} className={`${QUIET_BUTTON} shrink-0 py-3`}>
+            <Link
+              href={batchPath(row.id)}
+              prefetch={false}
+              className={cn(QUIET_BUTTON, 'shrink-0 border-primary text-primary')}
+            >
               {plain('batches.open', mode)}
+              <ChevronRight size={20} strokeWidth={2} aria-hidden="true" />
             </Link>
           </div>
 
@@ -235,33 +281,27 @@ function CopyLink({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-background p-3">
       <span className="flex flex-col gap-0.5">
         <span className="text-xs text-muted-foreground">{plain('batches.code', mode)}</span>
         {/* Tracking, so a hand-read code does not run together. */}
-        <span className="font-mono text-base tracking-widest text-foreground">{code}</span>
+        <span className="font-mono text-lg leading-6 font-bold tracking-widest text-foreground">
+          {code}
+        </span>
       </span>
 
       <span className="flex shrink-0 items-center gap-2">
         {copied ? (
-          <span className="text-xs text-muted-foreground">{plain('batches.copied', mode)}</span>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            <Check size={14} strokeWidth={2} aria-hidden="true" />
+            {plain('batches.copied', mode)}
+          </span>
         ) : null}
-        <button type="button" onClick={copy} className={QUIET_BUTTON}>
+        <button type="button" onClick={copy} className={cn(QUIET_BUTTON, 'text-primary')}>
+          <Copy size={20} strokeWidth={2} aria-hidden="true" />
           {plain('batches.copyLink', mode)}
         </button>
       </span>
     </div>
-  );
-}
-
-function Title({ mode }: { mode: LangMode }) {
-  return (
-    <h1 className="text-xl font-semibold text-foreground">
-      {labels('batches.title', mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-base font-normal'}>
-          {line}
-        </span>
-      ))}
-    </h1>
   );
 }

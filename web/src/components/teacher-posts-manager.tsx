@@ -19,8 +19,17 @@
  * because nothing changed in the database, so the old state is still the true
  * one.
  */
-import { Trash2 } from 'lucide-react';
+import { ExternalLink, Megaphone, Plus, Send, TriangleAlert, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import {
+  CARD,
+  EmptyState,
+  FormPanel,
+  ListLayout,
+  PageHeader,
+  PRIMARY_BUTTON,
+  goToForm,
+} from '@/components/teacher-ui';
 import { createBrowserTeacherPostsClient } from '@/lib/posts/browser-posts-client';
 import {
   DEFAULT_PRIORITY,
@@ -34,11 +43,13 @@ import {
   type Priority,
   type TeacherPost,
 } from '@/lib/posts/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 const FIELD =
   'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
+
+const FORM_ID = 'notice-form';
 
 const PRIORITY_KEY: Record<Priority, MessageKey> = {
   0: 'posts.priority0',
@@ -74,18 +85,25 @@ export function TeacherPostsManager({
   const [added, setAdded] = useState(false);
 
   const title = (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('posts.title', mode).map((line) => (
-        <span key={line} className="block">
-          {line}
-        </span>
-      ))}
-    </h1>
+    <PageHeader
+      titleKey="posts.title"
+      mode={mode}
+      icon={Megaphone}
+      back={{ href: '/teacher/home', label: plain('teacherUi.backHome', mode) }}
+      action={
+        configured ? (
+          <button type="button" onClick={() => goToForm(FORM_ID)} className={PRIMARY_BUTTON}>
+            <Plus size={20} strokeWidth={2} aria-hidden="true" />
+            {plain('teacherUi.newNotice', mode)}
+          </button>
+        ) : undefined
+      }
+    />
   );
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         {title}
         <p role="status" className="text-muted-foreground">
           {plain('posts.notConfigured', mode)}
@@ -146,25 +164,26 @@ export function TeacherPostsManager({
     }
   }
 
-  return (
-    <section className="flex flex-col gap-3">
-      {title}
+  const form = (
+    <FormPanel id={FORM_ID} titleKey="teacherUi.newNotice" mode={mode} icon={Send}>
+      <div className="flex flex-col gap-3">
+        {problem ? (
+          <p
+            role="alert"
+            className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+          >
+            {plain(problem, mode)}
+          </p>
+        ) : null}
 
-      {problem ? (
-        <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
-          {plain(problem, mode)}
-        </p>
-      ) : null}
+        {added ? (
+          <p role="status" className="text-sm font-medium text-primary">
+            {plain('posts.added', mode)}
+          </p>
+        ) : null}
 
-      {added ? (
-        <p role="status" className="rounded-[10px] border border-border bg-card p-3 text-correct">
-          {plain('posts.added', mode)}
-        </p>
-      ) : null}
-
-      <div className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-3">
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">{plain('posts.heading', mode)}</span>
+          <span className="text-sm font-medium text-muted-foreground">{plain('posts.heading', mode)}</span>
           <input
             type="text"
             value={heading}
@@ -175,7 +194,7 @@ export function TeacherPostsManager({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">{plain('posts.priority', mode)}</span>
+          <span className="text-sm font-medium text-muted-foreground">{plain('posts.priority', mode)}</span>
           <select
             value={String(priority)}
             onChange={(event) => {
@@ -193,7 +212,7 @@ export function TeacherPostsManager({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">{plain('posts.link', mode)}</span>
+          <span className="text-sm font-medium text-muted-foreground">{plain('posts.link', mode)}</span>
           <input
             type="url"
             inputMode="url"
@@ -208,35 +227,54 @@ export function TeacherPostsManager({
           disabled={busy !== null}
           onClick={() => void add()}
           aria-label={plain('posts.add', mode)}
-          className="min-h-12 w-full rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60"
+          className={PRIMARY_BUTTON}
         >
           {plain(busy === 'add' ? 'posts.adding' : 'posts.add', mode)}
         </button>
       </div>
+    </FormPanel>
+  );
 
-      {rows.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('posts.none', mode)}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {rows.map((post) => (
-            <li
-              key={post.id}
-              className="flex items-center gap-3 rounded-[10px] border border-border bg-card p-3"
-            >
+  const list =
+    rows.length === 0 ? (
+      <EmptyState
+        icon={Megaphone}
+        text={plain('posts.none', mode)}
+        action={
+          <button
+            type="button"
+            onClick={() => goToForm(FORM_ID)}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground lg:hidden"
+          >
+            <Plus size={20} strokeWidth={2} aria-hidden="true" />
+            {plain('teacherUi.newNotice', mode)}
+          </button>
+        }
+      />
+    ) : (
+      <ul className="flex flex-col gap-3">
+        {rows.map((post) => {
+          const urgent = post.priority >= 2;
+          return (
+            <li key={post.id} className={cn(CARD, 'flex items-center gap-3')}>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span
                   className={cn(
-                    'text-xs font-medium',
-                    post.priority >= 2 ? 'text-marked' : 'text-muted-foreground',
+                    'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-4 font-medium',
+                    urgent
+                      ? 'border border-marked text-marked'
+                      : 'bg-background text-muted-foreground',
                   )}
                 >
+                  {urgent ? <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" /> : null}
                   {plain(PRIORITY_KEY[post.priority as Priority] ?? 'posts.priority0', mode)}
                 </span>
-                <span className="text-base font-medium">{post.heading}</span>
+                <span className="text-base font-medium break-words">{post.heading}</span>
                 {post.link ? (
-                  <span className="truncate text-sm text-muted-foreground">{post.link}</span>
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <ExternalLink size={14} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+                    <span className="truncate">{post.link}</span>
+                  </span>
                 ) : null}
               </div>
 
@@ -245,14 +283,20 @@ export function TeacherPostsManager({
                 disabled={busy !== null}
                 onClick={() => void remove(post.id)}
                 aria-label={plain('posts.delete', mode)}
-                className="flex min-h-12 min-w-12 items-center justify-center rounded-[10px] border border-wrong px-3 text-wrong transition-colors duration-100 disabled:opacity-60"
+                className="flex min-h-12 min-w-12 items-center justify-center rounded-[10px] border border-wrong px-3 text-wrong transition-colors duration-100 hover:bg-wrong-soft disabled:opacity-60"
               >
                 <Trash2 size={20} strokeWidth={2} aria-hidden="true" />
               </button>
             </li>
-          ))}
-        </ul>
-      )}
+          );
+        })}
+      </ul>
+    );
+
+  return (
+    <section className="flex flex-col gap-6">
+      {title}
+      <ListLayout list={list} form={form} />
     </section>
   );
 }

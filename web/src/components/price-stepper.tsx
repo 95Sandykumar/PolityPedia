@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * The price stepper and the earning line (issue 15-mock-sets-authoring).
+ * The price stepper and the earning line (issue 15-mock-sets-authoring,
+ * restyled in teacher-ui).
  *
  * V11: the teacher picks the price, Rs 299 to Rs 399. Two big buttons and a
  * numeric box, because the whole thing has to work with a thumb on a 360 px
@@ -18,8 +19,11 @@
  *
  * The earning line is the honest part. It is labelled "about", it rounds DOWN,
  * and it carries a hint saying GST and the fee are already out (AS6: the fee
- * is ~2% and unverified).
+ * is ~2% and unverified). It sits in a tinted box so it reads as the answer to
+ * "what do I get", not as small print.
  */
+import { Minus, Plus } from 'lucide-react';
+import { Lines } from '@/components/teacher-ui';
 import {
   clampPrice,
   MAX_PRICE_INR,
@@ -28,13 +32,13 @@ import {
   stepPrice,
   teacherEarningEstimate,
 } from '@/lib/mocks/types';
-import { labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { plain, type LangMode } from '@/lib/i18n';
 
 const STEP_BUTTON =
-  'min-h-12 min-w-12 rounded-[10px] border border-border bg-card text-xl font-medium text-foreground transition-colors duration-100 disabled:opacity-60';
+  'flex min-h-12 min-w-12 items-center justify-center rounded-[10px] border border-border bg-card text-foreground transition-colors duration-100 hover:bg-background disabled:opacity-60';
 
 const BOX =
-  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-base text-foreground';
+  'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 text-xl font-bold text-foreground';
 
 export function PriceStepper({
   price,
@@ -54,8 +58,10 @@ export function PriceStepper({
   const estimate = teacherEarningEstimate(price, sharePct);
 
   return (
-    <div className="flex flex-col gap-1">
-      <Label labelKey="mocks.price" mode={mode} />
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium text-muted-foreground">
+        <Lines keyName="mocks.price" mode={mode} />
+      </span>
 
       <div className="flex items-center gap-2">
         <button
@@ -65,7 +71,7 @@ export function PriceStepper({
           onClick={() => onChange(stepPrice(price, -1))}
           className={STEP_BUTTON}
         >
-          -
+          <Minus size={20} strokeWidth={2} aria-hidden="true" />
         </button>
 
         <input
@@ -95,7 +101,7 @@ export function PriceStepper({
           onClick={() => onChange(stepPrice(price, 1))}
           className={STEP_BUTTON}
         >
-          +
+          <Plus size={20} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
@@ -104,25 +110,14 @@ export function PriceStepper({
       {/* "You get about ₹165 per sale". The number is in the middle, so the
           line is built from two keys rather than one with a placeholder: the
           Hindi word order puts the number in the middle as well. */}
-      <p data-testid="earning-estimate" className="font-medium text-foreground">
-        {plain('mocks.earnPrefix', mode)}{' '}
-        <span className="tabular-nums">{'₹' + estimate}</span>{' '}
-        {plain('mocks.earnSuffix', mode)}
-      </p>
-      <p className="text-xs text-muted-foreground">{plain('mocks.earnHint', mode)}</p>
+      <div className="flex flex-col gap-1 rounded-[10px] bg-primary/10 p-3">
+        <p data-testid="earning-estimate" className="font-medium text-foreground">
+          {plain('mocks.earnPrefix', mode)}{' '}
+          <span className="font-bold tabular-nums">{'₹' + estimate}</span>{' '}
+          {plain('mocks.earnSuffix', mode)}
+        </p>
+        <p className="text-xs text-muted-foreground">{plain('mocks.earnHint', mode)}</p>
+      </div>
     </div>
-  );
-}
-
-/** The same label block the forms in this slice use. */
-function Label({ labelKey, mode }: { labelKey: MessageKey; mode: LangMode }) {
-  return (
-    <span className="text-sm font-medium text-muted-foreground">
-      {labels(labelKey, mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
-          {line}
-        </span>
-      ))}
-    </span>
   );
 }

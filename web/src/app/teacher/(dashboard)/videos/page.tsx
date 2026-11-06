@@ -22,14 +22,13 @@ export default async function TeacherVideosDashboardPage() {
     ? await readMyVideos(session)
     : { videos: [], visible: true };
 
+  // The page frame (nav, gutter, `<main>`) comes from `(dashboard)/layout.tsx`.
   return (
-    <main className="mx-auto w-full max-w-[1120px] px-4 py-4">
-      <TeacherVideosManager
-        videos={videos}
-        visible={visible}
-        mode={mode}
-        configured={configured}
-      />
-    </main>
+    <TeacherVideosManager
+      videos={videos}
+      visible={visible}
+      mode={mode}
+      configured={configured}
+    />
   );
 }

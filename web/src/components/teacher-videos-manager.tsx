@@ -15,10 +15,19 @@
  * a round trip. The ROUTE parses it again and the database checks the shape a
  * third time; this check is convenience, never the gate.
  */
-import { Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Plus, Trash2, Video } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import {
+  CARD,
+  EmptyState,
+  FormPanel,
+  ListLayout,
+  PageHeader,
+  PRIMARY_BUTTON,
+  goToForm,
+} from '@/components/teacher-ui';
 import { VideoThumb } from '@/components/video-thumb';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 import { createBrowserVideosClient } from '@/lib/videos/browser-videos-client';
 import { parseYouTubeId } from '@/lib/videos/youtube-url';
 import type { BrowserVideosClient, TeacherVideo } from '@/lib/videos/types';
@@ -57,18 +66,25 @@ export function TeacherVideosManager({
   const shown = [...videos, ...added].filter((video) => !removed.includes(video.id));
 
   const title = (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('videos.title', mode).map((line) => (
-        <span key={line} className="block">
-          {line}
-        </span>
-      ))}
-    </h1>
+    <PageHeader
+      titleKey="videos.title"
+      mode={mode}
+      icon={Video}
+      back={{ href: '/teacher/home', label: plain('teacherUi.backHome', mode) }}
+      action={
+        configured ? (
+          <button type="button" onClick={() => goToForm('video-form')} className={PRIMARY_BUTTON}>
+            <Plus size={20} strokeWidth={2} aria-hidden="true" />
+            {plain('teacherUi.newVideo', mode)}
+          </button>
+        ) : undefined
+      }
+    />
   );
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         {title}
         <p role="status" className="text-muted-foreground">
           {plain('videos.notConfigured', mode)}
@@ -145,32 +161,37 @@ export function TeacherVideosManager({
     }
   }
 
-  return (
-    <section className="flex flex-col gap-3">
-      {title}
+  const SwitchIcon = visible ? Eye : EyeOff;
 
-      {/* V6 / F-C2: one switch for the whole tile. */}
-      <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-3">
-        <span className="text-sm text-muted-foreground">{plain('videos.switch', mode)}</span>
-        <button
-          type="button"
-          disabled={busy}
-          aria-pressed={visible}
-          onClick={() => void toggleVisible()}
-          aria-label={plain(visible ? 'videos.show' : 'videos.noShow', mode)}
-          className={cn(
-            'min-h-12 rounded-[10px] px-3 text-base font-medium transition-colors duration-100 disabled:opacity-60',
-            visible
-              ? 'bg-primary text-primary-foreground'
-              : 'border border-border bg-muted text-muted-foreground',
-          )}
-        >
-          {plain(visible ? 'videos.show' : 'videos.noShow', mode)}
-        </button>
-      </div>
+  const switchCard = (
+    // V6 / F-C2: one switch for the whole tile.
+    <div className={cn(CARD, 'flex items-center justify-between gap-3')}>
+      <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-muted-foreground">
+        <SwitchIcon size={20} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+        {plain('videos.switch', mode)}
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        aria-pressed={visible}
+        onClick={() => void toggleVisible()}
+        aria-label={plain(visible ? 'videos.show' : 'videos.noShow', mode)}
+        className={cn(
+          'min-h-12 shrink-0 rounded-[10px] px-4 text-base font-medium transition-colors duration-100 disabled:opacity-60',
+          visible
+            ? 'bg-primary text-primary-foreground'
+            : 'border border-border bg-background text-muted-foreground',
+        )}
+      >
+        {plain(visible ? 'videos.show' : 'videos.noShow', mode)}
+      </button>
+    </div>
+  );
 
+  const form = (
+    <FormPanel id="video-form" titleKey="teacherUi.newVideo" mode={mode} icon={Plus}>
       <div className="flex flex-col gap-2">
-        <label htmlFor="videos-link" className="text-sm font-medium">
+        <label htmlFor="videos-link" className="text-sm font-medium text-muted-foreground">
           {plain('videos.link', mode)}
         </label>
         <input
@@ -181,45 +202,67 @@ export function TeacherVideosManager({
           value={link}
           onChange={(event) => setLink(event.target.value)}
           placeholder="https://www.youtube.com/watch?v=..."
-          className="min-h-12 rounded-[10px] border border-border bg-card px-3 text-base"
+          className="min-h-12 rounded-[10px] border border-border bg-card px-3 text-base placeholder:text-muted-foreground"
         />
         <p className="text-xs text-muted-foreground">{plain('videos.hint', mode)}</p>
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+          >
+            {plain(error, mode)}
+          </p>
+        ) : null}
+
         <button
           type="button"
           disabled={busy}
           onClick={() => void add()}
           aria-label={plain('videos.add', mode)}
-          className="min-h-12 rounded-[10px] bg-primary px-3 text-base font-medium text-primary-foreground transition-colors duration-100 disabled:opacity-60"
+          className={PRIMARY_BUTTON}
         >
           {plain(busy ? 'videos.adding' : 'videos.add', mode)}
         </button>
       </div>
+    </FormPanel>
+  );
 
-      {error ? (
-        <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
-          {plain(error, mode)}
-        </p>
-      ) : null}
+  const list = (
+    <>
+      {switchCard}
 
       {/* What a student sees right now. Two different sentences, so the
           teacher can tell "switched off" from "nothing added yet". */}
-      {!visible || shown.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {plain(visible ? 'videos.none' : 'placeholder.soon', mode)}
+      {!visible ? (
+        <p role="status" className="px-1 text-sm text-muted-foreground">
+          {plain('placeholder.soon', mode)}
         </p>
+      ) : shown.length === 0 ? (
+        <EmptyState
+          icon={Video}
+          text={plain('videos.none', mode)}
+          action={
+            <button
+              type="button"
+              onClick={() => goToForm('video-form')}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[10px] border border-border bg-card px-3 text-base font-medium text-foreground lg:hidden"
+            >
+              <Plus size={20} strokeWidth={2} aria-hidden="true" />
+              {plain('teacherUi.newVideo', mode)}
+            </button>
+          }
+        />
       ) : null}
 
       {shown.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {shown.map((video) => (
-            <li
-              key={video.id}
-              className="flex items-center gap-3 rounded-[10px] border border-border bg-card p-3"
-            >
+            <li key={video.id} className={cn(CARD, 'flex items-center gap-3')}>
               <div className="w-28 shrink-0">
                 <VideoThumb src={video.thumbUrl} />
               </div>
-              <span className="min-w-0 flex-1 break-words text-sm font-medium">
+              <span className="min-w-0 flex-1 text-sm leading-5 font-medium break-words">
                 {video.title ?? video.youtubeId}
               </span>
               <button
@@ -227,7 +270,7 @@ export function TeacherVideosManager({
                 disabled={busy || video.id.startsWith('pending:')}
                 onClick={() => void remove(video.id)}
                 aria-label={plain('videos.delete', mode)}
-                className={cn(OUTLINE_BUTTON, 'shrink-0')}
+                className={cn(OUTLINE_BUTTON, 'shrink-0 border-wrong text-wrong hover:bg-wrong-soft')}
               >
                 <Trash2 size={20} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -235,6 +278,13 @@ export function TeacherVideosManager({
           ))}
         </ul>
       ) : null}
+    </>
+  );
+
+  return (
+    <section className="flex flex-col gap-6">
+      {title}
+      <ListLayout list={list} form={form} />
     </section>
   );
 }

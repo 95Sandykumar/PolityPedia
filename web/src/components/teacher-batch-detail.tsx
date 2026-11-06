@@ -24,7 +24,15 @@
  * The `BrowserBatchesClient` is a prop so the test can inject a fake: no real
  * network call and no key in any test (web/CLAUDE.md).
  */
+import { Gift, Users, UserX } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import {
+  CARD as PANEL,
+  EmptyState,
+  Lines,
+  PageHeader,
+  StatusChip,
+} from '@/components/teacher-ui';
 import { createBrowserBatchesClient } from '@/lib/batches/browser-batches-client';
 import {
   joinLink,
@@ -32,15 +40,13 @@ import {
   type BatchMember,
   type BrowserBatchesClient,
 } from '@/lib/batches/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 import type { MockSet } from '@/lib/mocks/types';
 
-const CARD = 'rounded-[10px] border border-border bg-card p-3';
+const CARD = PANEL;
 
 const QUIET_BUTTON =
-  'min-h-12 rounded-[10px] border border-border px-3 text-sm font-medium text-primary disabled:opacity-60';
-
-const BADGE = 'rounded-full border border-border px-2 py-0.5 text-xs font-medium';
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded-[10px] border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors duration-100 hover:bg-background disabled:opacity-60';
 
 export function TeacherBatchDetail({
   batch,
@@ -74,9 +80,13 @@ export function TeacherBatchDetail({
   if (!batch) {
     return (
       <section className="flex flex-col gap-3">
-        <p role="status" className="text-muted-foreground">
-          {plain('batches.notFound', mode)}
-        </p>
+        <PageHeader
+          titleKey="batches.title"
+          mode={mode}
+          icon={Users}
+          back={{ href: '/teacher/batches', label: plain('nav.batches', mode) }}
+        />
+        <EmptyState icon={UserX} text={plain('batches.notFound', mode)} />
       </section>
     );
   }
@@ -130,19 +140,26 @@ export function TeacherBatchDetail({
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-xl font-semibold text-foreground">{batch.name}</h1>
-        <div className={`${CARD} flex flex-col gap-1`}>
-          <span className="text-xs text-muted-foreground">{plain('batches.code', mode)}</span>
-          <span className="font-mono text-lg tracking-widest text-foreground">
+      <div className="flex flex-col gap-3">
+        <PageHeader
+          title={batch.name}
+          mode={mode}
+          icon={Users}
+          back={{ href: '/teacher/batches', label: plain('nav.batches', mode) }}
+        />
+        <div className={`${CARD} flex flex-col gap-1 p-4`}>
+          <span className="text-sm font-medium text-muted-foreground">
+            {plain('batches.code', mode)}
+          </span>
+          <span className="font-mono text-2xl leading-8 font-bold tracking-widest text-foreground">
             {batch.joinCode}
           </span>
           {/* The whole link, so a teacher on a laptop can select it by hand. */}
-          <span className="break-all text-xs text-muted-foreground">
+          <span className="break-all text-sm text-muted-foreground">
             {joinLink(origin, batch.joinCode)}
           </span>
         </div>
-      </header>
+      </div>
 
       {problem ? (
         <p role="alert" className={`${CARD} text-wrong`}>
@@ -151,9 +168,9 @@ export function TeacherBatchDetail({
       ) : null}
 
       <section className="flex flex-col gap-3">
-        <Heading labelKey="batches.students" mode={mode} />
+        <Heading labelKey="batches.students" mode={mode} count={roll.length} />
         {roll.length === 0 ? (
-          <p className="text-muted-foreground">{plain('batches.noStudents', mode)}</p>
+          <EmptyState icon={UserX} text={plain('batches.noStudents', mode)} />
         ) : (
           <ul className="flex flex-col gap-2">
             {roll.map((one) => (
@@ -162,8 +179,16 @@ export function TeacherBatchDetail({
                 className={`${CARD} flex items-center justify-between gap-3`}
               >
                 {/* The id, not a name: v1 reads no other user's profile. */}
-                <span className="break-all font-mono text-xs text-muted-foreground">
-                  {one.userId}
+                <span className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+                  >
+                    <Users size={20} strokeWidth={2} />
+                  </span>
+                  <span className="break-all font-mono text-xs text-muted-foreground">
+                    {one.userId}
+                  </span>
                 </span>
                 <button
                   type="button"
@@ -181,24 +206,24 @@ export function TeacherBatchDetail({
 
       <section className="flex flex-col gap-3">
         <Heading labelKey="batches.freeSets" mode={mode} />
-        <p className="text-muted-foreground">{plain('batches.setsHint', mode)}</p>
+        <p className="text-sm text-muted-foreground">{plain('batches.setsHint', mode)}</p>
 
         {sets.length === 0 ? (
-          <p className="text-muted-foreground">{plain('batches.noSets', mode)}</p>
+          <EmptyState icon={Gift} text={plain('batches.noSets', mode)} />
         ) : (
           <ul className="flex flex-col gap-2">
             {sets.map((set) => (
               <li key={set.id} className={CARD}>
-                <label className="flex items-center justify-between gap-3">
-                  <span className="flex flex-col gap-1">
-                    <span className="font-medium text-foreground">{set.title}</span>
+                <label className="flex min-h-12 items-center justify-between gap-3">
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="font-medium break-words text-foreground">{set.title}</span>
                     <span className="flex items-center gap-2">
-                      <span className="tabular-nums text-sm font-medium">
+                      <span className="tabular-nums text-sm font-bold">
                         {'₹' + set.priceInr}
                       </span>
-                      <span className={BADGE}>
+                      <StatusChip live={set.status === 'live'}>
                         {plain(set.status === 'live' ? 'mocks.live' : 'mocks.draft', mode)}
-                      </span>
+                      </StatusChip>
                     </span>
                   </span>
                   <input
@@ -219,14 +244,23 @@ export function TeacherBatchDetail({
   );
 }
 
-function Heading({ labelKey, mode }: { labelKey: MessageKey; mode: LangMode }) {
+function Heading({
+  labelKey,
+  mode,
+  count,
+}: {
+  labelKey: MessageKey;
+  mode: LangMode;
+  count?: number;
+}) {
   return (
-    <h2 className="text-base font-semibold text-foreground">
-      {labels(labelKey, mode).map((line, index) => (
-        <span key={line} className={index === 0 ? 'block' : 'block text-sm font-normal'}>
-          {line}
-        </span>
-      ))}
+    <h2 className="flex items-baseline gap-2 text-[18px] leading-6 font-bold text-foreground">
+      <span>
+        <Lines keyName={labelKey} mode={mode} sub="text-sm font-medium text-muted-foreground" />
+      </span>
+      {count !== undefined ? (
+        <span className="text-sm font-medium text-muted-foreground tabular-nums">{count}</span>
+      ) : null}
     </h2>
   );
 }

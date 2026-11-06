@@ -25,8 +25,9 @@
  * because nothing changed in the database, so the old state is still the true
  * one.
  */
-import { Pencil } from 'lucide-react';
+import { Bot, CircleCheck, Pencil, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CARD, EmptyState, PageHeader } from '@/components/teacher-ui';
 import { createBrowserTeacherExplanationsClient } from '@/lib/ai/browser-teacher-explanations-client';
 import {
   MAX_REMEMBER,
@@ -37,7 +38,8 @@ import {
   type TeacherExplanation,
 } from '@/lib/ai/teacher-edit';
 import type { ExplanationSection } from '@/lib/ai/types';
-import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 const FIELD =
   'min-h-12 w-full rounded-[10px] border border-border bg-card px-3 py-2 text-base text-foreground';
@@ -94,18 +96,18 @@ export function TeacherExplanations({
   const [saved, setSaved] = useState(false);
 
   const title = (
-    <h1 className="text-[22px] leading-7 font-bold">
-      {labels('teacherEdit.title', mode).map((line) => (
-        <span key={line} className="block">
-          {line}
-        </span>
-      ))}
-    </h1>
+    <PageHeader
+      titleKey="teacherEdit.title"
+      mode={mode}
+      icon={Sparkles}
+      back={{ href: '/teacher/home', label: plain('teacherUi.backHome', mode) }}
+      subtitle={configured ? plain('teacherEdit.hint', mode) : undefined}
+    />
   );
 
   if (!configured) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         {title}
         <p role="status" className="text-muted-foreground">
           {plain('teacherEdit.notConfigured', mode)}
@@ -187,26 +189,26 @@ export function TeacherExplanations({
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex max-w-[760px] flex-col gap-4">
       {title}
-      <p className="text-sm text-muted-foreground">{plain('teacherEdit.hint', mode)}</p>
 
       {problem ? (
-        <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
+        <p
+          role="alert"
+          className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong"
+        >
           {plain(problem, mode)}
         </p>
       ) : null}
 
       {saved ? (
-        <p role="status" className="rounded-[10px] border border-border bg-card p-3 text-correct">
+        <p role="status" className="rounded-[10px] bg-primary/10 p-3 font-medium text-primary">
           {plain('teacherEdit.saved', mode)}
         </p>
       ) : null}
 
       {rows.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {plain('teacherEdit.none', mode)}
-        </p>
+        <EmptyState icon={Sparkles} text={plain('teacherEdit.none', mode)} />
       ) : (
         <ul className="flex flex-col gap-3">
           {rows.map((row) => {
@@ -215,25 +217,32 @@ export function TeacherExplanations({
             const several = draft.sections.length > 1;
 
             return (
-              <li
-                key={key}
-                className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-3"
-              >
+              <li key={key} className={cn(CARD, 'flex flex-col gap-3')}>
                 <div className="flex items-start gap-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span
-                      className={
-                        row.editedByTeacher
-                          ? 'text-xs font-medium text-correct'
-                          : 'text-xs font-medium text-muted-foreground'
-                      }
-                    >
-                      {plain(row.editedByTeacher ? 'teacherEdit.byYou' : 'teacherEdit.byAi', mode)}
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-4 font-medium',
+                          row.editedByTeacher
+                            ? 'bg-primary/10 text-primary'
+                            : 'border border-border text-muted-foreground',
+                        )}
+                      >
+                        {row.editedByTeacher ? (
+                          <CircleCheck size={12} strokeWidth={2} aria-hidden="true" />
+                        ) : (
+                          <Bot size={12} strokeWidth={2} aria-hidden="true" />
+                        )}
+                        {plain(row.editedByTeacher ? 'teacherEdit.byYou' : 'teacherEdit.byAi', mode)}
+                      </span>
+                      <span className="text-xs leading-4 text-muted-foreground uppercase">
+                        {row.lang}
+                      </span>
                     </span>
                     <span className="text-base font-medium">
                       {row.number === null ? row.stem : `${row.number}. ${row.stem}`}
                     </span>
-                    <span className="text-xs text-muted-foreground uppercase">{row.lang}</span>
                   </div>
 
                   {isOpen ? null : (
@@ -242,7 +251,7 @@ export function TeacherExplanations({
                       disabled={busy}
                       onClick={() => open(row)}
                       aria-label={plain('teacherEdit.open', mode)}
-                      className="flex min-h-12 items-center gap-2 rounded-[10px] border border-border px-3 text-base font-medium transition-colors duration-100 disabled:opacity-60"
+                      className="flex min-h-12 min-w-12 shrink-0 items-center justify-center gap-2 rounded-[10px] border border-primary px-3 text-base font-medium text-primary transition-colors duration-100 disabled:opacity-60"
                     >
                       <Pencil size={20} strokeWidth={2} aria-hidden="true" />
                     </button>
