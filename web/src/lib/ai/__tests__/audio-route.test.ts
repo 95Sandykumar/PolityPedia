@@ -50,7 +50,7 @@ function stored(audioPath: string | null): Explanation {
 function fakeClient(row: Explanation | null, configured = true): AiClient {
   return {
     isConfigured: () => configured,
-    claim: async () => 'ready',
+    claim: async () => ({ code: 'ready' as const, secret: null }),
     get: async () => row,
     question: async () => null,
     finish: async () => {},

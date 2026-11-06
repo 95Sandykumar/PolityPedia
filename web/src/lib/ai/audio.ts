@@ -24,6 +24,7 @@
  * can never break a build that has no environment variables.
  */
 import type { Lang } from '@/lib/i18n';
+import { readClaimSecret } from './types';
 import type { ExplanationBody, RevisionRequest } from './types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,16 +109,49 @@ export function isAudioClaimCode(value: unknown): value is AudioClaimCode {
   return typeof value === 'string' && (AUDIO_CLAIM_CODES as readonly string[]).includes(value);
 }
 
+/**
+ * What `claim_explanation_audio()` now answers with (issue
+ * 37-ai-claim-secret): the word, plus the one-time secret on `claimed`.
+ *
+ * The same rule as the text claim, for the same reason. Releasing a voice
+ * call that is still running makes the next read pay for a second one, and
+ * a paid voice is billed per character, so `auth.uid()` alone was not a gate
+ * against the claimant's own browser.
+ */
+export interface AudioClaimOutcome {
+  code: AudioClaimCode;
+  /** Set on `claimed` and nothing else. Never leaves the server. */
+  secret: string | null;
+}
+
+/**
+ * Read the RPC reply into an `AudioClaimOutcome`.
+ *
+ * An unknown word reads as `making`: the fail-closed answer, because it is
+ * the one code that makes the caller do nothing at all. It must never read as
+ * `claimed`. A secret on any other word is dropped.
+ */
+export function readAudioClaimOutcome(value: unknown): AudioClaimOutcome {
+  if (typeof value !== 'object' || value === null) return { code: 'making', secret: null };
+  const raw = value as Record<string, unknown>;
+  const code: AudioClaimCode = isAudioClaimCode(raw.code) ? raw.code : 'making';
+  return { code, secret: code === 'claimed' ? readClaimSecret(raw.secret) : null };
+}
+
 /** Server side. Carries the student's access token, so Postgres decides. */
 export interface ExplanationAudioClient {
   /** False when the Supabase env vars are missing. */
   isConfigured(): boolean;
   /** The one transaction: visibility, readiness, and the race. */
-  claimAudio(request: RevisionRequest): Promise<AudioClaimCode>;
-  /** Point the row at the stored object. False when nothing was claimed. */
-  finishAudio(request: RevisionRequest, path: string): Promise<boolean>;
-  /** Release a claimed slot, so a later read may retry it. */
-  failAudio(request: RevisionRequest): Promise<void>;
+  claimAudio(request: RevisionRequest): Promise<AudioClaimOutcome>;
+  /** Point the row at the stored object. Needs the claim's own secret. */
+  finishAudio(
+    request: RevisionRequest,
+    path: string,
+    secret: string | null,
+  ): Promise<boolean>;
+  /** Release a claimed slot, so a later read may retry it. Needs the secret. */
+  failAudio(request: RevisionRequest, secret: string | null): Promise<void>;
 }
 
 // --------------------------------------------------------------------------

@@ -80,17 +80,22 @@ export async function makeExplanationAudio({
 
   // Step 2. The gate. A thrown error here means nothing was claimed, so
   // there is nothing to release.
-  let code: Awaited<ReturnType<ExplanationAudioClient['claimAudio']>>;
+  // `claimed.secret` is the one-time secret for this voice claim, and this
+  // local variable is the ONLY place it lives (issue 37-ai-claim-secret). It
+  // goes to `finishAudio` and to `failAudio`, and nowhere else. The step
+  // returns a word, never the secret, so there is no path from here to the
+  // student's browser.
+  let claimed: Awaited<ReturnType<ExplanationAudioClient['claimAudio']>>;
   try {
-    code = await audio.claimAudio(request);
+    claimed = await audio.claimAudio(request);
   } catch {
     return 'failed';
   }
 
-  if (code !== 'claimed') return code;
+  if (claimed.code !== 'claimed') return claimed.code;
 
   // From here on the row says `making` and belongs to us, so EVERY exit has
-  // to either save it or release it.
+  // to either save it or release it, and both need the secret.
   try {
     const bytes = await speech.speak(text, request.lang);
     if (bytes.byteLength === 0) throw new Error('voice returned no bytes');
@@ -98,15 +103,15 @@ export async function makeExplanationAudio({
     const path = explanationAudioPath(request.questionId, request.lang);
     await store.upload({ path, contentType: speech.contentType, bytes });
 
-    const saved = await audio.finishAudio(request, path);
-    // False means the row moved under us (a teacher edit, or the row is
-    // gone). The object is harmless: the path is derived, so the next
+    const saved = await audio.finishAudio(request, path, claimed.secret);
+    // False means the row moved under us (a teacher edit, a takeover, or the
+    // row is gone). The object is harmless: the path is derived, so the next
     // attempt writes the same one.
     if (!saved) throw new Error('audio path saved nothing');
 
     return 'made';
   } catch {
-    await giveBack(audio, request);
+    await giveBack(audio, request, claimed.secret);
     return 'failed';
   }
 }
@@ -115,9 +120,10 @@ export async function makeExplanationAudio({
 async function giveBack(
   audio: ExplanationAudioClient,
   request: RevisionRequest,
+  secret: string | null,
 ): Promise<void> {
   try {
-    await audio.failAudio(request);
+    await audio.failAudio(request, secret);
   } catch {
     // Nothing useful to do. The row stays `making` and this explanation has
     // no audio. The student still has the text, which is what they came for.

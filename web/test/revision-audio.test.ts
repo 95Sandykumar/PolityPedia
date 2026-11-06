@@ -26,6 +26,7 @@
  * evaluates every policy for real).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { clearClaimSecrets, heldSecret, readClaim } from './claim-secrets';
 import { createTestDb, type TestDb } from './db';
 
 let db: TestDb;
@@ -65,14 +66,20 @@ interface AudioRow {
   audio_path: string | null;
 }
 
-/** Call the gate the way the background step does: as a signed-in student. */
+/**
+ * Call the gate the way the background step does: as a signed-in student.
+ *
+ * Since issue 37-ai-claim-secret the claim answers `{code, secret}` and both
+ * `finish_explanation_audio` and `fail_explanation_audio` need that secret.
+ * `readClaim` keeps it the way `makeExplanationAudio` keeps it in memory.
+ */
 function claimAudio(userId: string, questionId: string, lang = 'en'): Promise<string> {
   return db.asUser(userId, async (sql) => {
-    const r = await sql.query<{ code: string }>(
-      'select public.claim_explanation_audio($1, $2) as code',
+    const r = await sql.query<{ out: unknown }>(
+      'select public.claim_explanation_audio($1, $2) as out',
       [questionId, lang],
     );
-    return r.rows[0].code;
+    return readClaim('audio', userId, questionId, lang, r.rows[0].out);
   });
 }
 
@@ -84,8 +91,13 @@ function finishAudio(
 ): Promise<boolean> {
   return db.asUser(userId, async (sql) => {
     const r = await sql.query<{ saved: boolean }>(
-      'select public.finish_explanation_audio($1, $2, $3) as saved',
-      [questionId, lang, path ?? audioPath(questionId, lang)],
+      'select public.finish_explanation_audio($1, $2, $3, $4::uuid) as saved',
+      [
+        questionId,
+        lang,
+        path ?? audioPath(questionId, lang),
+        heldSecret('audio', userId, questionId, lang),
+      ],
     );
     return r.rows[0].saved;
   });
@@ -94,8 +106,8 @@ function finishAudio(
 function failAudio(userId: string, questionId: string, lang = 'en'): Promise<boolean> {
   return db.asUser(userId, async (sql) => {
     const r = await sql.query<{ released: boolean }>(
-      'select public.fail_explanation_audio($1, $2) as released',
-      [questionId, lang],
+      'select public.fail_explanation_audio($1, $2, $3::uuid) as released',
+      [questionId, lang, heldSecret('audio', userId, questionId, lang)],
     );
     return r.rows[0].released;
   });
@@ -163,6 +175,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  clearClaimSecrets();
   await db.admin.query('delete from public.ai_explanations');
 });
 

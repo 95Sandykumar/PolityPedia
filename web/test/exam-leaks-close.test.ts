@@ -31,6 +31,7 @@
  * real.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { clearClaimSecrets, readClaim } from './claim-secrets';
 import { createTestDb, type TestDb } from './db';
 
 let db: TestDb;
@@ -218,23 +219,27 @@ async function grantPlan(userId: string): Promise<void> {
   );
 }
 
+/**
+ * Both claims answer `{code, secret}` since issue 37-ai-claim-secret. This
+ * file only ever asserts on the WORD, which is what the exam gate decides.
+ */
 function claim(userId: string, questionId: string, lang = 'en'): Promise<string> {
   return db.asUser(userId, async (sql) => {
-    const res = await sql.query<{ code: string }>(
-      'select public.claim_ai_explanation($1, $2) as code',
+    const res = await sql.query<{ out: unknown }>(
+      'select public.claim_ai_explanation($1, $2) as out',
       [questionId, lang],
     );
-    return res.rows[0].code;
+    return readClaim('text', userId, questionId, lang, res.rows[0].out);
   });
 }
 
 function claimAudio(userId: string, questionId: string, lang = 'en'): Promise<string> {
   return db.asUser(userId, async (sql) => {
-    const res = await sql.query<{ code: string }>(
-      'select public.claim_explanation_audio($1, $2) as code',
+    const res = await sql.query<{ out: unknown }>(
+      'select public.claim_explanation_audio($1, $2) as out',
       [questionId, lang],
     );
-    return res.rows[0].code;
+    return readClaim('audio', userId, questionId, lang, res.rows[0].out);
   });
 }
 
@@ -266,6 +271,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  clearClaimSecrets();
   await db.admin.query('delete from public.ai_explanations');
   await db.admin.query('delete from public.ai_usage');
   await db.admin.query('delete from public.entitlements');

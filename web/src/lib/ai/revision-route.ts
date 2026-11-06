@@ -22,6 +22,13 @@
  *
  * Security: replies carry a fixed code, never a thrown error. An upstream
  * message can quote a URL or a key.
+ *
+ * THE CLAIM SECRET (issue 37-ai-claim-secret). `claim()` hands back a
+ * one-time secret on `claimed`, and `finish()` / `fail()` need it. It lives
+ * in ONE local variable inside `handleRevision`, is passed down to
+ * `generate`, and is never put in a reply body, a header or a log. That is
+ * what makes the refund unavailable to the student's own browser, which
+ * holds the same access token our server does.
  */
 import type { AuthSession } from '@/lib/auth/types';
 import {
@@ -168,14 +175,19 @@ export async function handleRevision({
   const request = readRevisionRequest(body);
   if (!request) return fail(400, 'bad_request');
 
-  let code: Awaited<ReturnType<AiClient['claim']>>;
+  // `claimed.secret` is the one-time secret for this claim, and this local
+  // variable is the ONLY place it ever lives (issue 37-ai-claim-secret). It
+  // goes to `finish` and to `fail` and nowhere else: not into a reply body,
+  // not into a header, not into a log line. The database kept a sha256 of it,
+  // so nothing can read it back.
+  let claimed: Awaited<ReturnType<AiClient['claim']>>;
   try {
-    code = await client.claim(request);
+    claimed = await client.claim(request);
   } catch {
     return fail(502, 'ai_failed');
   }
 
-  switch (code) {
+  switch (claimed.code) {
     case 'no_plan':
       // 402: this is a paywall, not a permission mistake. The UI shows the
       // Rs 100 card and keeps the teacher explanation visible.
@@ -195,21 +207,24 @@ export async function handleRevision({
   }
 
   // We won the race, so from here on exactly one model call happens, and if
-  // anything at all goes wrong the student gets their 1 of 30 back.
-  return generate(request, client, explainer, audio);
+  // anything at all goes wrong the student gets their 1 of 30 back. The
+  // refund is only possible WITH the secret, which is why it travels down
+  // with the request.
+  return generate(request, client, explainer, claimed.secret, audio);
 }
 
 async function generate(
   request: RevisionRequest,
   client: AiClient,
   explainer: Explainer,
+  secret: string | null,
   audio?: AudioStep,
 ): Promise<RevisionReply> {
   try {
     const question = await client.question(request.questionId);
     if (!question) {
       // Readable a microsecond ago, gone now. Release the row, no charge.
-      await giveBack(client, request);
+      await giveBack(client, request, secret);
       return fail(404, 'not_found');
     }
 
@@ -225,7 +240,7 @@ async function generate(
       },
     });
 
-    await client.finish(request, result);
+    await client.finish(request, result, secret);
 
     // Saved, so there is finally something to read out. This is the "after
     // `ready`" the issue names (issue 25-revision-audio).
@@ -247,15 +262,19 @@ async function generate(
     // The model timed out, refused, or gave a shape we could not read. None
     // of that is the student's fault, so the count goes back and the row is
     // released for a retry.
-    await giveBack(client, request);
+    await giveBack(client, request, secret);
     return fail(502, 'ai_failed');
   }
 }
 
 /** Never let the refund itself throw: that would hide the real failure. */
-async function giveBack(client: AiClient, request: RevisionRequest): Promise<void> {
+async function giveBack(
+  client: AiClient,
+  request: RevisionRequest,
+  secret: string | null,
+): Promise<void> {
   try {
-    await client.fail(request);
+    await client.fail(request, secret);
   } catch {
     // Nothing useful to do. The row stays `generating` and the next slice's
     // sweeper (or a retry after the row expires) picks it up.
