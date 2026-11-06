@@ -1,6 +1,6 @@
 ---
 id: 39-profile-read-keeps-role
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -26,3 +26,5 @@ Unit tests with a fake `fetch` for `createSupabaseAuthClient`: refresh with prof
 
 ## Notes / scope guard
 Do not change the cookie format, the 400/401 sign-out rule, the exam locks, or the database. Do not try to fix the "refresh response lost on the wire" case: Supabase's own reuse window covers it and a server-side session store is a later issue.
+
+<!-- ralph 2026-11-06T16:41:47.978Z: committed + tests pass -->

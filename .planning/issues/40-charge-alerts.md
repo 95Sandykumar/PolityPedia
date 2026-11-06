@@ -1,6 +1,6 @@
 ---
 id: 40-charge-alerts
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ PGlite tests (each failing before the fix): a charge for an unknown subscription
 
 ## Notes / scope guard
 Do not move the de-dupe insert, do not change refunds, claims, exam locks or sessions, and do not add a service key to the app.
+
+<!-- ralph 2026-11-06T16:44:22.436Z: committed + tests pass -->
