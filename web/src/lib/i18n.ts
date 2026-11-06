@@ -523,6 +523,22 @@ export const dictionary = {
     'alerts.kindUnreadablePurchase': 'Some of our own sale rows could not be read',
     'alerts.detailUnreadablePurchase':
       'The check skipped rows it could not read, so the rest of that night is unreliable. Check the purchases table, then run the check again.',
+    // The three the WEBHOOK writes (0034), missing from the screen until
+    // issue 38-session-and-alerts-fixes.
+    'alerts.kindCurrencyMismatch': 'The money was not in rupees',
+    'alerts.detailCurrencyMismatch':
+      'A payment arrived in another currency, so the amount we compared means nothing. Refund it at Razorpay and check the checkout currency setting.',
+    'alerts.kindPlanMismatch': 'A charge for the wrong plan',
+    'alerts.detailPlanMismatch':
+      'A subscription was charged for a plan it is not on. Check the plan at Razorpay before the next month charges again.',
+    'alerts.kindBadEvent': 'An event we can never accept',
+    'alerts.detailBadEvent':
+      'Razorpay sent something we cannot act on, however often it is retried. Open the event at Razorpay and deal with that payment by hand.',
+    // A kind this build has no words for: the database is ahead of the build.
+    'alerts.kindUnknown': 'A problem this app does not know yet',
+    'alerts.kindRaw': 'Kind',
+    'alerts.detailUnknown':
+      'The nightly check filed a problem a newer version of the app named. Look the payment up at Razorpay, and tell the developer the kind shown above.',
     // The screen (issue 23-revision-screen).
     'revision.aiWritten': 'Written by AI',
     'revision.thumbsUp': 'This helped',
@@ -1002,6 +1018,21 @@ export const dictionary = {
     'alerts.kindUnreadablePurchase': 'हमारी ही कुछ बिक्री पंक्तियाँ पढ़ी नहीं गईं',
     'alerts.detailUnreadablePurchase':
       'जाँच ने वे पंक्तियाँ छोड़ दीं जो पढ़ी नहीं गईं, इसलिए उस रात का बाकी नतीजा भरोसे का नहीं। purchases टेबल जाँचें, फिर जाँच दोबारा चलाएँ।',
+    // वेबहुक की तीन किस्में (0034).
+    'alerts.kindCurrencyMismatch': 'पैसा रुपये में नहीं आया',
+    'alerts.detailCurrencyMismatch':
+      'पेमेंट किसी दूसरी करेंसी में आया, इसलिए रकम की तुलना बेकार है। Razorpay पर पैसा लौटाएँ और चेकआउट की करेंसी सेटिंग जाँचें।',
+    'alerts.kindPlanMismatch': 'गलत प्लान का चार्ज',
+    'alerts.detailPlanMismatch':
+      'सब्सक्रिप्शन से उस प्लान का पैसा कटा जो उसका नहीं है। अगले महीने का चार्ज होने से पहले Razorpay पर प्लान जाँचें।',
+    'alerts.kindBadEvent': 'ऐसा इवेंट जो कभी नहीं चलेगा',
+    'alerts.detailBadEvent':
+      'Razorpay ने कुछ ऐसा भेजा जिस पर हम कुछ नहीं कर सकते, कितनी बार भी कोशिश हो। Razorpay पर इवेंट खोलें और वह पेमेंट हाथ से निपटाएँ।',
+    // ऐसी किस्म जिसके लिए इस ऐप में शब्द नहीं हैं।
+    'alerts.kindUnknown': 'ऐसी दिक्कत जो यह ऐप अभी नहीं जानता',
+    'alerts.kindRaw': 'किस्म',
+    'alerts.detailUnknown':
+      'रात की जाँच ने ऐसी दिक्कत दर्ज की जिसका नाम ऐप के नए संस्करण में है। Razorpay पर पेमेंट देखें, और ऊपर दिखी किस्म डेवलपर को बताएँ।',
     // The screen (issue 23-revision-screen).
     'revision.aiWritten': 'AI ने लिखा है',
     'revision.thumbsUp': 'इससे मदद मिली',
