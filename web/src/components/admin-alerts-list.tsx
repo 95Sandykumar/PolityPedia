@@ -48,10 +48,11 @@ const SECONDARY_BUTTON =
 /**
  * One kind, two labels: what it is, and what Boss does about it.
  *
- * All EIGHT kinds `reconcile_alerts_kind_check` allows, not five. The three
+ * All TEN kinds `reconcile_alerts_kind_check` allows, not five. The three
  * the webhook writes (0034) were missing until
  * issue 38-session-and-alerts-fixes, and a missing entry here crashed the row
- * rather than drawing it.
+ * rather than drawing it. The last two are the subscription charges that used
+ * to be dropped in silence (0039, issue 40-charge-alerts).
  */
 const KIND_LABELS: Record<ReconcileKind, { name: MessageKey; detail: MessageKey }> = {
   no_purchase: { name: 'alerts.kindNoPurchase', detail: 'alerts.detailNoPurchase' },
@@ -67,6 +68,14 @@ const KIND_LABELS: Record<ReconcileKind, { name: MessageKey; detail: MessageKey 
   unreadable_purchase: {
     name: 'alerts.kindUnreadablePurchase',
     detail: 'alerts.detailUnreadablePurchase',
+  },
+  unknown_subscription: {
+    name: 'alerts.kindUnknownSubscription',
+    detail: 'alerts.detailUnknownSubscription',
+  },
+  cancelled_subscription: {
+    name: 'alerts.kindCancelledSubscription',
+    detail: 'alerts.detailCancelledSubscription',
   },
 };
 
