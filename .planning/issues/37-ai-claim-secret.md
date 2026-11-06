@@ -1,6 +1,6 @@
 ---
 id: 37-ai-claim-secret
-status: todo
+status: done
 type: afk
 depends_on: [36-exam-leaks-close]
 ---
@@ -27,3 +27,5 @@ PGlite: the claimant calls `fail_ai_explanation` with no secret or a wrong secre
 
 ## Notes / scope guard
 Do not touch exam locks (ticket 36), webhooks, or sessions. Do not add a service-role key to the app.
+
+<!-- ralph 2026-11-06T00:40:30.076Z: committed + tests pass -->

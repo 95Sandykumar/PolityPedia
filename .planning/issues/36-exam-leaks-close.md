@@ -1,6 +1,6 @@
 ---
 id: 36-exam-leaks-close
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ PGlite tests with `asUser`, each failing before the fix: delete of an open exam 
 
 ## Notes / scope guard
 Do not change refunds or claim secrets (ticket 37), webhooks, or session code. If a reader needs the explanation for a student after a practice answer, that must keep working outside an open exam.
+
+<!-- ralph 2026-11-06T00:15:47.940Z: committed + tests pass -->

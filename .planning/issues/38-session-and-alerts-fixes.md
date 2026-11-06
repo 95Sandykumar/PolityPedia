@@ -1,6 +1,6 @@
 ---
 id: 38-session-and-alerts-fixes
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -21,3 +21,5 @@ Unit tests: the three alert kinds render in both languages and count in the badg
 
 ## Notes / scope guard
 Do not sign or encrypt the cookie, and do not touch the database or the exam locks.
+
+<!-- ralph 2026-11-06T00:10:58.190Z: committed + tests pass -->
