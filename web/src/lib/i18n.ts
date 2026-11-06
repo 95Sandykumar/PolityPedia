@@ -603,7 +603,6 @@ export const dictionary = {
     'adminForm.needUser': 'Enter the student user ID.',
     'adminForm.needSet': 'Enter the mock set ID.',
     'adminForm.daysFixed': 'That is outside 1 to 365, so it will be saved as',
-=======
     // teacher-ui: the teacher dashboard redesign. New keys only.
     'teacherUi.newPaper': 'New paper',
     'teacherUi.newMock': 'New mock set',
@@ -632,7 +631,6 @@ export const dictionary = {
     'teacherHome.attentionMock': 'Draft mock set: finish and publish',
     'teacherHome.allClear': 'All set. Nothing is waiting for you.',
     'teacherHome.moreItems': 'more',
-=======
     // student-ui: labels for the student screen polish (2026-11-06).
     'sui.brand': 'PolityPedia',
     'sui.yourTeachers': 'Your teachers',
@@ -1229,7 +1227,6 @@ export const dictionary = {
     'adminForm.needUser': 'छात्र की यूज़र आईडी भरें।',
     'adminForm.needSet': 'मॉक सेट की आईडी भरें।',
     'adminForm.daysFixed': 'यह 1 से 365 के बाहर है, इसलिए सेव होगा',
-=======
     // teacher-ui: the teacher dashboard redesign. New keys only.
     'teacherUi.newPaper': 'नया पेपर',
     'teacherUi.newMock': 'नया मॉक सेट',
@@ -1258,7 +1255,6 @@ export const dictionary = {
     'teacherHome.attentionMock': 'ड्राफ़्ट मॉक सेट: पूरा करें और पब्लिश करें',
     'teacherHome.allClear': 'सब तैयार है। कुछ बाकी नहीं।',
     'teacherHome.moreItems': 'और',
-=======
     // student-ui: विद्यार्थी स्क्रीन के नए लेबल (2026-11-06)।
     'sui.brand': 'पॉलिटीपीडिया',
     'sui.yourTeachers': 'आपके शिक्षक',
