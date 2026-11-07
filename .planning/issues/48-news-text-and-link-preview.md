@@ -6,7 +6,7 @@ depends_on: [H6-teacher-v11-picks, 47-videos-youtube-and-instagram]
 ---
 # News v2: written posts, link preview cards, pin, exam tag
 
-Decision D2 (from H6): A unless Boss wrote otherwise here. A = written text + link preview; voice note is Upcoming.
+Decision D2 (from H6): A, confirmed by Boss 2026-11-06. A = written text + link preview; voice note is Upcoming.
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, `web/DESIGN.md`. Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md` sections 4 and 7 (C: SSRF rules). DB tests use PGlite; fetch is injected and faked in tests. This ticket owns migration **0044** only.

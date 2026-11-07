@@ -6,7 +6,7 @@ depends_on: [51-batch-invite-links]
 ---
 # Batch announcements: teacher posts to one batch, members read
 
-Decision D4 (from H6): A unless Boss wrote otherwise here. A = teacher-only posting (like a Telegram channel). Student chat is Upcoming.
+Decision D4 (from H6): A, confirmed by Boss 2026-11-06. A = teacher-only posting (like a Telegram channel). Student chat is Upcoming.
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, `web/DESIGN.md`. Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md` section 4. DB tests use PGlite. This ticket owns migration **0047** only. Reuse the safe link rendering and (if present) the link preview helper from ticket 48.

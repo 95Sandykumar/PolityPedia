@@ -1,6 +1,6 @@
 ---
 id: H6-teacher-v11-picks
-status: todo
+status: done
 type: human
 depends_on: []
 ---

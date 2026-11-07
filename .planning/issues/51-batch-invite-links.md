@@ -6,7 +6,7 @@ depends_on: [H6-teacher-v11-picks, 50-mock-editor-power-tools]
 ---
 # Batches like a Telegram group: invite links, join requests, members
 
-Decision D3 (from H6): A unless Boss wrote otherwise here. A = teacher picks per link: open join or "ask to join"; default open.
+Decision D3 (from H6): A, confirmed by Boss 2026-11-06. A = teacher picks per link: open join or "ask to join"; default open.
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, `web/DESIGN.md`. Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md` sections 4, 5, 7. DB tests use PGlite. This ticket owns migration **0046** only.
