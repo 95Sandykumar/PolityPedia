@@ -8,3 +8,8 @@ next-env.d.ts
 !.env.example
 .vercel
 coverage
+
+# Boss's go-live signature sheet (issue 44-h5-golive-readiness). Real names and
+# dates about one real business, not source. The committed template is
+# golive.example.json.
+golive.json

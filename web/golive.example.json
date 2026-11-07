@@ -1,0 +1,49 @@
+{
+  "//": "TEMPLATE for web/golive.json (issue 44-h5-golive-readiness). Copy this file to web/golive.json and fill it in as each gate is cleared. golive.json is gitignored: it carries real names and dates about one real business, and it is a signature sheet, not source.",
+  "//how": "A gate counts as done ONLY with done:true AND a by AND a date. done:true on its own is refused and reported, so the file cannot be made to lie by a half-finished edit. Read web/GO-LIVE.md for what each gate means and who clears it.",
+  "//check": "node --import ./jobs/register-alias.mjs jobs/golive-check.ts --expect test   (use --expect live on the day)",
+  "gates": {
+    "X1": {
+      "//": "Payout method: monthly manual bank transfer from the teacher_ledger report is confirmed as the v1 way. Razorpay Route stays in V2.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "X3": {
+      "//": "Revenue split: the share percentage per teacher is agreed in writing, and it is worked out on the NET, not the gross.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "X4": {
+      "//": "GST and e-commerce TCS, confirmed by a chartered accountant. The code reads prices as GST-inclusive: public.gst_divisor() in supabase/migrations/0027_ledger.sql.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "X8": {
+      "//": "Adda247 contract read, and taking money through PolityPedia breaks no clause in it.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "B9": {
+      "//": "Vercel plan is Pro. The free plan has no commercial-use right.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "AS6": {
+      "//": "The real Razorpay fee percentage on a live Rs 299 sale, read off the Razorpay dashboard and written down.",
+      "done": false,
+      "by": null,
+      "date": null
+    },
+    "KYC": {
+      "//": "Razorpay account KYC approved and live keys issued.",
+      "done": false,
+      "by": null,
+      "date": null
+    }
+  }
+}
