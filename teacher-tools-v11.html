@@ -1,0 +1,235 @@
+<title>Teacher Tools v1.1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column, sections stacked, decision console last. Indigo from PolityPedia DESIGN.md. */
+:root{
+  --bg:#F7F7FB; --surface:#FFFFFF; --fg:#1B1B2A; --muted:#5B5C70; --line:#E2E2EC;
+  --accent:#4F46E5; --accent-soft:#EEEDFD; --good:#15803D; --good-soft:#E7F6EC;
+  --bad:#B42318; --bad-soft:#FDECEA; --warn:#A15C07; --warn-soft:#FDF3E3;
+  --body:"Noto Sans",system-ui,sans-serif; --mono:"Noto Sans Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12121A; --surface:#1B1B26; --fg:#ECECF4; --muted:#A3A4B8; --line:#2E2E3E;
+  --accent:#8B85F5; --accent-soft:#25234A; --good:#4ADE80; --good-soft:#163222;
+  --bad:#F87171; --bad-soft:#3A1A1A; --warn:#FBBF24; --warn-soft:#3A2C12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12121A; --surface:#1B1B26; --fg:#ECECF4; --muted:#A3A4B8; --line:#2E2E3E;
+  --accent:#8B85F5; --accent-soft:#25234A; --good:#4ADE80; --good-soft:#163222;
+  --bad:#F87171; --bad-soft:#3A1A1A; --warn:#FBBF24; --warn-soft:#3A2C12; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body)}
+.wrap{max-width:960px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:40px}
+h1{font-size:2rem;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:1.3rem;margin:0 0 12px;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.eyebrow{font:500 .75rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{color:var(--muted);margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:20px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:.85rem}
+.alert{background:var(--bad-soft);border:1px solid var(--bad);border-radius:10px;padding:16px;display:grid;gap:6px}
+.alert strong{color:var(--bad)}
+code{font:500 .85em var(--mono);background:var(--accent-soft);padding:1px 5px;border-radius:5px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:620px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.p-have{background:var(--good-soft);color:var(--good)}
+.p-gap{background:var(--warn-soft);color:var(--warn)}
+.p-bug{background:var(--bad-soft);color:var(--bad)}
+.p-now{background:var(--accent-soft);color:var(--accent)}
+.p-wait{background:var(--warn-soft);color:var(--warn)}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.list h3{margin:0 0 8px;font-size:1rem}
+.list ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.dec{display:grid;gap:14px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px}
+.q h3{margin:0;font-size:1rem}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:620px){.opts{grid-template-columns:1fr}}
+.opt{text-align:left;font:inherit;color:inherit;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;display:grid;gap:4px}
+.opt:hover{border-color:var(--accent)}
+.opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.opt small{color:var(--muted)}
+.rec{font-size:.7rem;font-weight:700;color:var(--accent);letter-spacing:.05em;text-transform:uppercase}
+.copybar{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{font:600 .95rem var(--body);background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 18px;cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+#out{flex:1 1 260px;min-width:0;font:500 .8rem var(--mono);color:var(--muted);white-space:pre-wrap}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">PolityPedia · teacher side · 2026-11-06</div>
+  <h1>Teacher tools v1.1: what a teacher can do, and what we build tonight</h1>
+  <p class="lede">Checked: 39 migrations, every teacher route in <code>web/src/app</code>, competitor test builders, Telegram invite links, YouTube API quota. Result: 9 tickets queued, 6 run tonight, 3 wait for your 4 picks below.</p>
+  <div class="kpis">
+    <div class="kpi"><b>11</b><span>teacher features already live</span></div>
+    <div class="kpi"><b>8</b><span>gaps found</span></div>
+    <div class="kpi"><b>1</b><span>data-loss bug</span></div>
+    <div class="kpi"><b>6 + 3</b><span>tickets tonight + after your picks</span></div>
+  </div>
+</header>
+
+<section class="alert" aria-label="Bug">
+  <strong>Bug: deleting a mock set erases payments and scores.</strong>
+  <p><code>0026_purchases.sql:113</code> links each purchase to its set with <code>on delete cascade</code>. One tap on Delete removes the payment record, the paid students' access, and every attempt. Papers do the same to attempts (<code>0013_attempts.sql:43</code>). Ticket 45 fixes this first: money rows can never be deleted, and used content is archived instead.</p>
+</section>
+
+<section>
+  <h2>The teacher journey</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  A[Invite link from admin] --> B[Sign in: Google or 6-digit code]
+  B --> C[Teacher form]
+  C --> D{Admin approves}
+  D --> E[Setup checklist]
+  E --> E1[1 Photo]
+  E --> E2[2 Name or alias + bio]
+  E --> E3[3 Exams + next date]
+  E --> E4[4 YouTube + Instagram]
+  E --> E5[5 First batch + share link]
+  E5 --> F[Daily: news, videos, mocks, batch scores]
+</pre>
+  </div>
+</section>
+
+<section>
+  <h2>What exists, what is missing</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Area</th><th>State</th><th>What we add</th><th>Ticket</th></tr></thead>
+    <tbody>
+      <tr><td>Delete</td><td><span class="pill p-bug">bug</span></td><td>Archive if paid or attempted, restore in 30 days, hard delete empty drafts only</td><td>45</td></tr>
+      <tr><td>Onboarding</td><td><span class="pill p-gap">gap</span></td><td>5-step setup checklist, progress card on Home</td><td>46</td></tr>
+      <tr><td>Photo</td><td><span class="pill p-gap">gap</span></td><td>Upload, 256 px webp, public avatars bucket</td><td>46</td></tr>
+      <tr><td>Channels</td><td><span class="pill p-gap">gap</span></td><td>YouTube channel URL + Instagram handle, buttons on student page</td><td>46</td></tr>
+      <tr><td>Videos</td><td><span class="pill p-have">YouTube only</span></td><td>Paste any link: YouTube video, Short, live, Instagram reel. Exam tag, hide, reorder</td><td>47</td></tr>
+      <tr><td>News</td><td><span class="pill p-have">heading + link</span></td><td>Written post up to 2,000 chars, link preview card, pin 3, exam tag</td><td>48</td></tr>
+      <tr><td>Subjects</td><td><span class="pill p-gap">gap</span></td><td>Subject + topic list. Tag per test (full / subject / topic) and per question. Marks override per test</td><td>49</td></tr>
+      <tr><td>Mock editor</td><td><span class="pill p-have">basic</span></td><td>Reorder, duplicate, move, bulk paste, preview as student, publish checklist, autosave</td><td>50</td></tr>
+      <tr><td>Batch links</td><td><span class="pill p-have">6-char code</span></td><td>Telegram-style links: expiry, use limit, ask-to-join, revoke, QR, WhatsApp/Telegram share, remove + ban</td><td>51</td></tr>
+      <tr><td>Batch posts</td><td><span class="pill p-gap">gap</span></td><td>Teacher announcements per batch, pin, attach a test, unread dot</td><td>52</td></tr>
+      <tr><td>Analytics</td><td><span class="pill p-have">batch scores</span></td><td>Followers, active this week, weakest topics, not-attempted list</td><td>53</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Delete and edit rules</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Object</th><th>Edit</th><th>Delete</th></tr></thead>
+    <tbody>
+      <tr><td>Profile, photo, channels</td><td>Any time</td><td>Account delete by admin request (self-serve later)</td></tr>
+      <tr><td>Video, news post</td><td>Any time, shows "edited"</td><td>Hard delete (nothing depends on it)</td></tr>
+      <tr><td>Mock set, test, question</td><td>Draft: all. Live: text and explanation. Answer key: key-lock flow with re-score</td><td>Archive if anyone paid or attempted. Buyers keep access</td></tr>
+      <tr><td>Past paper</td><td>Same as mock set</td><td>Archive if attempted</td></tr>
+      <tr><td>Batch</td><td>Name, cap, links</td><td>Archive keeps reports. Members lose batch-granted access</td></tr>
+      <tr><td>Invite link</td><td>Label, expiry, limit</td><td>Revoke. People already in stay</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Tonight's order</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  T45[45 Keep money + scores] --> T46[46 Setup checklist]
+  T46 --> T47[47 Videos YT + IG]
+  T45 --> T49[49 Subjects + topics]
+  T49 --> T50[50 Mock editor tools]
+  T49 --> T53[53 Analytics]
+  H6{{H6 Your 4 picks}} --> T48[48 News v2]
+  T47 --> T48
+  H6 --> T51[51 Batch invite links]
+  T50 --> T51
+  T51 --> T52[52 Batch announcements]
+  classDef wait fill:#FDF3E3,stroke:#A15C07,color:#1B1B2A
+  class H6,T48,T51,T52 wait
+</pre>
+  </div>
+</section>
+
+<section class="cols">
+  <div class="list">
+    <h3><span class="pill p-now">Now (v1.1)</span></h3>
+    <ul>
+      <li>Setup checklist, photo, channels</li>
+      <li>Videos by URL: YouTube + Instagram</li>
+      <li>News: text + link preview</li>
+      <li>Subjects, topics, marks override</li>
+      <li>Mock editor power tools</li>
+      <li>Batch invite links + requests + members</li>
+      <li>Batch announcements</li>
+      <li>Basic analytics</li>
+    </ul>
+  </div>
+  <div class="list">
+    <h3><span class="pill p-wait">Upcoming</span></h3>
+    <ul>
+      <li>YouTube auto-import (1 quota unit per call, 10,000 free per day)</li>
+      <li>Instagram auto-import (needs Business account + Meta review)</li>
+      <li>Voice news, batch chat, helper role</li>
+      <li>Question bank, Word import, AI question writer</li>
+      <li>Sections in one test, shuffle, scheduled tests</li>
+      <li>CSV export, per-student timeline, percentile</li>
+      <li>Telegram bot mirror, scheduled posts, live class links</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Your 4 picks (ticket H6)</h2>
+  <div class="dec" id="dec"></div>
+  <div class="copybar" style="margin-top:14px">
+    <button class="btn" id="copy" type="button">Copy decisions</button>
+    <div id="out" aria-live="polite"></div>
+  </div>
+</section>
+
+<footer><p class="lede">Sources: <a href="https://teachmint.com/features/tests">Teachmint tests</a>, <a href="https://recapio.com/digest/bulk-upload-feature-by-classplus">Classplus bulk upload</a>, <a href="https://blog.testpress.in/the-best-classplus-alternative-for-coaching-training-institutes-cost-effective-alternative-for-classplus/">Testpress comparison (competitor, biased)</a>, <a href="https://docs.python-telegram-bot.org/telegram.chatinvitelink.html">Telegram ChatInviteLink</a>, <a href="https://developers.google.com/youtube/v3/determine_quota_cost">YouTube quota costs</a>. Full design: <code>.planning/intake/2026-11-06-teacher-v1.1/design.md</code>.</p></footer>
+</div>
+
+<script>
+const Q=[
+ {id:"D1",t:"What does Delete do?",a:["Archive what students paid for or tried","Hidden and kept, restore in 30 days. Empty drafts are really deleted."],b:["Hard delete + 7-day undo bin","Simpler for teachers. Money records still stay."]},
+ {id:"D2",t:"What is a \"narrated\" news post?",a:["Written text + link preview","Voice note comes later."],b:["Also voice notes now","Max 3 min audio. More storage and moderation."]},
+ {id:"D3",t:"How do students join by link?",a:["Teacher picks per link: open or ask","Default open, like a public Telegram link."],b:["Always ask the teacher","Every join waits for approval."]},
+ {id:"D4",t:"Can students talk in a batch?",a:["Teacher announcements only","Like a Telegram channel. Chat later."],b:["Group chat now","Needs report, mute, and a moderator."]}
+];
+const pick={};Q.forEach(q=>pick[q.id]="A");
+const dec=document.getElementById("dec");
+function render(){
+ dec.innerHTML="";
+ Q.forEach(q=>{
+  const box=document.createElement("div");box.className="q";
+  box.innerHTML=`<h3>${q.id}. ${q.t}</h3>`;
+  const o=document.createElement("div");o.className="opts";
+  [["A",q.a],["B",q.b]].forEach(([k,v])=>{
+   const b=document.createElement("button");b.type="button";b.className="opt";b.id=`${q.id}-${k}`;
+   b.setAttribute("aria-pressed",pick[q.id]===k);
+   b.innerHTML=(k==="A"?'<span class="rec">Recommended</span>':'')+`<strong>${k}. ${v[0]}</strong><small>${v[1]}</small>`;
+   b.onclick=()=>{pick[q.id]=k;render()};
+   o.appendChild(b);
+  });
+  box.appendChild(o);dec.appendChild(box);
+ });
+ document.getElementById("out").textContent=text();
+}
+function text(){return "H6 picks: "+Q.map(q=>`${q.id}=${pick[q.id]} (${(pick[q.id]==="A"?q.a:q.b)[0]})`).join("; ");}
+document.getElementById("copy").onclick=async()=>{
+ const t=text(),out=document.getElementById("out");
+ try{await navigator.clipboard.writeText(t);out.textContent="Copied. Paste it to Claude.\n"+t}
+ catch(e){out.textContent=t;const r=document.createRange();r.selectNodeContents(out);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+};
+render();
+</script>

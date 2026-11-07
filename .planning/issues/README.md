@@ -117,3 +117,20 @@ flowchart LR
   n28 --> nH5
   n29 --> nH5
 ```
+
+## v1.1 teacher tools (2026-11-06)
+
+| Ticket | Type | Blocked by |
+|---|---|---|
+| 45-keep-money-and-scores | afk | none |
+| 46-teacher-setup-checklist | afk | 45 |
+| 47-videos-youtube-and-instagram | afk | 46 |
+| 48-news-text-and-link-preview | afk | H6, 47 |
+| 49-subjects-and-topics | afk | 45 |
+| 50-mock-editor-power-tools | afk | 49 |
+| 51-batch-invite-links | afk | H6, 50 |
+| 52-batch-announcements | afk | 51 |
+| 53-teacher-basic-analytics | afk | 49 |
+| H6-teacher-v11-picks | human | none |
+
+Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md`. Page: https://claude.ai/artifact/EK4km7gvvmR5Cjx9FjjG8z
