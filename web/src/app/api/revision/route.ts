@@ -32,7 +32,7 @@ import { handleRevision } from '@/lib/ai/revision-route';
 import { createSupabaseAiClient } from '@/lib/ai/supabase-ai-client';
 import { createSupabaseAudioClient } from '@/lib/ai/supabase-audio-client';
 import { createSupabaseAudioStore } from '@/lib/ai/supabase-audio-store';
-import { createUnconfiguredSpeech } from '@/lib/ai/unconfigured-speech';
+import { createSpeech } from '@/lib/ai/speech-provider';
 import { SESSION_COOKIE, decodeSession, type AuthSession } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
@@ -91,8 +91,11 @@ export async function POST(request: Request) {
     // response is flushed, and the row would be stuck on `making`.
     //
     // `makeExplanationAudio` never throws and never touches the reply, so
-    // nothing in here can reach the student. Today the voice provider is
-    // unconfigured (X5, human ticket H4), so it stops before it claims
+    // nothing in here can reach the student. `createSpeech` reads
+    // `VOICE_PROVIDER` here, inside the handler, so the env stays lazy
+    // (web/CLAUDE.md). With that variable unset, which is still the case
+    // while X5 (human ticket H4) is open, it hands back the same
+    // unconfigured speech as before: the step stops before it claims
     // anything and the explanation is simply shown with no audio bar.
     audio: (audioRequest, explanationBody) => {
       after(() =>
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
           request: audioRequest,
           body: explanationBody,
           audio: createSupabaseAudioClient({ accessToken }),
-          speech: createUnconfiguredSpeech(),
+          speech: createSpeech(process.env),
           store: createSupabaseAudioStore({ accessToken }),
         }),
       );
