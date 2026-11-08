@@ -1,6 +1,6 @@
 ---
 id: 44-h5-golive-readiness
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ Unit tests with fake fetch and fake rows, no network: key mode detection for tes
 
 ## Notes / scope guard
 Do not edit `package.json`, `i18n.ts`, any migration, `ecosystem.config.cjs` (except nothing needs changing there), or the webhook, ledger, purchase and refund logic. Never print or log a key or a payment secret. Do not call Razorpay or Supabase in any test.
+
+<!-- ralph 2026-11-07T01:17:16.692Z: merge conflict against integration branch -->

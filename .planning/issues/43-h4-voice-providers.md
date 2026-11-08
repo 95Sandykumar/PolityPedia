@@ -1,6 +1,6 @@
 ---
 id: 43-h4-voice-providers
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -23,3 +23,5 @@ Unit tests with fake fetch, no network: each provider returns bytes for a good r
 
 ## Notes / scope guard
 Do not edit `package.json`, `i18n.ts`, any migration, or the audio claim and finish logic (0038 and 0040 own it: only the server finishes a claim, already done). Never print or log a key. Do not call a real provider in any test.
+
+<!-- ralph 2026-11-07T01:09:26.291Z: committed + tests pass -->
