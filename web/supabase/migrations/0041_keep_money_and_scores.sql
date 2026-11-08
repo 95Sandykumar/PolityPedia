@@ -25,8 +25,8 @@
 --      same refresh_batch_access() path the member and set triggers use.
 --      batch_report_* are owner-rights views that never looked at archive
 --      state, so the teacher's reports stay readable.
---   6. A new sitting cannot start on an archived test (or one inside an
---      archived set) or on an archived paper.
+--   6. A new sitting cannot start on an archived test or an archived paper.
+--      An archived SET does not stop a buyer sitting its other tests.
 --   7. A paid student cannot start a NEW purchase of an archived set.
 --
 -- CASCADES CHANGED (every one; all went from `on delete cascade` to `restrict`)
@@ -48,6 +48,13 @@
 --     hard-deletes a batch with no member rows.
 --   * purchases.user_id -> auth.users cascade: deleting a whole ACCOUNT is the
 --     admin's call and out of scope for this ticket (design.md section 5).
+--     NOTE: account deletion is now REFUSED while money rows exist.
+--     purchases.user_id -> auth.users still cascades, but its child
+--     teacher_ledger.purchase_id is now RESTRICT, so a buyer with a ledgered
+--     purchase cannot be deleted. A teacher with a sold set cannot be deleted
+--     either: teachers -> mock_sets cascades into purchases.set_id, which is
+--     RESTRICT. A deletion request needs an anonymise-then-delete path
+--     (see web/GO-LIVE.md). That path is not built here.
 --
 -- DECISION. The remove_* / restore_* functions are SECURITY DEFINER, not
 -- INVOKER as the ticket text says. An invoker function cannot work here: the
@@ -254,8 +261,11 @@ $$;
 comment on function public.keeps_paper(uuid) is
   'True when the signed-in user has an attempt on the past paper. Issue 45-keep-money-and-scores.';
 
--- "May a NEW sitting start here?" The test is archived itself, or sits in an
--- archived set.
+-- "May a NEW sitting start here?" Only when the TEST itself is archived. An
+-- archived SET does not block a buyer: they paid for every test in it and keep
+-- access until valid_until (design.md section 5). Someone who does not hold the
+-- set is kept out already: has_test_access() withholds the free sample of an
+-- archived set, and attempts_mock_needs_access needs access for the rest.
 create or replace function public.test_is_archived(for_test uuid)
 returns boolean
 language sql
@@ -264,18 +274,13 @@ security definer
 set search_path = public, auth, pg_temp
 as $$
   select coalesce(
-    (
-      select t.archived_at is not null or s.archived_at is not null
-      from public.mock_tests t
-      join public.mock_sets s on s.id = t.set_id
-      where t.id = for_test
-    ),
+    (select t.archived_at is not null from public.mock_tests t where t.id = for_test),
     false
   )
 $$;
 
 comment on function public.test_is_archived(uuid) is
-  'True when the test, or the set it sits in, is archived. A new sitting is refused for such a test. Issue 45-keep-money-and-scores.';
+  'True when the test itself is archived. A new sitting is refused for it. An archived set does not block a student who holds access to it. Issue 45-keep-money-and-scores.';
 
 create or replace function public.paper_is_archived(for_paper uuid)
 returns boolean
@@ -430,7 +435,7 @@ create policy attempts_no_new_on_archived on public.attempts
   );
 
 comment on policy attempts_no_new_on_archived on public.attempts is
-  'A new sitting cannot start on an archived test (or a test in an archived set) or an archived paper. Open sittings still submit, and old results stay. Issue 45-keep-money-and-scores.';
+  'A new sitting cannot start on an archived test or an archived paper. An archived set does not block a student who holds access. Open sittings still submit, and old results stay. Issue 45-keep-money-and-scores.';
 
 -- ---------------------------------------------------------------------------
 -- 7. Nobody can START buying an archived set

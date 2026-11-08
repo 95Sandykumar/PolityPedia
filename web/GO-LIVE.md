@@ -290,6 +290,16 @@ rollback is a paste and not a hunt.
   something. They are read only, on purpose.
 - **Never** go live on the Vercel free plan (B9), whatever the preflight says
   about the rest.
+- **Never** delete a user from the Supabase dashboard to answer an account
+  deletion request. Since migration `0041_keep_money_and_scores.sql` the money
+  rows are protected: `teacher_ledger.purchase_id`, `purchases.set_id`,
+  `set_access.set_id` and `attempts.test_id/paper_id` are `ON DELETE RESTRICT`.
+  Deleting a buyer who has a ledgered purchase, or a teacher who has a sold
+  set, now fails on purpose. A deletion request needs an
+  **anonymise-then-delete** path (blank the name, email and profile, keep the
+  purchase, ledger and score rows, then remove the login). That path is not
+  built yet; until it is, answer such a request by hand and do not delete the
+  rows.
 
 ---
 

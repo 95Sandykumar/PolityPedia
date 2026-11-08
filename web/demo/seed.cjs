@@ -191,7 +191,17 @@ const ascii = (s) => s.replace(/[^\x20-\x7e]/g, '');
       [ids.pending],
     );
 
-    // wipe the demo teacher's content (cascades tests, questions, attempts, saved, ledger...)
+    // wipe the demo teacher's content. Since 0041 the money and score FKs are
+    // RESTRICT (purchases.set_id, teacher_ledger.purchase_id, set_access.set_id,
+    // attempts.test_id/paper_id), so the dependants go first, in order; the sets
+    // and papers then cascade only their tests and questions.
+    const SETS = 'select id from public.mock_sets where teacher_id=$1';
+    const TESTS = `select id from public.mock_tests where set_id in (${SETS})`;
+    const PAPERS = 'select id from public.papers where teacher_id=$1';
+    await c.query(`delete from public.teacher_ledger where teacher_id=$1 or purchase_id in (select id from public.purchases where set_id in (${SETS}))`, [T]);
+    await c.query(`delete from public.purchases where set_id in (${SETS})`, [T]);
+    await c.query(`delete from public.set_access where set_id in (${SETS})`, [T]);
+    await c.query(`delete from public.attempts where test_id in (${TESTS}) or paper_id in (${PAPERS})`, [T]);
     await c.query('delete from public.mock_sets where teacher_id=$1', [T]);
     await c.query('delete from public.papers where teacher_id=$1', [T]);
     await c.query('delete from public.teacher_videos where teacher_id=$1', [T]);

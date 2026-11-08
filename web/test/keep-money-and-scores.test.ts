@@ -518,20 +518,36 @@ describe('(f) an archived test refuses a new attempt', () => {
     });
   });
 
-  it('a test inside an archived set takes no new sitting either', async () => {
+  it('a PAID buyer can still sit an unsat test of an archived set; a non-holder cannot', async () => {
     const setId = await insertSet(teacherA, 'Sold set');
-    const testId = await insertTest(setId);
+    const sample = await insertTest(setId, 1, true);
+    const sat = await insertTest(setId, 2);
+    const unsat = await insertTest(setId, 3);
     await grantAccess(buyer, setId);
-    await call(teacherA, 'remove_mock_set', setId);
+    await insertScoredAttempt(buyer, sat);
+    expect(await call(teacherA, 'remove_mock_set', setId)).toBe('archived');
 
-    await expect(
-      db.asUser(buyer, async (sql) => {
-        await sql.query(
-          `insert into public.attempts (user_id, test_id, mode) values ($1, $2, 'practice')`,
-          [buyer, testId],
-        );
-      }),
-    ).rejects.toThrow(/row-level security/);
+    // The buyer paid for the whole set: test 3 still starts.
+    await db.asUser(buyer, async (sql) => {
+      const res = await sql.query(
+        `insert into public.attempts (user_id, test_id, mode) values ($1, $2, 'practice') returning id`,
+        [buyer, unsat],
+      );
+      expect(res.rows).toHaveLength(1);
+    });
+
+    // Someone who never held the set is kept out: the paid tests by the
+    // paywall, the free sample because an archived set no longer gives it away.
+    for (const testId of [unsat, sample]) {
+      await expect(
+        db.asUser(stranger, async (sql) => {
+          await sql.query(
+            `insert into public.attempts (user_id, test_id, mode) values ($1, $2, 'practice')`,
+            [stranger, testId],
+          );
+        }),
+      ).rejects.toThrow(/row-level security/);
+    }
   });
 
   it('an archived paper takes no new sitting; its old results stay visible', async () => {
@@ -684,5 +700,46 @@ describe('batches', () => {
 
     await expect(joinAs(stranger, batch.code)).rejects.toThrow(/join code/i);
     expect(await count('batch_members', 'user_id = $1', [stranger])).toBe(0);
+  });
+});
+
+describe('the demo seed and unseed wipe order (demo/seed.cjs, demo/unseed.cjs)', () => {
+  // The same statements, in the same order, as the two scripts. They run
+  // against the live database, so this is the only place they are executed.
+  const SETS = 'select id from public.mock_sets where teacher_id=$1';
+  const TESTS = `select id from public.mock_tests where set_id in (${SETS})`;
+  const PAPERS = 'select id from public.papers where teacher_id=$1';
+  const WIPE = [
+    `delete from public.teacher_ledger where teacher_id=$1 or purchase_id in (select id from public.purchases where set_id in (${SETS}))`,
+    `delete from public.purchases where set_id in (${SETS})`,
+    `delete from public.set_access where set_id in (${SETS})`,
+    `delete from public.attempts where test_id in (${TESTS}) or paper_id in (${PAPERS})`,
+    'delete from public.mock_sets where teacher_id=$1',
+    'delete from public.papers where teacher_id=$1',
+  ];
+
+  it('clears a teacher with sales, access and scores without a foreign key error', async () => {
+    const setId = await insertSet(teacherA, 'Demo set');
+    const testId = await insertTest(setId);
+    const paper = await insertPaper(teacherA, 'Demo paper');
+    const purchase = await insertPurchase(buyer, setId);
+    await grantAccess(buyer, setId);
+    await insertScoredAttempt(buyer, testId);
+    await db.admin.query(
+      `insert into public.attempts (user_id, paper_id, mode) values ($1, $2, 'practice')`,
+      [buyer, paper],
+    );
+    await db.admin.query(
+      `insert into public.teacher_ledger
+         (teacher_id, purchase_id, gross, gst, gateway_fee, net, share_pct, teacher_amount, platform_amount)
+       values ($1, $2, 299, 45.61, 5.00, 248.39, 50, 124.19, 124.20)`,
+      [teacherA, purchase],
+    );
+
+    for (const sql of WIPE) await db.admin.query(sql, [teacherA]);
+
+    for (const table of ['mock_sets', 'papers', 'purchases', 'set_access', 'attempts', 'teacher_ledger']) {
+      expect(await count(table, 'true', [])).toBe(0);
+    }
   });
 });

@@ -111,7 +111,9 @@ export async function readExamLoad(
     // an empty paper that reads as "not ready". `attempts_no_new_on_archived`
     // is the gate; this is the clear message in front of it. A student with a
     // finished or open sitting never reaches here, because that sitting opens.
-    if (test?.archivedAt || set?.archivedAt) {
+    // Only the TEST being archived counts: an archived set does not stop a
+    // buyer sitting its other tests.
+    if (test?.archivedAt) {
       throw Object.assign(new Error('test archived'), { name: 'TestArchived' });
     }
     return { ...EMPTY, questions: examQuestions(questions, false), marking, heading, durationMin };

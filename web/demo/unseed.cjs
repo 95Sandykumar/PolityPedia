@@ -41,6 +41,14 @@ const E = L.EMAILS;
 
   // 4. teacher-owned content (explicit, so the counts are visible; auth delete would cascade anyway)
   if (T) {
+    // Since 0041 the money and score FKs are RESTRICT, so dependants go first.
+    const SETS = 'select id from public.mock_sets where teacher_id=$1';
+    const TESTS = `select id from public.mock_tests where set_id in (${SETS})`;
+    const PAPERS = 'select id from public.papers where teacher_id=$1';
+    await del('teacher_ledger', `delete from public.teacher_ledger where teacher_id=$1 or purchase_id in (select id from public.purchases where set_id in (${SETS}))`, [T]);
+    await del('purchases', `delete from public.purchases where set_id in (${SETS})`, [T]);
+    await del('set_access', `delete from public.set_access where set_id in (${SETS})`, [T]);
+    await del('attempts', `delete from public.attempts where test_id in (${TESTS}) or paper_id in (${PAPERS})`, [T]);
     await del('mock_sets', 'delete from public.mock_sets where teacher_id=$1', [T]);
     await del('papers', 'delete from public.papers where teacher_id=$1', [T]);
     await del('teacher_videos', 'delete from public.teacher_videos where teacher_id=$1', [T]);

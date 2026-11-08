@@ -95,11 +95,23 @@ describe('readExamLoad on an archived test', () => {
     ).rejects.toMatchObject({ name: 'TestArchived' });
   });
 
-  it('throws TestArchived when only the set is archived', async () => {
+  it('does NOT throw when only the set is archived: a buyer keeps sitting its tests', async () => {
     state.set = set({ archivedAt: '2026-11-01T00:00:00Z' });
-    await expect(
-      readExamLoad(SESSION, TEST_ID, { topicId: null, langMode: 'en' }),
-    ).rejects.toMatchObject({ name: 'TestArchived' });
+    state.attempt = {
+      id: 'a2',
+      testId: TEST_ID,
+      submittedAt: null,
+      deadlineAt: '2026-11-08T12:00:00Z',
+      score: null,
+    };
+    const load = await readExamLoad(SESSION, TEST_ID, { topicId: null, langMode: 'en' });
+    expect(load.attempt).not.toBeNull();
+  });
+
+  it('with only the set archived and no sitting, gives the old "not ready" payload, not TestArchived', async () => {
+    state.set = set({ archivedAt: '2026-11-01T00:00:00Z' });
+    const load = await readExamLoad(SESSION, TEST_ID, { topicId: null, langMode: 'en' });
+    expect(load.attempt).toBeNull();
   });
 
   it('keeps the old "not ready" payload for a live test with no sitting', async () => {
