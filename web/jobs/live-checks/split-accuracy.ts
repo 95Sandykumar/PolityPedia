@@ -140,7 +140,15 @@ export async function main(): Promise<void> {
   // Pair by stem, not position: one dropped question must not shift and fail
   // every question after it (the splitter schema has no number field).
   const alignment = alignByStem(truth, found);
-  const result = compareSplit({ truth, found: alignment.aligned, threshold });
+  const scored = compareSplit({ truth, found: alignment.aligned, threshold });
+  // Scored on the paired questions, but the report's "found at all" and
+  // "extra" lines must still describe the splitter's whole answer.
+  const paired = new Set(alignment.pairedFoundNumbers);
+  const result = {
+    ...scored,
+    foundCount: found.length,
+    extraNumbers: found.filter((one) => !paired.has(one.number)).map((one) => one.number),
+  };
   const report =
     formatSplitReport({
       result,

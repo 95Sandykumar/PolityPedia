@@ -509,5 +509,9 @@ describe('alignByStem', () => {
     const result = alignByStem(truth, [...truth, junk]);
     expect(result.unpaired).toBe(1);
     expect(result.aligned).toHaveLength(6);
+    // The junk keeps its own number out of the paired list, so the report can
+    // still count the splitter's whole answer and list it as extra.
+    expect(result.pairedFoundNumbers).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(result.aligned.length + result.unpaired).toBe(7);
   });
 });

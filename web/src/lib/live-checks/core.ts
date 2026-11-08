@@ -324,6 +324,8 @@ export interface Alignment {
   renumbered: number;
   /** Found questions that paired with no truth question at all. */
   unpaired: number;
+  /** The ORIGINAL (position) numbers of the found questions that paired. */
+  pairedFoundNumbers: number[];
 }
 
 /**
@@ -368,6 +370,7 @@ export function alignByStem(
   }
 
   const aligned: CheckQuestion[] = [];
+  const pairedFoundNumbers: number[] = [];
   let renumbered = 0;
   let i = 0;
   let j = 0;
@@ -375,6 +378,7 @@ export function alignByStem(
     if (match[i][j]) {
       if (f[j].number !== t[i].number) renumbered += 1;
       aligned.push({ ...f[j], number: t[i].number });
+      pairedFoundNumbers.push(f[j].number);
       i += 1;
       j += 1;
     } else if (score[i + 1][j] >= score[i][j + 1]) {
@@ -384,7 +388,7 @@ export function alignByStem(
     }
   }
 
-  return { aligned, renumbered, unpaired: cols - aligned.length };
+  return { aligned, renumbered, unpaired: cols - aligned.length, pairedFoundNumbers };
 }
 
 // --------------------------------------------------------------------------
