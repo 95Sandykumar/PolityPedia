@@ -20,3 +20,8 @@ live-checks/voice-samples/*
 # notes.md himself, and a report can quote a question from a paper.
 live-checks/results/*
 !live-checks/results/.gitkeep
+
+# Boss's go-live signature sheet (issue 44-h5-golive-readiness). Real names and
+# dates about one real business, not source. The committed template is
+# golive.example.json.
+golive.json
