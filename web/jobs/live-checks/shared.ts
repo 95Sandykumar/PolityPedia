@@ -21,6 +21,7 @@ import {
   redactSecrets,
   resultFileName,
 } from '@/lib/live-checks/core';
+import { loadLocalEnv } from '../load-local-env';
 
 /** `web/`, worked out from this file, so the tools run from any directory. */
 export const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -162,6 +163,8 @@ export function isEntryPoint(basename: string): boolean {
  * fetch error's cause, and a stack trace is not something Boss has to read.
  */
 export function run(main: () => Promise<void>): void {
+  // Keys live in web/.env.local (README). Plain node does not read it.
+  loadLocalEnv();
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : 'unknown error';
     stop('live check failed: ' + redactSecrets(message, [process.env.ANTHROPIC_API_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY]));

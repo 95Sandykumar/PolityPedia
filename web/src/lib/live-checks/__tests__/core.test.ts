@@ -20,6 +20,7 @@ import {
 } from '../prices';
 import {
   RESULTS_DIR,
+  alignByStem,
   compareSplit,
   compareToEstimate,
   createUsageRecorder,
@@ -467,5 +468,46 @@ describe('the three reports', () => {
     expect(report).toContain('web_search_20250305');
     expect(report).toMatch(/will use/i);
     expect(report).not.toContain('undefined');
+  });
+});
+
+describe('alignByStem', () => {
+  const stems = [
+    'who appoints the governor of an indian state',
+    'which article of the constitution deals with the right to equality',
+    'the concept of judicial review in india is borrowed from which country',
+    'who was the chairman of the drafting committee of the constitution',
+    'the rajya sabha is dissolved after how many years',
+    'which schedule of the constitution lists the official languages',
+  ];
+  const truth = stems.map((stem, index) => truthQuestion(index + 1, stem));
+
+  it('changes nothing on a clean split', () => {
+    const result = alignByStem(truth, truth);
+    expect(result.renumbered).toBe(0);
+    expect(result.unpaired).toBe(0);
+    expect(result.aligned.map((one) => one.number)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('one dropped question does not shift and fail every later one', () => {
+    // The splitter skipped question 2, so positions 2..5 hold questions 3..6.
+    const found = [truth[0], ...truth.slice(2)].map((one, index) => ({ ...one, number: index + 1 }));
+
+    const byPosition = compareSplit({ truth, found });
+    expect(byPosition.rightCount).toBe(1);
+
+    const alignment = alignByStem(truth, found);
+    expect(alignment.renumbered).toBe(4);
+    expect(alignment.unpaired).toBe(0);
+    const aligned = compareSplit({ truth, found: alignment.aligned });
+    expect(aligned.rightCount).toBe(5);
+    expect(aligned.missingNumbers).toEqual([2]);
+  });
+
+  it('leaves out a found question that matches nothing', () => {
+    const junk = { number: 7, stem: 'page 4 of 12 roll number ________', options: OPTIONS };
+    const result = alignByStem(truth, [...truth, junk]);
+    expect(result.unpaired).toBe(1);
+    expect(result.aligned).toHaveLength(6);
   });
 });

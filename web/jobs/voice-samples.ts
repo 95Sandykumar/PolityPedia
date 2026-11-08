@@ -58,6 +58,7 @@ import {
   formatUsd,
   type VoicePriceProvider,
 } from './voice-prices';
+import { loadLocalEnv } from './load-local-env';
 
 /**
  * The built-in English sample, 71 words.
@@ -278,6 +279,8 @@ const isEntryPoint =
   /voice-samples(\.[cm]?[jt]s)?$/.test(process.argv[1]);
 
 if (isEntryPoint) {
+  // Keys live in web/.env.local (README). Plain node does not read it.
+  loadLocalEnv();
   main()
     .then((result) => {
       for (const line of result.lines) console.log(line);

@@ -29,6 +29,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import {
+  alignByStem,
   compareSplit,
   createUsageRecorder,
   formatSplitReport,
@@ -136,7 +137,10 @@ export async function main(): Promise<void> {
   const usage = recorder.usage() ?? { tokensIn: 0, tokensOut: 0 };
   const date = new Date();
 
-  const result = compareSplit({ truth, found, threshold });
+  // Pair by stem, not position: one dropped question must not shift and fail
+  // every question after it (the splitter schema has no number field).
+  const alignment = alignByStem(truth, found);
+  const result = compareSplit({ truth, found: alignment.aligned, threshold });
   const report =
     formatSplitReport({
       result,
@@ -149,6 +153,17 @@ export async function main(): Promise<void> {
       cost: tokenCostUsd({ model: SPLIT_MODEL, ...usage, searches: 0 }),
       date,
     }) +
+    '\n' +
+    [
+      '## Pairing by stem',
+      '',
+      alignment.renumbered === 0 && alignment.unpaired === 0
+        ? 'Every found question paired with the question at its own position. No shift.'
+        : `${alignment.renumbered} found questions were paired with a different number than their ` +
+          `position (the splitter dropped or merged a question before them). ${alignment.unpaired} ` +
+          'found questions paired with no database question and are left out of the score.',
+      '',
+    ].join('\n') +
     // What the WORKER would have done with this same answer. A strict refusal
     // next to a good accuracy number means one malformed question cost the
     // whole paper, which is a different fix from a bad split.

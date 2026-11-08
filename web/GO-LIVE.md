@@ -268,7 +268,10 @@ rollback is a paste and not a hunt.
 - **Never** mix a test key id with a live key secret, or the reverse. Take both
   halves from the same dashboard mode, at the same time. The preflight calls
   this `mixed` and fails it in both modes, because nothing can recover from it
-  at runtime.
+  at runtime. **Limit:** the preflight can only see a mix when both halves
+  carry a mode prefix. A Razorpay key secret has no `rzp_` prefix, so a test
+  key id with a live secret reads as plain "test" and is NOT caught offline.
+  The real check is the Rs 299 purchase in steps 4 and 5: a mixed pair fails there.
 - **Never** switch to live keys while `/admin/alerts` has an open row. An open
   alert means the last night of **test** money did not add up.
 - **Never** paste a key, a secret, a token or a payment secret into a chat, a

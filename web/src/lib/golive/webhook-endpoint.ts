@@ -97,11 +97,25 @@ export async function checkWebhookEndpoint({
     };
   }
 
-  if (status >= 400) {
+  // Exactly 400 is the route's own refusal (`bad_signature` in
+  // src/lib/purchases/webhook.ts). 404 is the wrong site or an undeployed
+  // route, 401/403 is often Vercel deployment protection, 405 is the wrong
+  // method handler. Razorpay's deliveries would fail on every one of those,
+  // so they are FAIL, not a green light.
+  if (status === 400) {
     return {
       name,
       status: 'PASS',
-      detail: 'unsigned POST answered ' + status + ', so the signature gate refused it',
+      detail: 'unsigned POST answered 400, so the signature gate refused it',
+    };
+  }
+
+  if (status >= 400) {
+    return {
+      name,
+      status: 'FAIL',
+      detail: 'unsigned POST answered ' + status + ', so the route is not reachable as the webhook',
+      fix: 'check the site URL, that /api/webhooks/razorpay is deployed, and that Vercel deployment protection is off for Production',
     };
   }
 

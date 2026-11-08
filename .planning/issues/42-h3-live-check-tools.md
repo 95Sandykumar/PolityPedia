@@ -1,6 +1,6 @@
 ---
 id: 42-h3-live-check-tools
-status: blocked
+status: done
 type: afk
 depends_on: []
 ---
@@ -25,4 +25,4 @@ Unit tests with fake fetch and fake rows, no network: the comparison counts righ
 ## Notes / scope guard
 Do not edit `package.json`, `i18n.ts`, any migration, or any existing source file except to add exports that are strictly needed (say which). Never print or log a key. Do not call the real API in any test.
 
-<!-- ralph 2026-11-07T01:10:10.197Z: merge conflict against integration branch -->
+<!-- 2026-11-08: merged by hand into merge/night-0708 after a reviewer PR review; .gitignore conflict resolved by keeping all blocks -->

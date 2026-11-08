@@ -49,25 +49,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { runGoliveCheck, type GoliveCheckResult } from '@/lib/golive/preflight';
+import { loadLocalEnv } from './load-local-env';
 
 const HERE = join(import.meta.dirname, '..');
-
-/**
- * `web/.env.local`, when Node can load one.
- *
- * `process.loadEnvFile` is built into Node 22, which is the Node this repo
- * already needs for TypeScript type stripping. There is no dotenv dependency
- * and this adds none. Wrapped, because a missing file is the normal case on a
- * machine that puts its keys in the shell instead.
- */
-function loadLocalEnv(): void {
-  try {
-    const load = (process as unknown as { loadEnvFile?: (path: string) => void }).loadEnvFile;
-    if (typeof load === 'function') load.call(process, join(HERE, '.env.local'));
-  } catch {
-    // No file, or no permission. Both are fine: the shell may hold the keys.
-  }
-}
 
 /** The migration file names, so the newest can be compared to the database. */
 function migrationFiles(): string[] {

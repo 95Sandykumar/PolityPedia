@@ -311,6 +311,82 @@ export function compareSplit(input: CompareSplitInput): SplitComparison {
   };
 }
 
+/** How far a question may drift from its position and still be paired. */
+export const ALIGN_BAND = 10;
+
+/** Below this stem similarity two questions are not the same question. */
+export const ALIGN_FLOOR = 0.5;
+
+export interface Alignment {
+  /** The found questions that paired, renumbered to their truth number. */
+  aligned: CheckQuestion[];
+  /** Found questions whose position number changed. 0 on a clean split. */
+  renumbered: number;
+  /** Found questions that paired with no truth question at all. */
+  unpaired: number;
+}
+
+/**
+ * Pair the splitter's questions with the database's by STEM, not by position.
+ *
+ * The splitter schema has no number field, so a found question's number is
+ * its position. One dropped or merged question early in a paper would then
+ * shift every later question by one and score them all wrong. This finds the
+ * longest in-order pairing where each pair's stems are at least ALIGN_FLOOR
+ * similar (a banded LCS, so a 100-question paper costs about 2,000
+ * similarity calls, not 10,000). Each paired found question takes its truth
+ * number; `compareSplit` then scores it as usual. A clean split pairs every
+ * question with itself, so `renumbered` is 0 and nothing changes.
+ */
+export function alignByStem(
+  truth: readonly CheckQuestion[],
+  found: readonly CheckQuestion[],
+  band: number = ALIGN_BAND,
+  floor: number = ALIGN_FLOOR,
+): Alignment {
+  const t = [...truth].sort((a, b) => a.number - b.number);
+  const f = [...found].sort((a, b) => a.number - b.number);
+  const rows = t.length;
+  const cols = f.length;
+
+  const pairs = (i: number, j: number): boolean =>
+    Math.abs(i - j) <= band && similarity(t[i].stem, f[j].stem) >= floor;
+
+  // score[i][j]: best pairing count using t[i..] and f[j..].
+  const score: number[][] = Array.from({ length: rows + 1 }, () => new Array<number>(cols + 1).fill(0));
+  const match: boolean[][] = Array.from({ length: rows }, () => new Array<boolean>(cols).fill(false));
+  for (let i = rows - 1; i >= 0; i -= 1) {
+    for (let j = cols - 1; j >= 0; j -= 1) {
+      const skip = Math.max(score[i + 1][j], score[i][j + 1]);
+      if (pairs(i, j) && score[i + 1][j + 1] + 1 >= skip) {
+        match[i][j] = true;
+        score[i][j] = score[i + 1][j + 1] + 1;
+      } else {
+        score[i][j] = skip;
+      }
+    }
+  }
+
+  const aligned: CheckQuestion[] = [];
+  let renumbered = 0;
+  let i = 0;
+  let j = 0;
+  while (i < rows && j < cols) {
+    if (match[i][j]) {
+      if (f[j].number !== t[i].number) renumbered += 1;
+      aligned.push({ ...f[j], number: t[i].number });
+      i += 1;
+      j += 1;
+    } else if (score[i + 1][j] >= score[i][j + 1]) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+
+  return { aligned, renumbered, unpaired: cols - aligned.length };
+}
+
 // --------------------------------------------------------------------------
 // The dollars
 // --------------------------------------------------------------------------

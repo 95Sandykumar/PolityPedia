@@ -36,9 +36,12 @@ describe('checkWebhookEndpoint', () => {
     expect((init as RequestInit).method).toBe('POST');
   });
 
-  it('passes on any other 4xx', async () => {
-    expect((await checkWebhookEndpoint({ siteUrl: 'https://x.dev', fetchImpl: reply(401) })).status).toBe('PASS');
-    expect((await checkWebhookEndpoint({ siteUrl: 'https://x.dev', fetchImpl: reply(404) })).status).toBe('PASS');
+  it('fails on any other 4xx, because Razorpay could not reach the route either', async () => {
+    for (const code of [401, 403, 404, 405]) {
+      const check = await checkWebhookEndpoint({ siteUrl: 'https://x.dev', fetchImpl: reply(code) });
+      expect(check.status).toBe('FAIL');
+      expect(check.detail).toContain(String(code));
+    }
   });
 
   it('fails on 500', async () => {

@@ -19,6 +19,9 @@ export interface ParsedArgs {
   readonly positional: string[];
 }
 
+/** Flags that are on/off only and never read the next word. */
+const SWITCHES = new Set<string>(['refunded']);
+
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   const flags: Record<string, string | boolean> = {};
   const positional: string[] = [];
@@ -34,6 +37,13 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     const equals = body.indexOf('=');
     if (equals >= 0) {
       flags[body.slice(0, equals)] = body.slice(equals + 1);
+      continue;
+    }
+
+    // Switches never take a value, so `--refunded pay_X` keeps pay_X as the
+    // sale id instead of reading it as the flag's value.
+    if (SWITCHES.has(body)) {
+      flags[body] = true;
       continue;
     }
 

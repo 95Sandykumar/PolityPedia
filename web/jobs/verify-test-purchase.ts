@@ -48,20 +48,8 @@
  * With either missing it prints ONE line naming both, exits 1, and shows no
  * stack trace. No key, no token and no payment secret is ever printed.
  */
-import { join } from 'node:path';
 import { runVerifyTestPurchase, type VerifyRunResult } from '@/lib/golive/verify-run';
-
-const HERE = join(import.meta.dirname, '..');
-
-/** `web/.env.local`, when Node can load one. See `jobs/golive-check.ts`. */
-function loadLocalEnv(): void {
-  try {
-    const load = (process as unknown as { loadEnvFile?: (path: string) => void }).loadEnvFile;
-    if (typeof load === 'function') load.call(process, join(HERE, '.env.local'));
-  } catch {
-    // No file, or no permission. Both are fine: the shell may hold the keys.
-  }
-}
+import { loadLocalEnv } from './load-local-env';
 
 export async function main(
   argv: readonly string[] = process.argv.slice(2),

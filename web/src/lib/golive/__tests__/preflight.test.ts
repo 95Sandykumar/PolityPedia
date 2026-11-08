@@ -81,6 +81,12 @@ describe('parseArgs', () => {
     expect(parsed.flags.refunded).toBe(true);
     expect(parsed.flags.amount).toBe('299');
   });
+
+  it('never reads the sale id as the value of --refunded', () => {
+    const parsed = parseArgs(['--refunded', 'pay_123']);
+    expect(parsed.positional).toEqual(['pay_123']);
+    expect(parsed.flags.refunded).toBe(true);
+  });
 });
 
 describe('runGoliveCheck with --expect test (today)', () => {
