@@ -39,7 +39,7 @@ const BATCH_SETS = '/rest/v1/batch_sets';
 const JOIN = '/rest/v1/rpc/join_batch';
 
 /** Never `select=*`, so a column added later cannot leak by accident. */
-const BATCH_COLUMNS = 'id,teacher_id,name,join_code';
+const BATCH_COLUMNS = 'id,teacher_id,name,join_code,archived_at';
 const MEMBER_COLUMNS = 'batch_id,user_id,joined_at';
 const BATCH_SET_COLUMNS = 'batch_id,set_id';
 
@@ -60,6 +60,7 @@ interface BatchRaw {
   teacher_id?: unknown;
   name?: unknown;
   join_code?: unknown;
+  archived_at?: unknown;
 }
 
 interface MemberRaw {
@@ -84,7 +85,8 @@ function readBatchRow(raw: BatchRaw): Batch | null {
   const name = text(raw?.name);
   const joinCode = text(raw?.join_code);
   if (!id || !teacherId || !name || !joinCode) return null;
-  return { id, teacherId, name, joinCode };
+  const archivedAt = text(raw?.archived_at);
+  return { id, teacherId, name, joinCode, ...(archivedAt ? { archivedAt } : {}) };
 }
 
 function readMemberRow(raw: MemberRaw): BatchMember | null {

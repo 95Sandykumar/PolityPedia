@@ -28,7 +28,7 @@ const TABLE = '/rest/v1/papers';
 
 /** Never `select=*`, so a column added later cannot leak by accident. */
 const COLUMNS =
-  'id,teacher_id,exam_id,year,month,label,pdf_questions_path,pdf_solutions_path,status';
+  'id,teacher_id,exam_id,year,month,label,pdf_questions_path,pdf_solutions_path,status,archived_at';
 
 /** Newest paper first, which is the order a student wants them in. */
 const ORDER = '&order=exam_id.asc,year.desc,month.desc,label.asc';
@@ -52,6 +52,7 @@ interface Row {
   pdf_questions_path?: unknown;
   pdf_solutions_path?: unknown;
   status?: unknown;
+  archived_at?: unknown;
 }
 
 function text(value: unknown): string | null {
@@ -82,6 +83,7 @@ function readRow(raw: Row): Paper | null {
     questionsPath: text(raw.pdf_questions_path),
     solutionsPath: text(raw.pdf_solutions_path),
     status: raw.status,
+    ...(text(raw.archived_at) ? { archivedAt: text(raw.archived_at) } : {}),
   };
 }
 

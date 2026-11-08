@@ -146,7 +146,15 @@ export async function handleExamLoad({
       langMode,
     });
     return { status: 200, body: guardAnswerKey(data) };
-  } catch {
+  } catch (cause) {
+    // Issue 45-keep-money-and-scores: the teacher archived this test, so no
+    // NEW sitting can start. A plain sentence, because the player shows it.
+    if ((cause as Error)?.name === 'TestArchived') {
+      return {
+        status: 409,
+        body: { error: 'This test has been archived by the teacher and takes no new attempts.' },
+      };
+    }
     // Fixed message: the thrown error may quote a policy.
     return { status: 502, body: { error: 'load failed' } };
   }

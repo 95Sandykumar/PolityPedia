@@ -76,6 +76,8 @@ export interface MockSet {
   title: string;
   priceInr: number;
   status: MockSetStatus;
+  /** Set when the set was archived (0041). Absent for a set in the normal list. */
+  archivedAt?: string | null;
 }
 
 /** One row of `mock_tests`. */
@@ -88,6 +90,8 @@ export interface MockTest {
   durationMin: number;
   /** V11: the one free test. Position 1 only. */
   isFreeSample: boolean;
+  /** Set when the test was archived (0041). Absent otherwise. */
+  archivedAt?: string | null;
 }
 
 /**

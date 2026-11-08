@@ -88,11 +88,13 @@ export async function readTeacherHome(
     readMyVideos(session).catch(() => ({ videos: [], visible: true })),
   ]);
 
+  // Issue 45-keep-money-and-scores: an archived paper, set or batch is not part
+  // of "what I have", so the home counts and next-step hints skip it.
   return summarizeTeacherHome({
     teacher,
-    papers,
-    mocks,
-    batches,
+    papers: papers.filter((one) => !one.archivedAt),
+    mocks: mocks.filter((one) => !one.archivedAt),
+    batches: batches.filter((one) => !one.archivedAt),
     notices: posts.length,
     videos: videos.videos.length,
   });

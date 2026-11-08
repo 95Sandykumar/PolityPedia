@@ -344,14 +344,20 @@ describe('losing the batch', () => {
     expect(await questionCount(student, testA1)).toBe(0);
   });
 
-  it('revokes the sets when the whole batch is deleted', async () => {
+  it('revokes the sets when the whole batch is removed', async () => {
     const batch = await createBatch(teacherA, 'Morning batch');
     await addSet(teacherA, batch.id, setA1);
     await join(student, batch.code);
 
-    await db.asUser(teacherA, async (sql) => {
-      await sql.query('delete from public.batches where id = $1', [batch.id]);
+    // 0041: a teacher no longer hard-deletes a batch. remove_batch() archives
+    // one that has members, and archiving withdraws the grants the same way.
+    const result = await db.asUser(teacherA, async (sql) => {
+      const res = await sql.query<{ r: string }>('select public.remove_batch($1) as r', [
+        batch.id,
+      ]);
+      return res.rows[0].r;
     });
+    expect(result).toBe('archived');
 
     expect(await batchGrants(student)).toEqual([]);
     expect(await questionCount(student, testA1)).toBe(0);

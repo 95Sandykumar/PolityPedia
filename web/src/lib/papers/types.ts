@@ -67,6 +67,8 @@ export interface Paper {
   questionsPath: string | null;
   solutionsPath: string | null;
   status: PaperStatus;
+  /** Set when the paper was archived (0041). Absent otherwise. */
+  archivedAt?: string | null;
 }
 
 /** What the teacher fills in, before anything is uploaded. */

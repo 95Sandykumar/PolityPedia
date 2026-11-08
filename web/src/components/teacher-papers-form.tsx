@@ -33,6 +33,14 @@ import { Download, FileText, ListChecks, Plus, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import {
+  ArchiveNotice,
+  ArchiveTabs,
+  RemoveButton,
+  RestoreButton,
+  useArchiveList,
+  type ArchiveList,
+} from '@/components/archive-controls';
+import {
   BOX,
   CARD,
   EmptyState,
@@ -46,6 +54,7 @@ import {
   StatusChip,
   goToForm,
 } from '@/components/teacher-ui';
+import type { BrowserArchiveClient } from '@/lib/archive/types';
 import { examLabels, type Exam } from '@/lib/exams/types';
 import { createBrowserPapersClient } from '@/lib/papers/browser-papers-client';
 import {
@@ -84,6 +93,7 @@ export function TeacherPapersForm({
   exams,
   papers,
   client,
+  archiveClient,
   mode = DEFAULT_MODE,
   configured = true,
 }: {
@@ -92,6 +102,8 @@ export function TeacherPapersForm({
   /** The teacher's own papers, drafts included. */
   papers: readonly Paper[];
   client?: BrowserPapersClient;
+  /** Delete, archive and restore (issue 45). A prop so tests can fake it. */
+  archiveClient?: BrowserArchiveClient;
   mode?: LangMode;
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
@@ -99,7 +111,8 @@ export function TeacherPapersForm({
   const fallback = useMemo(() => createBrowserPapersClient(), []);
   const data = client ?? fallback;
 
-  const [rows, setRows] = useState<Paper[]>(() => [...papers]);
+  const archive = useArchiveList<Paper>(papers, 'paper', 'archive.archivedPaper', archiveClient);
+  const { rows, setRows } = archive;
   const [examId, setExamId] = useState(exams[0]?.id ?? '');
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
@@ -183,7 +196,8 @@ export function TeacherPapersForm({
       <ListLayout
         list={
           <PaperRows
-            papers={rows}
+            papers={archive.visible}
+            archive={archive}
             exams={exams}
             mode={mode}
             empty={
@@ -324,20 +338,33 @@ export function TeacherPapersForm({
  */
 function PaperRows({
   papers,
+  archive,
   exams,
   mode,
   empty,
 }: {
   papers: readonly Paper[];
+  archive: ArchiveList<Paper>;
   exams: readonly Exam[];
   mode: LangMode;
   empty: React.ReactNode;
 }) {
   const groups = groupPapers(papers, exams);
-  if (groups.length === 0) return <>{empty}</>;
+  const archived = archive.tab === 'archived';
 
   return (
     <div className="flex flex-col gap-6">
+      <ArchiveNotice list={archive} mode={mode} />
+      <ArchiveTabs list={archive} mode={mode} />
+      {groups.length === 0 ? (
+        archived ? (
+          <p role="status" className="text-muted-foreground">
+            {plain('archive.none', mode)}
+          </p>
+        ) : (
+          empty
+        )
+      ) : null}
       {groups.map((group) => {
         const examLines =
           mode === 'both' ? [group.nameEn, group.nameHi] : [mode === 'hi' ? group.nameHi : group.nameEn];
@@ -408,6 +435,11 @@ function PaperRows({
                           {paper.solutionsPath ? (
                             <PdfLink paper={paper} kind="solutions" labelKey="papers.solutions" mode={mode} />
                           ) : null}
+                          {paper.archivedAt ? (
+                            <RestoreButton list={archive} id={paper.id} mode={mode} />
+                          ) : (
+                            <RemoveButton list={archive} id={paper.id} mode={mode} />
+                          )}
                         </div>
                       </li>
                     ))}

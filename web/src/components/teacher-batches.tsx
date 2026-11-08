@@ -31,6 +31,14 @@ import { Check, ChevronRight, Copy, Plus, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
+  ArchiveNotice,
+  ArchiveTabs,
+  RemoveButton,
+  RestoreButton,
+  useArchiveList,
+  type ArchiveList,
+} from '@/components/archive-controls';
+import {
   BOX,
   CARD,
   EmptyState,
@@ -42,6 +50,7 @@ import {
   QUIET_BUTTON,
   goToForm,
 } from '@/components/teacher-ui';
+import type { BrowserArchiveClient } from '@/lib/archive/types';
 import { createBrowserBatchesClient } from '@/lib/batches/browser-batches-client';
 import {
   MAX_BATCH_NAME_LENGTH,
@@ -59,6 +68,7 @@ export function TeacherBatches({
   batches,
   origin,
   client,
+  archiveClient,
   mode = DEFAULT_MODE,
   configured = true,
 }: {
@@ -70,6 +80,8 @@ export function TeacherBatches({
    */
   origin: string;
   client?: BrowserBatchesClient;
+  /** Delete, archive and restore (issue 45). A prop so tests can fake it. */
+  archiveClient?: BrowserArchiveClient;
   mode?: LangMode;
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
@@ -77,7 +89,13 @@ export function TeacherBatches({
   const fallback = useMemo(() => createBrowserBatchesClient(), []);
   const data = client ?? fallback;
 
-  const [rows, setRows] = useState<BatchRow[]>(() => [...batches]);
+  const archive = useArchiveList<BatchRow>(
+    batches,
+    'batch',
+    'archive.archivedBatch',
+    archiveClient,
+  );
+  const { rows, setRows } = archive;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -138,7 +156,8 @@ export function TeacherBatches({
       <ListLayout
         list={
           <BatchList
-            rows={rows}
+            rows={archive.visible}
+            archive={archive}
             origin={origin}
             mode={mode}
             empty={
@@ -203,17 +222,49 @@ export function TeacherBatches({
 
 function BatchList({
   rows,
+  archive,
   origin,
   mode,
   empty,
 }: {
   rows: readonly BatchRow[];
+  archive: ArchiveList<BatchRow>;
   origin: string;
   mode: LangMode;
   empty: React.ReactNode;
 }) {
-  if (rows.length === 0) return <>{empty}</>;
+  const archived = archive.tab === 'archived';
 
+  return (
+    <div className="flex flex-col gap-3">
+      <ArchiveNotice list={archive} mode={mode} />
+      <ArchiveTabs list={archive} mode={mode} />
+      {rows.length === 0 ? (
+        archived ? (
+          <p role="status" className="text-muted-foreground">
+            {plain('archive.none', mode)}
+          </p>
+        ) : (
+          <>{empty}</>
+        )
+      ) : (
+        <BatchRows rows={rows} archive={archive} origin={origin} mode={mode} />
+      )}
+    </div>
+  );
+}
+
+function BatchRows({
+  rows,
+  archive,
+  origin,
+  mode,
+}: {
+  rows: readonly BatchRow[];
+  archive: ArchiveList<BatchRow>;
+  origin: string;
+  mode: LangMode;
+}) {
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((row) => (
@@ -243,7 +294,19 @@ function BatchList({
             </Link>
           </div>
 
-          <CopyLink code={row.joinCode} origin={origin} mode={mode} />
+          {row.archivedAt ? (
+            // An archived batch cannot be joined, so its code has no use.
+            <div className="flex justify-end">
+              <RestoreButton list={archive} id={row.id} mode={mode} />
+            </div>
+          ) : (
+            <>
+              <CopyLink code={row.joinCode} origin={origin} mode={mode} />
+              <div className="flex justify-end">
+                <RemoveButton list={archive} id={row.id} mode={mode} />
+              </div>
+            </>
+          )}
         </li>
       ))}
     </ul>

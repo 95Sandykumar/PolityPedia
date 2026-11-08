@@ -28,6 +28,14 @@
 import { ChevronRight, ListChecks, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import {
+  ArchiveNotice,
+  ArchiveTabs,
+  RemoveButton,
+  RestoreButton,
+  useArchiveList,
+  type ArchiveList,
+} from '@/components/archive-controls';
 import { PriceStepper } from '@/components/price-stepper';
 import {
   BOX,
@@ -42,6 +50,7 @@ import {
   StatusChip,
   goToForm,
 } from '@/components/teacher-ui';
+import type { BrowserArchiveClient } from '@/lib/archive/types';
 import { examLabels, type Exam } from '@/lib/exams/types';
 import { createBrowserMocksClient } from '@/lib/mocks/browser-mocks-client';
 import {
@@ -66,6 +75,7 @@ export function TeacherMocks({
   sets,
   sharePct,
   client,
+  archiveClient,
   mode = DEFAULT_MODE,
   configured = true,
 }: {
@@ -76,6 +86,8 @@ export function TeacherMocks({
   /** The teacher's own `revenue_share_pct` (X3). */
   sharePct: number;
   client?: BrowserMockSetsClient;
+  /** Delete, archive and restore (issue 45). A prop so tests can fake it. */
+  archiveClient?: BrowserArchiveClient;
   mode?: LangMode;
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
@@ -83,7 +95,8 @@ export function TeacherMocks({
   const fallback = useMemo(() => createBrowserMocksClient(), []);
   const data = client ?? fallback;
 
-  const [rows, setRows] = useState<MockSet[]>(() => [...sets]);
+  const archive = useArchiveList<MockSet>(sets, 'mock-set', 'archive.archivedSet', archiveClient);
+  const { rows, setRows } = archive;
   const [examId, setExamId] = useState(exams[0]?.id ?? '');
   const [title, setTitle] = useState('');
   // The floor, so a teacher who never touches the stepper sells at the
@@ -149,7 +162,8 @@ export function TeacherMocks({
       <ListLayout
         list={
           <MockSetList
-            sets={rows}
+            sets={archive.visible}
+            archive={archive}
             exams={exams}
             mode={mode}
             empty={
@@ -238,23 +252,55 @@ export function TeacherMocks({
 /** The teacher's own sets, newest first, each a door into its own page. */
 function MockSetList({
   sets,
+  archive,
   exams,
   mode,
   empty,
 }: {
   sets: readonly MockSet[];
+  archive: ArchiveList<MockSet>;
   exams: readonly Exam[];
   mode: LangMode;
   empty: React.ReactNode;
 }) {
-  if (sets.length === 0) return <>{empty}</>;
+  const archived = archive.tab === 'archived';
 
+  return (
+    <div className="flex flex-col gap-3">
+      <ArchiveNotice list={archive} mode={mode} />
+      <ArchiveTabs list={archive} mode={mode} />
+      {sets.length === 0 ? (
+        archived ? (
+          <p role="status" className="text-muted-foreground">
+            {plain('archive.none', mode)}
+          </p>
+        ) : (
+          <>{empty}</>
+        )
+      ) : (
+        <MockSetRows sets={sets} archive={archive} exams={exams} mode={mode} />
+      )}
+    </div>
+  );
+}
+
+function MockSetRows({
+  sets,
+  archive,
+  exams,
+  mode,
+}: {
+  sets: readonly MockSet[];
+  archive: ArchiveList<MockSet>;
+  exams: readonly Exam[];
+  mode: LangMode;
+}) {
   return (
     <ul className="flex flex-col gap-3">
       {sets.map((set) => {
         const exam = exams.find((one) => one.id === set.examId);
         return (
-          <li key={set.id} className={cn(CARD, 'flex items-center justify-between gap-3')}>
+          <li key={set.id} className={cn(CARD, 'flex flex-wrap items-center justify-between gap-3')}>
             <div className="flex min-w-0 flex-col gap-1">
               <span className="font-medium break-words text-foreground">{set.title}</span>
               <span className="text-sm text-muted-foreground">
@@ -272,15 +318,22 @@ function MockSetList({
               </span>
             </div>
 
-            {/* B3: no viewport prefetch. */}
-            <Link
-              href={mockSetPath(set.id)}
-              prefetch={false}
-              className={cn(QUIET_BUTTON, 'shrink-0 border-primary text-primary')}
-            >
-              {plain('mocks.open', mode)}
-              <ChevronRight size={20} strokeWidth={2} aria-hidden="true" />
-            </Link>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* B3: no viewport prefetch. */}
+              <Link
+                href={mockSetPath(set.id)}
+                prefetch={false}
+                className={cn(QUIET_BUTTON, 'border-primary text-primary')}
+              >
+                {plain('mocks.open', mode)}
+                <ChevronRight size={20} strokeWidth={2} aria-hidden="true" />
+              </Link>
+              {set.archivedAt ? (
+                <RestoreButton list={archive} id={set.id} mode={mode} />
+              ) : (
+                <RemoveButton list={archive} id={set.id} mode={mode} />
+              )}
+            </div>
           </li>
         );
       })}

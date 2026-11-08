@@ -49,8 +49,8 @@ const TEACHERS = '/rest/v1/teachers';
 const PUBLISH = '/rest/v1/rpc/publish_mock_set';
 
 /** Never `select=*`, so a column added later cannot leak by accident. */
-const SET_COLUMNS = 'id,teacher_id,exam_id,title,price_inr,status';
-const TEST_COLUMNS = 'id,set_id,title,position,duration_min,is_free_sample';
+const SET_COLUMNS = 'id,teacher_id,exam_id,title,price_inr,status,archived_at';
+const TEST_COLUMNS = 'id,set_id,title,position,duration_min,is_free_sample,archived_at';
 
 /**
  * The Postgres error codes `publish_mock_set()` raises -> the NAME the route
@@ -88,6 +88,7 @@ interface SetRow {
   title?: unknown;
   price_inr?: unknown;
   status?: unknown;
+  archived_at?: unknown;
 }
 
 interface TestRow {
@@ -97,6 +98,7 @@ interface TestRow {
   position?: unknown;
   duration_min?: unknown;
   is_free_sample?: unknown;
+  archived_at?: unknown;
 }
 
 function text(value: unknown): string | null {
@@ -118,7 +120,16 @@ function readSetRow(raw: SetRow): MockSet | null {
   // A status we do not know is not trusted: it could mean "live" one day.
   if (!isMockSetStatus(raw.status)) return null;
 
-  return { id, teacherId, examId, title, priceInr, status: raw.status };
+  const archivedAt = text(raw.archived_at);
+  return {
+    id,
+    teacherId,
+    examId,
+    title,
+    priceInr,
+    status: raw.status,
+    ...(archivedAt ? { archivedAt } : {}),
+  };
 }
 
 function readTestRow(raw: TestRow): MockTest | null {
@@ -138,6 +149,7 @@ function readTestRow(raw: TestRow): MockTest | null {
     // Fails CLOSED: anything that is not exactly `true` is a PAID test, so a
     // broken row never gives a test away.
     isFreeSample: raw.is_free_sample === true,
+    ...(text(raw.archived_at) ? { archivedAt: text(raw.archived_at) } : {}),
   };
 }
 

@@ -23,6 +23,13 @@
  */
 import { Check, ChevronDown, Clock, ListChecks, Plus, Tag } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import {
+  ArchiveNotice,
+  ArchiveTabs,
+  RemoveButton,
+  RestoreButton,
+  useArchiveList,
+} from '@/components/archive-controls';
 import { PriceStepper } from '@/components/price-stepper';
 import {
   BOX,
@@ -35,6 +42,7 @@ import {
   StatusChip,
 } from '@/components/teacher-ui';
 import { QuestionForm } from '@/components/teacher-review';
+import type { BrowserArchiveClient } from '@/lib/archive/types';
 import { createBrowserMocksClient } from '@/lib/mocks/browser-mocks-client';
 import {
   canBeFreeSample,
@@ -87,6 +95,7 @@ export function MockSetEditor({
   sharePct,
   client,
   questionsClient,
+  archiveClient,
   mode = DEFAULT_MODE,
   configured = true,
 }: {
@@ -100,6 +109,8 @@ export function MockSetEditor({
   sharePct: number;
   client?: BrowserMockSetsClient;
   questionsClient?: BrowserQuestionsClient;
+  /** Remove and restore a test, or restore the set (issue 45). */
+  archiveClient?: BrowserArchiveClient;
   mode?: LangMode;
   /** False when the Supabase env vars are missing. */
   configured?: boolean;
@@ -109,7 +120,22 @@ export function MockSetEditor({
   const data = client ?? fallbackMocks;
   const questionData = questionsClient ?? fallbackQuestions;
 
-  const [testRows, setTestRows] = useState<MockTest[]>(() => sortTests(tests ?? []));
+  // Active AND archived tests, so a new test never takes the position an
+  // archived one still holds (mock_tests_set_position_idx).
+  const testArchive = useArchiveList<MockTest>(
+    sortTests(tests ?? []),
+    'mock-test',
+    'archive.archivedSet',
+    archiveClient,
+  );
+  const { rows: testRows, setRows: setTestRows } = testArchive;
+  const setArchive = useArchiveList<MockSet>(
+    set ? [set] : [],
+    'mock-set',
+    'archive.archivedSet',
+    archiveClient,
+  );
+  const setArchivedAt = setArchive.rows[0]?.archivedAt ?? null;
   const [questionRows, setQuestionRows] = useState<Question[]>(() => [
     ...(questions ?? []),
   ]);
@@ -151,7 +177,13 @@ export function MockSetEditor({
   // set when the teacher taps, not while this function runs, so TypeScript
   // cannot narrow the prop itself inside them.
   const open = set;
-  const block = mockPublishBlock({ tests: testRows, questions: questionRows });
+  // Publish looks at the ACTIVE tests only; an archived test is out of the set.
+  const activeTests = testRows.filter((one) => !one.archivedAt);
+  const activeIds = new Set(activeTests.map((one) => one.id));
+  const block = mockPublishBlock({
+    tests: activeTests,
+    questions: questionRows.filter((one) => one.testId !== null && activeIds.has(one.testId)),
+  });
   const nextPosition = nextTestPosition(testRows);
 
   function fail(cause: unknown) {
@@ -233,7 +265,16 @@ export function MockSetEditor({
         <StatusChip live={status === 'live'}>
           {plain(status === 'live' ? 'mocks.live' : 'mocks.draft', mode)}
         </StatusChip>
+        {setArchivedAt ? (
+          <>
+            <span className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-xs leading-4 font-medium text-muted-foreground">
+              {plain('archive.chip', mode)}
+            </span>
+            <RestoreButton list={setArchive} id={open.id} mode={mode} />
+          </>
+        ) : null}
       </div>
+      <ArchiveNotice list={setArchive} mode={mode} />
 
       {problem ? (
         <p role="alert" className="rounded-[10px] border border-wrong bg-wrong-soft p-3 text-wrong">
@@ -277,15 +318,24 @@ export function MockSetEditor({
         <h2 className="flex items-baseline gap-2 text-[18px] leading-6 font-bold">
           {plain('mocks.tests', mode)}
           <span className="text-sm font-medium text-muted-foreground tabular-nums">
-            {testRows.length}
+            {activeTests.length}
           </span>
         </h2>
 
-        {testRows.length === 0 ? (
-          <EmptyState icon={ListChecks} text={plain('mocks.noTests', mode)} />
+        <ArchiveNotice list={testArchive} mode={mode} />
+        <ArchiveTabs list={testArchive} mode={mode} />
+
+        {testArchive.visible.length === 0 ? (
+          testArchive.tab === 'archived' ? (
+            <p role="status" className="text-muted-foreground">
+              {plain('archive.none', mode)}
+            </p>
+          ) : (
+            <EmptyState icon={ListChecks} text={plain('mocks.noTests', mode)} />
+          )
         ) : (
           <ul className="flex flex-col gap-3">
-            {testRows.map((one) => {
+            {testArchive.visible.map((one) => {
               const count = questionRows.filter((q) => q.testId === one.id).length;
               return (
                 <li key={one.id} className={`${CARD} flex flex-col gap-3`}>
@@ -337,6 +387,14 @@ export function MockSetEditor({
                         )}
                       />
                     </button>
+                  </div>
+
+                  <div className="flex justify-end">
+                    {one.archivedAt ? (
+                      <RestoreButton list={testArchive} id={one.id} mode={mode} />
+                    ) : (
+                      <RemoveButton list={testArchive} id={one.id} mode={mode} />
+                    )}
                   </div>
 
                   {openTestId === one.id ? (

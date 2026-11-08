@@ -53,7 +53,8 @@ export default async function TeacherBatchPage({
       <TeacherBatchDetail
         batch={page.batch}
         members={page.members}
-        sets={sets}
+        // An archived set cannot be handed to a batch (issue 45).
+        sets={sets.filter((one) => !one.archivedAt)}
         freeSetIds={page.freeSetIds}
         origin={origin}
         mode={mode}

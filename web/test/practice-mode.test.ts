@@ -269,15 +269,19 @@ describe('a sitting of a mock test', () => {
     ).rejects.toThrow();
   });
 
-  it('goes away with the test it belongs to', async () => {
+  it('is kept when its test is deleted: the test cannot be hard-deleted (0041)', async () => {
+    // Before 0041 the sitting cascaded away with its test, which erased a
+    // student's score. Now attempts.test_id is ON DELETE RESTRICT.
     const attempt = await startAttempt(student, freeTest);
-    await db.admin.query('delete from public.mock_tests where id = $1', [freeTest]);
+    await expect(
+      db.admin.query('delete from public.mock_tests where id = $1', [freeTest]),
+    ).rejects.toThrow(/attempts_test_fkey/);
 
     const res = await db.admin.query<{ n: number }>(
       'select count(*)::int as n from public.attempts where id = $1',
       [attempt],
     );
-    expect(res.rows[0].n).toBe(0);
+    expect(res.rows[0].n).toBe(1);
   });
 
   it('carries no deadline in practice mode, because practice has no timer', async () => {

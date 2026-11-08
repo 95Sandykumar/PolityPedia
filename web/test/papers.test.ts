@@ -198,9 +198,13 @@ describe('a teacher and their own papers', () => {
     });
     expect((await stored(id))?.label).toBe('Shift 2');
 
-    await db.asUser(teacherA, async (sql) => {
-      await sql.query('delete from public.papers where id = $1', [id]);
+    // 0041: the DELETE policy is gone; remove_paper() hard-deletes a paper
+    // nobody has sat and archives one that has attempts.
+    const result = await db.asUser(teacherA, async (sql) => {
+      const res = await sql.query<{ r: string }>('select public.remove_paper($1) as r', [id]);
+      return res.rows[0].r;
     });
+    expect(result).toBe('deleted');
     expect(await stored(id)).toBeNull();
   });
 

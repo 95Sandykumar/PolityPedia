@@ -1,6 +1,6 @@
 ---
 id: 45-keep-money-and-scores
-status: todo
+status: done
 type: afk
 depends_on: []
 ---

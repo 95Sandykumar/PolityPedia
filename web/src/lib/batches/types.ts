@@ -47,6 +47,8 @@ export interface Batch {
   name: string;
   /** What a student types or taps. Upper-case, unique across the app. */
   joinCode: string;
+  /** Set when the batch was archived (0041). Absent otherwise. */
+  archivedAt?: string | null;
 }
 
 /** One row of the teacher's batch list: the batch plus how many are in it. */

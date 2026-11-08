@@ -273,6 +273,23 @@ describe('handleExamLoad', () => {
     expect(reply.status).toBe(502);
     expect(JSON.stringify(reply.body)).not.toContain('policy');
   });
+
+  // Issue 45-keep-money-and-scores: the teacher archived the test.
+  it('refuses a NEW attempt on an archived test with a clear message', async () => {
+    const reply = await handleExamLoad({
+      testId: TEST,
+      query: { mode: 'exam' },
+      session: SESSION,
+      langMode: 'en',
+      load: async () => {
+        throw Object.assign(new Error('test archived'), { name: 'TestArchived' });
+      },
+    });
+
+    expect(reply.status).toBe(409);
+    expect((reply.body as { error: string }).error).toMatch(/archived/i);
+    expect((reply.body as { error: string }).error).toMatch(/no new attempts/i);
+  });
 });
 
 // --------------------------------------------------------------------------
