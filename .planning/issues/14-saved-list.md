@@ -23,6 +23,7 @@ Wrong answers save themselves with the tag Wrong. Mark for later saves with the 
 - F-E8: one Saved list with two tags.
 
 ## Notes / scope guard
-No spaced repetition.
+No spaced repetition in v1. Do not build it, do not add columns for it.
+V2 idea (2026-11-05, from the DeepTutor check): schedule Wrong questions to come back for repeat practice, like the DeepTutor Question Bank. Keep `saved_questions` simple so a later migration can add a due date.
 
 <!-- ralph 2026-11-05T18:47:49.496Z: committed + tests pass -->

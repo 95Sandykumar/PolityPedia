@@ -134,3 +134,40 @@ flowchart LR
 | H6-teacher-v11-picks | human | none |
 
 Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md`. Page: https://claude.ai/artifact/EK4km7gvvmR5Cjx9FjjG8z
+
+## v1.2 student journey (2026-11-08)
+
+Source: `.planning/intake/2026-11-08-student-journey/` (PRD.md, decisions.md, walk reports). Page: https://claude.ai/artifact/KXCxrgSu6NsYfxxi4D51EA
+Order A: teacher tickets 46 and 49 now wait for student safety slices 55, 59, 61, 62. Migration numbers: teacher 0042 to 0048, student 0049 to 0054.
+
+| Ticket | Type | Blocked by |
+|---|---|---|
+| 54-visible-read-errors | afk | none |
+| 55-schema-guard-and-read-alerts | afk | 54 |
+| 56-result-page | afk | none |
+| 57-review-and-retake | afk | 56 |
+| 58-exam-answer-queue | afk | 56 |
+| 59-start-screen-and-submit-confirm | afk | 58 |
+| 60-after-pay-screen | afk | 54, 57 |
+| 61-block-second-order | afk | none |
+| 62-prepay-card-and-my-purchases | afk | 60 |
+| 63-public-landing | afk | none |
+| 64-signin-errors-and-resend | afk | none |
+| 65-join-link-survives-sign-in | afk | 64 |
+| 66-papers-question-count | afk | none |
+| 67-teachers-filter-and-free-badge | afk | none |
+| 68-free-test-card-and-mock-list-cleanup | afk | 62, 63, 67 |
+| 69-continue-card | afk | 56, 68 |
+| 70-progress-and-streak | afk | 69 |
+| 71-exam-countdown-own-exam | afk | 69 |
+| 72-saved-cards-show-answers | afk | 57 |
+| 73-practise-saved-session | afk | 72 |
+| 74-spaced-repetition | afk | 73 |
+| 75-today-card | afk | 74, 71 |
+| 76-topic-filter | afk | 68, 49 |
+| 77-weak-topic-chips | afk | 70, 76 |
+| 78-installable-app | afk | none |
+| 79-student-display-name | afk | 53 |
+| H7-apply-live-migrations-and-push | human | none |
+| H8-refund-policy-and-support | human | none |
+| H9-push-reminder-keys | human | 78 |
