@@ -51,8 +51,13 @@ const API_VERSION = '2023-06-01';
  * the tool means this deployment's model does not have the newer type yet;
  * anything else is a real failure and is not retried, because a retry would
  * be a second billed call for one explanation (F4).
+ *
+ * EXPORTED for `web/jobs/live-checks/search-probe.ts` (issue
+ * 42-h3-live-check-tools), which asks the real API which of these two it
+ * accepts. The probe reads the constant instead of repeating the strings, so
+ * the live answer is always about the list the app really sends.
  */
-const SEARCH_TOOL_TYPES = ['web_search_20260209', 'web_search_20250305'] as const;
+export const SEARCH_TOOL_TYPES = ['web_search_20260209', 'web_search_20250305'] as const;
 
 /** Room for a long explanation plus whatever thinking Haiku does. */
 const MAX_TOKENS = 4_000;

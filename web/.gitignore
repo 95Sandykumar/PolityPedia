@@ -14,3 +14,9 @@ coverage
 # somewhere to write on a fresh clone.
 live-checks/voice-samples/*
 !live-checks/voice-samples/.gitkeep
+
+# Live-check reports (issue 42-h3-live-check-tools). Every run writes one real
+# measurement here. They are Boss's numbers, not source: he copies them into
+# notes.md himself, and a report can quote a question from a paper.
+live-checks/results/*
+!live-checks/results/.gitkeep
