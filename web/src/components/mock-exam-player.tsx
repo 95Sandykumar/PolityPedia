@@ -17,6 +17,7 @@
  */
 import { useMemo } from 'react';
 import { ExamPlayer } from '@/components/exam-player';
+import { createBrowserResultReader } from '@/lib/attempts/browser-result-client';
 import type { AttemptAnswer } from '@/lib/attempts/types';
 import { createBrowserExamClient } from '@/lib/exam/browser-exam-client';
 import type { ExamQuestion } from '@/lib/exam/types';
@@ -36,6 +37,7 @@ export function MockExamPlayer({
   startedAnswers,
   revealed,
   score,
+  nextHref = null,
 }: {
   questions: readonly (Question | ExamQuestion)[];
   attemptId: string;
@@ -51,11 +53,20 @@ export function MockExamPlayer({
   startedAnswers?: readonly (readonly [string, AttemptAnswer])[];
   revealed?: boolean;
   score?: number | null;
+  /** Where the result page's "Next test" goes (issue 56-result-page). */
+  nextHref?: string | null;
 }) {
   const client = useMemo(
     () => createBrowserExamClient({ testId, topicId }),
     [testId, topicId],
   );
+
+  /**
+   * The result read (issue 56-result-page). `useMemo` with no dependencies,
+   * because the player asks ONCE and uses the identity of this function to
+   * decide that: a new one on every render would re-arm its effect.
+   */
+  const readResult = useMemo(() => createBrowserResultReader(), []);
 
   return (
     <ExamPlayer
@@ -68,6 +79,8 @@ export function MockExamPlayer({
       startedAnswers={startedAnswers}
       revealed={revealed}
       score={score}
+      readResult={readResult}
+      nextHref={nextHref}
       client={client}
     />
   );
