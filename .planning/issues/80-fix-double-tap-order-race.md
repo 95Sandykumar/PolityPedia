@@ -1,6 +1,6 @@
 ---
 id: 80-fix-double-tap-order-race
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -25,3 +25,5 @@ A test that fires two calls at the same time (two connections or `Promise.all`),
 
 ## Notes / scope guard
 Migration only plus its test. No UI change. A pending row with a NULL order id is a known, accepted case.
+
+<!-- ralph 2026-11-09T21:59:57.905Z: committed + tests pass -->

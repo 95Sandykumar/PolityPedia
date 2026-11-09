@@ -1,6 +1,6 @@
 ---
 id: 81-fix-papers-count-truncation
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ A fixture with more than 1000 live question rows across papers: every paper show
 
 ## Notes / scope guard
 Do not change the papers list design. Do not touch teacher screens.
+
+<!-- ralph 2026-11-09T22:10:17.219Z: committed + tests pass -->

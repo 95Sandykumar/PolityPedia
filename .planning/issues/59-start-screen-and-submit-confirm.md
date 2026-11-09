@@ -1,6 +1,6 @@
 ---
 id: 59-start-screen-and-submit-confirm
-status: todo
+status: blocked
 type: afk
 depends_on: [58-exam-answer-queue]
 ---
@@ -33,3 +33,5 @@ A page view must not write data. 0041 rules stay: an archived test refuses new s
 Do not change scoring. Result page is ticket 56.
 
 <!-- ralph 2026-11-09T18:51:51.034Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.179Z: upstream 56-result-page blocked -->

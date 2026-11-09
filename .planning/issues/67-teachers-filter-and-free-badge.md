@@ -1,6 +1,6 @@
 ---
 id: 67-teachers-filter-and-free-badge
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -31,3 +31,5 @@ B8: one query for the list, never one per teacher. Never expose draft sets or al
 No ratings, no search, no student counts.
 
 <!-- ralph 2026-11-09T19:37:09.898Z: no new commit -- slice unfinished -->
+
+<!-- ralph 2026-11-09T21:52:50.410Z: no new commit -- slice unfinished -->

@@ -1,6 +1,6 @@
 ---
 id: 47-videos-youtube-and-instagram
-status: todo
+status: blocked
 type: afk
 depends_on: [46-teacher-setup-checklist]
 ---
@@ -26,3 +26,5 @@ Parser: 15+ URL cases. PGlite: instagram row without url refused, youtube row wi
 No YouTube Data API, no Instagram Graph API, no scraping. Do not apply the migration live.
 
 <!-- ralph 2026-11-09T18:51:51.053Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.205Z: upstream 56-result-page blocked -->
