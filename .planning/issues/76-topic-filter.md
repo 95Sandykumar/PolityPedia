@@ -1,6 +1,6 @@
 ---
 id: 76-topic-filter
-status: blocked
+status: todo
 type: afk
 depends_on: [68-free-test-card-and-mock-list-cleanup, 49-subjects-and-topics]
 ---

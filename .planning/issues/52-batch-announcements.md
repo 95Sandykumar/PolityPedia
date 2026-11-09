@@ -1,6 +1,6 @@
 ---
 id: 52-batch-announcements
-status: blocked
+status: todo
 type: afk
 depends_on: [51-batch-invite-links]
 ---

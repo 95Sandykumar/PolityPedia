@@ -1,6 +1,6 @@
 ---
 id: 73-practise-saved-session
-status: blocked
+status: todo
 type: afk
 depends_on: [72-saved-cards-show-answers]
 ---

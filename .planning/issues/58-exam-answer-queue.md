@@ -1,6 +1,6 @@
 ---
 id: 58-exam-answer-queue
-status: blocked
+status: todo
 type: afk
 depends_on: [56-result-page]
 ---

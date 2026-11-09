@@ -1,18 +1,18 @@
 ---
 id: 54-visible-read-errors
-status: blocked
+status: todo
 type: afk
-depends_on: []
+depends_on: [54a-read-error-core]
 ---
-# Visible read errors instead of false "nothing here yet"
+# Visible read errors, part 2: the remaining student screens
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, look and feel `web/DESIGN.md`. Evidence: `.planning/intake/2026-11-08-student-journey/walk/persona-1-new-aspirant.md` gap 2, persona-2 gap 1, persona-3 gap 1. DB tests use PGlite. Outside services faked. Do not apply migrations to the live database. New strings in EN and HI through the existing i18n file.
 
-Today the student readers swallow every failure with `.catch(() => [])` or `if (!res.ok) return []`. A missing database column showed "No mock tests yet. Your teacher adds them soon." and "0" counts while the content existed.
+Part 1 (ticket 54a) built the shared result type and error component and covered the mock list and papers list. This ticket applies them to the remaining screens; reuse them, do not rebuild them. Today the student readers swallow every failure with `.catch(() => [])` or `if (!res.ok) return []`. A missing database column showed "No mock tests yet. Your teacher adds them soon." and "0" counts while the content existed.
 
 ## Definition of done
-When any student read fails (HTTP error or thrown error), the screen shows an error state with a plain message and a Retry button. It never shows the empty-state text. A read that succeeds with zero rows still shows the empty-state text. Covered screens: mock list, papers list, teacher page tile counts, Home (followed teachers and notices), Teachers list, Saved, Practice hub, videos, news.
+When any student read fails (HTTP error or thrown error), the screen shows an error state with a plain message and a Retry button. It never shows the empty-state text. A read that succeeds with zero rows still shows the empty-state text. Covered screens in this ticket (mock list and papers list are done in 54a): teacher page tile counts, Home (followed teachers and notices), Teachers list, Saved, Practice hub, videos, news.
 
 ## Vertical slice
 - service: each student reader returns a result that separates "ok but empty" from "failed" (no more swallowed errors)
@@ -28,12 +28,10 @@ B3: links keep the existing prefetch wrapper pattern. The error message names no
 ## Notes / scope guard
 Do not change what any query selects. Do not add alert sending. Do not touch teacher screens.
 
-## Start here (file map, read ONLY these)
-Do not grep the whole repo. About 45 files match the swallow pattern, and most are teacher-side or write-side and are out of scope. Do not read them. Do not `cat` whole files: use `sed -n` ranges or `grep -n`.
-- Readers to change (student side only): `web/src/lib/{attempts,exam,follows,practice,saved,set-access}/student-page.ts`, `web/src/lib/videos/page-data.ts`, `web/src/lib/posts/server-posts.ts`, `web/src/app/(student)/_data/student-ui-data.ts`
-- Screens that render them: `web/src/components/mock-list.tsx`, `web/src/components/papers-list.tsx`, `web/src/components/student-ui.tsx`, `web/src/app/(student)/page.tsx`, `web/src/app/(student)/practice/page.tsx`
-- Strings: `web/src/lib/i18n.ts`
+## Start here (file map, read ONLY these, use `sed -n` ranges or `grep -n`, never `cat` a whole file)
+- Core from 54a: the shared result type file and the shared error component (find them with `git log --stat -3 -- web/src/lib` , do not search the repo)
+- Readers: `web/src/lib/follows/student-page.ts`, `web/src/lib/saved/student-page.ts`, `web/src/lib/practice/student-page.ts`, `web/src/lib/videos/page-data.ts`, `web/src/lib/posts/server-posts.ts`
+- Screens: `web/src/app/(student)/page.tsx`, `web/src/app/(student)/practice/page.tsx`, `web/src/app/(student)/saved/`, `web/src/app/(student)/teachers/`, `web/src/app/(student)/t/[teacherId]/` (use `ls` then open only the page files)
+- Strings: `web/src/lib/i18n.ts` (add keys only)
 - Do NOT touch: `web/src/lib/*/supabase-*-client.ts`, `web/src/lib/*/teacher-page.ts`, `web/src/app/teacher/**`, `web/src/components/exam-player.tsx`
-- Work order: 1) result type + helper, 2) one reader plus its test, 3) shared error component, 4) the other readers, 5) full checks. Commit after each step.
-
-<!-- ralph 2026-11-09T21:37:04.249Z: tests FAILED in worktree -->
+- Work order: do ONE screen per step (reader, screen, test), commit after each step, run the full checks last.
