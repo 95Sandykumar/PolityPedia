@@ -14,6 +14,11 @@
  *                   our database, never from the phone." There is no code
  *                   here that looks at an amount, so there is no code to
  *                   forget to validate.
+ *   2b. pending  -- Postgres refuses with `pending` when this student already
+ *                   has a `created` purchase for this set younger than 15
+ *                   minutes (issue 61-block-second-order). The reply carries
+ *                   that order id and NO Razorpay order is made: one payment,
+ *                   one order, so a double tap is never a double charge.
  *   3. start()   -- `start_set_purchase()` in Postgres decides the price, the
  *                   coupon and whether this student may buy at all, in ONE
  *                   transaction. This file never decides any of it.
@@ -54,7 +59,19 @@ export type CheckoutError = PurchaseFailure | 'bad_request' | 'not_configured' |
 
 export type CheckoutReply =
   | { status: 200; body: CheckoutStart }
-  | { status: number; body: { error: CheckoutError } };
+  | {
+      status: number;
+      body: {
+        error: CheckoutError;
+        /**
+         * The Razorpay order of the payment already in flight, for `pending`
+         * only (issue 61-block-second-order), so the browser can reopen that
+         * checkout instead of asking for a second one. Absent when the second
+         * tap beat the gateway and there is no order yet.
+         */
+        orderId?: string;
+      };
+    };
 
 /** HTTP status per refusal. One place, so a code and a status never drift. */
 const STATUS_BY_FAILURE: Record<PurchaseFailure, number> = {
@@ -63,6 +80,9 @@ const STATUS_BY_FAILURE: Record<PurchaseFailure, number> = {
   owned: 409,
   own_set: 403,
   coupon: 422,
+  // 409 like `owned`: both say "the state on the server is not what your
+  // screen thinks". The CODE is what the UI switches on (issue 61).
+  pending: 409,
   failed: 502,
 };
 
@@ -101,6 +121,13 @@ export async function handleCheckoutOrder({
     started = await client.start(request);
   } catch (error) {
     const code: PurchaseFailure = error instanceof PurchaseError ? error.code : 'failed';
+    // Issue 61-block-second-order. A pending payment is the one refusal that
+    // carries something: the order the student is already paying. Razorpay is
+    // NOT called on this path, which is the whole point of the ticket.
+    const pendingOrderId = error instanceof PurchaseError ? error.pendingOrderId : null;
+    if (code === 'pending' && pendingOrderId) {
+      return { status: STATUS_BY_FAILURE.pending, body: { error: code, orderId: pendingOrderId } };
+    }
     return fail(STATUS_BY_FAILURE[code], code);
   }
 

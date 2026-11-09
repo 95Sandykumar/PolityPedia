@@ -101,6 +101,12 @@ export type PurchaseFailure =
   | 'owned'
   | 'own_set'
   | 'coupon'
+  /**
+   * A payment for this set is already in flight (issue 61-block-second-order).
+   * Not an error the student made: they tapped Unlock twice while Razorpay was
+   * confirming, and the right answer is the checkout they already have.
+   */
+  | 'pending'
   | 'failed';
 
 /**
@@ -116,16 +122,42 @@ const FAILURE_BY_SQLSTATE: Record<string, PurchaseFailure> = {
   PP404: 'not_found',
   PP409: 'owned',
   PP422: 'coupon',
+  PP425: 'pending',
 };
+
+/**
+ * A Razorpay order id, read out of the DETAIL of a `PP425` refusal (issue
+ * 61-block-second-order), or null.
+ *
+ * VALIDATED HERE, and this is the only field in the app that reads anything
+ * out of a Postgres error besides the SQLSTATE. A detail is still Postgres
+ * text, so only a thing shaped like an order id is allowed through: letters,
+ * digits, `_` and `-`, up to the 80 characters `attach_order_id()` accepts. An
+ * empty detail is the normal case when the second tap beat the gateway.
+ */
+export function readPendingOrderId(details: unknown): string | null {
+  if (typeof details !== 'string') return null;
+  const id = details.trim();
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return null;
+  return id;
+}
 
 /** A refusal with a code the UI can switch on. Carries no Postgres text. */
 export class PurchaseError extends Error {
   readonly code: PurchaseFailure;
+  /**
+   * The Razorpay order id of the payment that is already in flight, for code
+   * `pending` only (issue 61-block-second-order). Null everywhere else, and
+   * null for a pending refusal that raced the gateway: the second tap can land
+   * before Razorpay has given us an order at all.
+   */
+  readonly pendingOrderId: string | null;
 
-  constructor(code: PurchaseFailure) {
+  constructor(code: PurchaseFailure, pendingOrderId: string | null = null) {
     super('purchase refused: ' + code);
     this.name = 'PurchaseError';
     this.code = code;
+    this.pendingOrderId = code === 'pending' ? pendingOrderId : null;
   }
 }
 

@@ -24,6 +24,7 @@ import { readSupabaseEnv, type SupabaseEnv } from '@/lib/auth/env';
 import {
   isUuid,
   purchaseFailureFrom,
+  readPendingOrderId,
   PurchaseError,
   type CheckoutClient,
   type StartPurchaseInput,
@@ -103,13 +104,19 @@ export function createSupabaseCheckoutClient(
 
     if (!res.ok) {
       let sqlstate: unknown = null;
+      let details: unknown = null;
       try {
-        const problem = (await res.json()) as { code?: unknown };
+        const problem = (await res.json()) as { code?: unknown; details?: unknown };
         sqlstate = problem?.code;
+        details = problem?.details;
       } catch {
         // No JSON body: `purchaseFailureFrom` reads that as `failed`.
       }
-      throw new PurchaseError(purchaseFailureFrom(sqlstate));
+      // `details` is the ONE Postgres field besides the SQLSTATE that is read
+      // here, and only a string shaped like a Razorpay order id survives
+      // `readPendingOrderId` (issue 61-block-second-order). The message is
+      // still dropped: it quotes constraint and policy names.
+      throw new PurchaseError(purchaseFailureFrom(sqlstate), readPendingOrderId(details));
     }
 
     // A 204 has no body. `text()` first, so a bare success does not throw.

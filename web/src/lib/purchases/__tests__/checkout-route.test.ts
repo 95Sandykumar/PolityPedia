@@ -46,6 +46,8 @@ interface FakeClientOptions {
   started?: StartedPurchase;
   /** What it refuses with instead. */
   refuse?: PurchaseFailure;
+  /** The order id a `pending` refusal carries (issue 61-block-second-order). */
+  pendingOrderId?: string | null;
   failAttach?: boolean;
 }
 
@@ -59,7 +61,7 @@ function fakeClient(options: FakeClientOptions = {}) {
     },
     async start(input: StartPurchaseInput) {
       starts.push(input);
-      if (options.refuse) throw new PurchaseError(options.refuse);
+      if (options.refuse) throw new PurchaseError(options.refuse, options.pendingOrderId ?? null);
       return (
         options.started ?? { purchaseId: PURCHASE, amountInr: 399, status: 'created' as const }
       );
@@ -248,6 +250,7 @@ describe('refusals', () => {
       { refuse: 'owned', status: 409 },
       { refuse: 'own_set', status: 403 },
       { refuse: 'coupon', status: 422 },
+      { refuse: 'pending', status: 409 },
       { refuse: 'sign_in', status: 401 },
       { refuse: 'failed', status: 502 },
     ];
@@ -266,6 +269,45 @@ describe('refusals', () => {
       expect(reply).toEqual({ status: one.status, body: { error: one.refuse } });
       expect(gateway.orders).toHaveLength(0);
     }
+  });
+
+  it('refuses a second order while a payment is pending, and calls no gateway', async () => {
+    // Issue 61-block-second-order. The student tapped Unlock twice while
+    // Razorpay was still confirming. One payment, so ONE order: a second
+    // order here is a second charge.
+    const { client } = fakeClient({ refuse: 'pending', pendingOrderId: 'order_pending_1' });
+    const gateway = createFakePayments();
+
+    const reply = await handleCheckoutOrder({
+      body: { set_id: SET },
+      session,
+      client,
+      payments: gateway.payments,
+    });
+
+    // The order id travels, so the UI can reopen the checkout they have.
+    expect(reply).toEqual({
+      status: 409,
+      body: { error: 'pending', orderId: 'order_pending_1' },
+    });
+    expect(gateway.orders).toHaveLength(0);
+  });
+
+  it('still says pending when the second tap beat the Razorpay order', async () => {
+    const { client } = fakeClient({ refuse: 'pending' });
+    const gateway = createFakePayments();
+
+    const reply = await handleCheckoutOrder({
+      body: { set_id: SET },
+      session,
+      client,
+      payments: gateway.payments,
+    });
+
+    // No order id to hand back, so the key is absent rather than null: the
+    // UI shows the same sentence and simply has nothing to reopen.
+    expect(reply).toEqual({ status: 409, body: { error: 'pending' } });
+    expect(gateway.orders).toHaveLength(0);
   });
 
   it('refuses a paid order when Razorpay has no keys, instead of a half checkout', async () => {

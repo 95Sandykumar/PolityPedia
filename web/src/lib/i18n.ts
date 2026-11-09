@@ -400,6 +400,8 @@ export const dictionary = {
     'checkout.unlockedFree': 'Unlocked with your coupon. Reload to start.',
     'checkout.badCoupon': 'That coupon is not valid.',
     'checkout.owned': 'You already own this set. Reload the page.',
+    // Issue 61-block-second-order: a second tap while Razorpay is confirming.
+    'checkout.pending': 'A payment for this set is already in progress.',
     'checkout.signIn': 'Sign in to buy this set.',
     'checkout.failed': 'Could not start the payment. Try again.',
     'checkout.notConfigured': 'Payments are not set up yet',
@@ -1055,6 +1057,7 @@ export const dictionary = {
     'checkout.unlockedFree': 'कूपन से खुल गया। शुरू करने के लिए पेज रीलोड करें।',
     'checkout.badCoupon': 'यह कूपन सही नहीं है।',
     'checkout.owned': 'यह सेट आपके पास पहले से है। पेज रीलोड करें।',
+    'checkout.pending': 'इस सेट का पेमेंट पहले से चल रहा है।',
     'checkout.signIn': 'यह सेट खरीदने के लिए साइन इन करें।',
     'checkout.failed': 'पेमेंट शुरू नहीं हो सका। फिर कोशिश करें।',
     'checkout.notConfigured': 'पेमेंट अभी सेट नहीं है',
