@@ -21,9 +21,15 @@
  * card with the days left (the nearest future date across followed teachers),
  * "Your teachers" as a horizontal avatar strip, then the notices. The page
  * title is a plain "Home" h1, so the two section headings are both h2.
+ *
+ * Issue 63-public-landing: NOBODY SIGNED IN is a different screen, not an
+ * empty Home. A visitor used to see "Teachers are not set up yet" and read it
+ * as "this app is broken" (persona-1 gap 3), so a logged-out `/` now returns
+ * the landing and NOT ONE student read runs.
  */
 import { HomeExamCard } from '@/components/home-exam-card';
 import { PostList } from '@/components/post-list';
+import { PublicLanding } from '@/components/public-landing';
 import { PageHeader } from '@/components/student-ui';
 import { TeachersList } from '@/components/teachers-list';
 import { readFollowedTeachers, readStudentContext } from '@/lib/follows/student-page';
@@ -34,6 +40,12 @@ import { readHomeExam } from './_data/student-ui-data';
 
 export default async function HomePage() {
   const { session, configured, mode } = await readStudentContext();
+
+  // Logged out: the landing, and we return BEFORE any read. Nothing a signed-in
+  // student owns is fetched, so nothing of theirs can be shown or cached here
+  // (design constraint C).
+  if (!session) return <PublicLanding mode={mode} />;
+
   const teachers: PublicTeacher[] = configured ? await readFollowedTeachers(session) : [];
   const [posts, homeExam]: [FeedPost[], Awaited<ReturnType<typeof readHomeExam>>] = configured
     ? await Promise.all([readHomePosts(session, teachers), readHomeExam(session, teachers)])

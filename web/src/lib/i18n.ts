@@ -126,6 +126,18 @@ export const dictionary = {
     'follow.saving': 'Saving...',
     'follow.failed': 'Could not save. Try again.',
     'follow.notConfigured': 'Follow is not set up yet',
+    // The logged-out landing and the public teacher card
+    // (issue 63-public-landing, persona-1 gap 3). Short on purpose: a first
+    // visitor reads one line, sees two buttons, and knows what to tap.
+    'land.pitch': 'Practise Political Science for UGC NET and CUET PG.',
+    'land.tryFree': 'Try a free test',
+    'land.signIn': 'Sign in',
+    'land.howTitle': 'How it works',
+    'land.how1': 'Pick your exams and your language.',
+    'land.how2': 'Follow a teacher. Their papers and mock tests open up.',
+    'land.how3': 'Practise, see your score, read the answer.',
+    'land.teacherHint': 'Teacher on PolityPedia',
+    'land.signInToFollow': 'Sign in to follow',
     // Teacher dashboard and next exam date (issue 07-next-exam-date-teacher-shell).
     // DESIGN.md section 7: 5 slots, sidebar on laptop, bottom nav on phone.
     'nav.papers': 'Papers',
@@ -810,6 +822,15 @@ export const dictionary = {
     'follow.saving': 'सेव हो रहा है...',
     'follow.failed': 'सेव नहीं हुआ। फिर कोशिश करें।',
     'follow.notConfigured': 'फ़ॉलो अभी सेट नहीं है',
+    'land.pitch': 'UGC NET और CUET PG के लिए राजनीति विज्ञान का अभ्यास करें।',
+    'land.tryFree': 'मुफ़्त टेस्ट दें',
+    'land.signIn': 'साइन इन करें',
+    'land.howTitle': 'यह कैसे काम करता है',
+    'land.how1': 'अपनी परीक्षाएँ और भाषा चुनें।',
+    'land.how2': 'किसी शिक्षक को फ़ॉलो करें। उनके पेपर और मॉक टेस्ट खुल जाते हैं।',
+    'land.how3': 'अभ्यास करें, स्कोर देखें, उत्तर पढ़ें।',
+    'land.teacherHint': 'पॉलिटीपीडिया पर शिक्षक',
+    'land.signInToFollow': 'फ़ॉलो करने के लिए साइन इन करें',
     'nav.papers': 'पेपर',
     'nav.mockSets': 'मॉक सेट',
     'nav.batches': 'बैच',

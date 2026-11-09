@@ -11,6 +11,9 @@
  * There is no service-role key here, so RLS decides everything:
  * `teachers_select_own` for a teacher, `teachers_admin_all` for an admin, and
  * the `teachers_block_admin_fields` trigger for status and revenue share.
+ * An empty access token is the ANONYMOUS caller (issue 63-public-landing):
+ * the bearer is then the project anon key, so the request runs as the `anon`
+ * role and reads exactly what 0005 granted it, the public view.
  *
  * PRIVACY: `listPublic` reads the VIEW `teachers_public`. Never point it at
  * `teachers`: the view is what strips the real name of an alias teacher.
@@ -82,12 +85,22 @@ export function createSupabaseTeachersClient(
     return found;
   }
 
-  /** Same headers on every call: the project key plus the caller's token. */
+  /**
+   * Same headers on every call: the project key plus the caller's token.
+   *
+   * An EMPTY access token means there is no signed-in caller: the logged-out
+   * landing and a shared `/t/<id>` link (issue 63-public-landing). The bearer
+   * then falls back to the project anon key, so Postgres runs the request as
+   * the `anon` role and 0005's grants decide: select on `teachers_public`
+   * yes, `public.teachers` no (no policy covers `anon`). A bare `Bearer `
+   * with nothing after it is a malformed JWT and Supabase answers 401, which
+   * a page would read as "no such teacher".
+   */
   function restHeaders(extra: Record<string, string> = {}): Record<string, string> {
     const { anonKey } = required();
     return {
       apikey: anonKey,
-      authorization: 'Bearer ' + options.accessToken,
+      authorization: 'Bearer ' + (options.accessToken || anonKey),
       'content-type': 'application/json',
       ...extra,
     };
