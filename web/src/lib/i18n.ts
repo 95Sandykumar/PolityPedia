@@ -196,6 +196,10 @@ export const dictionary = {
     // Split job, teacher review and publish (issue 11-ingest-job-review-publish).
     // V9: nothing is live before the teacher publishes.
     'papers.review': 'Review',
+    // Papers list progress (issue 66-papers-question-count).
+    'papers.comingSoon': 'Questions coming soon',
+    'papers.done': 'Done',
+    'papers.questionsWord': 'questions',
     'job.queued': 'Waiting to split',
     'job.running': 'Splitting...',
     'job.done': 'Split finished',
@@ -895,6 +899,10 @@ export const dictionary = {
     'papers.live': 'लाइव',
     'papers.notConfigured': 'पिछले पेपर अभी सेट नहीं हैं',
     'papers.review': 'जाँचें',
+    // Papers list progress (issue 66-papers-question-count).
+    'papers.comingSoon': 'प्रश्न जल्द आएंगे',
+    'papers.done': 'हो गया',
+    'papers.questionsWord': 'प्रश्न',
     'job.queued': 'बाँटने की बारी में',
     'job.running': 'बाँट रहे हैं...',
     'job.done': 'बाँटना पूरा हुआ',
