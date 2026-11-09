@@ -3,9 +3,14 @@
 /**
  * Me > Install app (issue 78-installable-app).
  *
- * Shows the button ONLY after the browser fires `beforeinstallprompt`, which is
- * the browser saying "this app can be installed now". No event, no button: the
- * button never promises something the browser will not do.
+ * Shows the button ONLY when the browser has said "this app can be installed
+ * now" by firing `beforeinstallprompt`. No offer, no button: the button never
+ * promises something the browser will not do.
+ *
+ * That event fires once, soon after the page loads, which is usually before the
+ * student taps Me. So the offer is caught and held by `install-prompt.ts`,
+ * started by the register in the root layout, and read here on mount
+ * (issue 82-fix-install-button-missed-event).
  *
  * iOS Safari never fires that event, so there the student gets one line that
  * says how to install by hand. It is hidden once the app already runs from the
@@ -18,12 +23,13 @@ import { Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMounted } from '@/components/use-mounted';
 import { labels, plain, type LangMode } from '@/lib/i18n';
-
-/** The (non standard) event Chrome and Edge fire when the app can be installed. */
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: string }>;
-};
+import {
+  captureInstallPrompt,
+  clearInstallPrompt,
+  heldInstallPrompt,
+  watchInstallPrompt,
+  type InstallPromptEvent,
+} from '@/lib/install-prompt';
 
 function isIos(userAgent: string): boolean {
   return /iPhone|iPad|iPod/.test(userAgent);
@@ -50,26 +56,18 @@ export function InstallApp({
   const [offer, setOffer] = useState<InstallPromptEvent | null>(null);
 
   useEffect(() => {
-    function onPrompt(event: Event) {
-      event.preventDefault(); // hold it: the browser's own bar would show at a random moment
-      setOffer(event as InstallPromptEvent);
-    }
-    function onInstalled() {
-      setOffer(null);
-    }
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
+    // The layout started this already. The call is here too so the button still
+    // works on a page that renders it without the layout (a test, a story).
+    captureInstallPrompt();
+    setOffer(heldInstallPrompt()); // an offer made before this mount
+    return watchInstallPrompt(setOffer); // and any offer made after it
   }, []);
 
   async function install() {
-    if (!offer) return;
-    const held = offer;
+    const held = heldInstallPrompt();
+    if (!held) return;
     // One prompt per event: it cannot be shown twice, so the button goes either way.
-    setOffer(null);
+    clearInstallPrompt();
     try {
       await held.prompt();
       await held.userChoice;
