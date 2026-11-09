@@ -21,7 +21,7 @@
  * The validation below is a COPY of the SQL constraints in 0013, on purpose:
  * the database is the gate, and this keeps a bad shape out of the REST call.
  */
-import { OPTION_COUNT } from '@/lib/questions/types';
+import { OPTION_COUNT, type QuestionOptions } from '@/lib/questions/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -239,4 +239,112 @@ export interface AnswerQueue {
   pending(): number;
   /** Called whenever `pending()` changes. Returns the unsubscribe function. */
   subscribe(listener: () => void): () => void;
+}
+
+// --------------------------------------------------------------------------
+// The result read (issue 56a-result-reader)
+// --------------------------------------------------------------------------
+//
+// What a student sees once a sitting is CLOSED: the score, the counts, the
+// time it took, and the questions they got wrong. The reader is `result.ts`;
+// the screen is ticket 56.
+//
+// TWO DATABASE RULES ARE SHAPED INTO THESE TYPES, so a caller cannot get them
+// wrong by accident:
+//
+//  * `AttemptResult.score` is the number `score_attempt()` STORED (0031). It
+//    is read, never worked out again from the answers, so a moderation fix or
+//    a marking scheme this code knows nothing about still shows correctly.
+//  * `ResultWrongQuestion.right` is nullable because the answer key comes from
+//    `question_keys()` (0030), which refuses the call while the caller has an
+//    open exam sitting of the same test. Null means "locked right now", not
+//    "there is no right answer", and the screen can say so.
+
+/** One option of a question, as a result page shows it. */
+export interface ResultOption {
+  /** 0 to 3, an index into the question options. */
+  idx: number;
+  /** A B C D. The badge the student saw on the button. */
+  letter: string;
+  text: string;
+}
+
+/** One question the student got wrong, in paper order. */
+export interface ResultWrongQuestion {
+  questionId: string;
+  /** The number in the paper, one-based: the number the student saw. */
+  number: number;
+  /** The stem, folded to one line and cut (`shortStem`). */
+  stem: string;
+  /** What the student chose. A wrong answer always has one. */
+  chosen: ResultOption;
+  /** The right answer, or null while `question_keys()` is locked (0030). */
+  right: ResultOption | null;
+}
+
+/** Everything a result page needs for one submitted sitting. */
+export interface AttemptResult {
+  attemptId: string;
+  mode: AttemptMode;
+  /** The SERVER-stored score, marks after negative marking. Never recomputed. */
+  score: number;
+  /** Questions in the sitting. `right + wrong + skipped` is exactly this. */
+  total: number;
+  /** Right answers as a whole percentage of `total`. 0 for an empty paper. */
+  percent: number;
+  right: number;
+  wrong: number;
+  /** Not answered: untouched, or marked for later and left. */
+  skipped: number;
+  /** Whole seconds between the start and the close. Never negative. */
+  timeTakenSec: number;
+  /** True when the close happened at or after the exam deadline. */
+  autoSubmitted: boolean;
+  wrongQuestions: ResultWrongQuestion[];
+}
+
+/** The `attempts` row this read needs. `startedAt` is here for the time taken. */
+export interface ResultAttempt {
+  id: string;
+  userId: string;
+  paperId: string | null;
+  testId: string | null;
+  mode: AttemptMode;
+  topicId: string | null;
+  startedAt: string;
+  deadlineAt: string | null;
+  /** Null while the sitting is open, and then there is no result at all. */
+  submittedAt: string | null;
+  score: number | null;
+}
+
+/** One question of the sitting. No `correctIdx`: that is `readKeys` only (0030). */
+export interface ResultQuestion {
+  id: string;
+  number: number;
+  stem: string;
+  options: QuestionOptions;
+}
+
+/**
+ * Where the result read gets its rows.
+ *
+ * A port, not a client, for one reason: three of the four rules in this slice
+ * are enforced by Postgres (RLS, a revoked column privilege, a definer
+ * function), so the test drives these four methods against a real database and
+ * the rules are proven instead of imitated.
+ */
+export interface ResultSource {
+  /** The sitting, or NULL when RLS hides it: it is another student's. */
+  readAttempt(attemptId: string): Promise<ResultAttempt | null>;
+  /** The questions of this sitting, in paper order. */
+  readQuestions(attempt: ResultAttempt): Promise<ResultQuestion[]>;
+  /** The stored answers, keyed by question id. */
+  readAnswers(attemptId: string): Promise<Map<string, AttemptAnswer>>;
+  /**
+   * `question_keys()`: the right answer for the ids asked. Called only for a
+   * SUBMITTED sitting, and only for the questions answered wrong. An empty map
+   * is a valid answer and means the key is locked (0030).
+   */
+  readKeys(questionIds: readonly string[]): Promise<Map<string, number>>;
 }
