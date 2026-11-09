@@ -362,3 +362,24 @@ describe('a first sign-in still fails closed, because there is no previous role'
     expect(session.role).toBe('student');
   });
 });
+
+describe('verifyEmailCode failures (issue 64-signin-errors-and-resend)', () => {
+  it('keeps the status and the error_code on the thrown error, never the message', async () => {
+    const fn = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error_code: 'otp_expired', msg: 'token 424242 expired' }),
+          { status: 403 },
+        ),
+    ) as unknown as typeof fetch;
+    const client = createSupabaseAuthClient({ env: ENV, fetchImpl: fn });
+    const error = (await client.verifyEmailCode('a@b.test', '424242').catch((e: unknown) => e)) as {
+      status: number;
+      code?: string;
+      message: string;
+    };
+    expect(error.status).toBe(403);
+    expect(error.code).toBe('otp_expired');
+    expect(error.message).not.toContain('424242');
+  });
+});

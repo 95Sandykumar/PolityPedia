@@ -8,10 +8,11 @@
  * Fields are found by role plus accessible name, never by a loose label
  * pattern: "Send code" is also a label, so `/code/i` alone matches the button.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SignInForm } from '../sign-in-form';
 import type { BrowserAuthClient } from '@/lib/auth/types';
+import { AuthRequestError } from '@/lib/auth/sign-in-errors';
 
 function fakeClient(overrides: Partial<BrowserAuthClient> = {}): BrowserAuthClient {
   return {
@@ -143,5 +144,170 @@ describe('SignInForm', () => {
     render(<SignInForm client={fakeClient()} configured={false} />);
     expect(screen.getByRole('status')).toHaveTextContent(/not set up/i);
     expect(screen.queryByRole('button', { name: 'Send code' })).toBeNull();
+  });
+});
+
+describe('SignInForm: why it failed (issue 64-signin-errors-and-resend)', () => {
+  it.each([
+    ['denied', /cancelled|did not allow/i],
+    ['no_code', /did not send|no code/i],
+    ['expired', /took too long|start again/i],
+    ['failed', /google sign in failed|could not finish/i],
+    ['not_configured', /not set up/i],
+  ])('shows a plain message for ?error=%s', (reason, pattern) => {
+    render(<SignInForm client={fakeClient()} initialError={reason} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(pattern);
+  });
+
+  it('shows no banner for an unknown ?error value and never prints it', () => {
+    render(<SignInForm client={fakeClient()} initialError="<b>hack</b>" />);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.body.textContent).not.toContain('hack');
+  });
+
+  it('clears the banner when the student asks for a code', async () => {
+    render(<SignInForm client={fakeClient()} initialError="denied" />);
+    await reachCodeStep();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('shows different messages for a wrong code and an expired code', async () => {
+    const verify = vi
+      .fn()
+      .mockRejectedValueOnce(new AuthRequestError(401, 'wrong'))
+      .mockRejectedValueOnce(new AuthRequestError(401, 'expired'));
+    render(<SignInForm client={fakeClient({ verifyEmailCode: verify })} />);
+    const code = await reachCodeStep();
+    type(code, '111111');
+    fireEvent.click(signInButton());
+    const wrong = (await screen.findByRole('alert')).textContent;
+    expect(wrong).toMatch(/not right|wrong/i);
+
+    fireEvent.click(signInButton());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).not.toBe(wrong));
+    expect(screen.getByRole('alert')).toHaveTextContent(/expired/i);
+    expect(document.body.textContent).not.toContain('111111');
+  });
+
+  it('tells the student to wait when the email limit is hit on send', async () => {
+    const client = fakeClient({
+      sendEmailCode: vi.fn(async () => {
+        throw new AuthRequestError(429, 'rate_limited');
+      }),
+    });
+    render(<SignInForm client={client} />);
+    type(emailField(), EMAIL);
+    fireEvent.click(sendButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(/wait .* try again/i);
+  });
+
+  it('tells the student to wait when the email limit is hit on verify', async () => {
+    const client = fakeClient({
+      verifyEmailCode: vi.fn(async () => {
+        throw new AuthRequestError(429, 'rate_limited');
+      }),
+    });
+    render(<SignInForm client={client} />);
+    const code = await reachCodeStep();
+    type(code, '123456');
+    fireEvent.click(signInButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(/wait .* try again/i);
+  });
+
+  it('keeps the generic message for an unknown failure', async () => {
+    const client = fakeClient({
+      verifyEmailCode: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+    });
+    render(<SignInForm client={client} />);
+    const code = await reachCodeStep();
+    type(code, '123456');
+    fireEvent.click(signInButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not sign in/i);
+  });
+});
+
+describe('SignInForm: resend (issue 64-signin-errors-and-resend)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const resend = () => screen.getByRole('button', { name: /resend code/i });
+
+  it('shows the spam hint and an expiry line on the code step', async () => {
+    render(<SignInForm client={fakeClient()} />);
+    await reachCodeStep();
+    expect(screen.getByText(/check your spam folder/i)).toBeInTheDocument();
+    expect(screen.getByText('The code expires soon.')).toBeInTheDocument();
+  });
+
+  it('locks Resend for 30 seconds, counts down, then sends again', async () => {
+    vi.useFakeTimers();
+    const client = fakeClient();
+    render(<SignInForm client={client} />);
+
+    type(emailField(), EMAIL);
+    await act(async () => {
+      fireEvent.click(sendButton());
+    });
+    expect(client.sendEmailCode).toHaveBeenCalledTimes(1);
+
+    expect(resend()).toBeDisabled();
+    expect(resend()).toHaveTextContent('30');
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(resend()).toBeDisabled();
+    expect(resend()).toHaveTextContent('20');
+
+    act(() => {
+      vi.advanceTimersByTime(19_000);
+    });
+    expect(resend()).toBeDisabled();
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(resend()).toBeEnabled();
+    expect(resend()).toHaveTextContent(/^Resend code$/);
+
+    await act(async () => {
+      fireEvent.click(resend());
+    });
+    expect(client.sendEmailCode).toHaveBeenCalledTimes(2);
+    expect(client.sendEmailCode).toHaveBeenLastCalledWith(EMAIL);
+    expect(resend()).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(/new code/i);
+  });
+
+  it('shows the wait message when a resend hits the email limit', async () => {
+    vi.useFakeTimers();
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new AuthRequestError(429, 'rate_limited'));
+    render(<SignInForm client={fakeClient({ sendEmailCode: send })} />);
+    type(emailField(), EMAIL);
+    await act(async () => {
+      fireEvent.click(sendButton());
+    });
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    await act(async () => {
+      fireEvent.click(resend());
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(/wait .* try again/i);
+  });
+
+  it('has Hindi labels for resend and the spam hint', async () => {
+    render(<SignInForm client={fakeClient()} mode="hi" />);
+    type(screen.getByRole('textbox', { name: 'ईमेल' }), EMAIL);
+    fireEvent.click(screen.getByRole('button', { name: 'कोड भेजें' }));
+    await screen.findByRole('textbox', { name: '6 अंकों का कोड' });
+    expect(screen.getByRole('button', { name: /कोड दोबारा भेजें/ })).toBeInTheDocument();
+    expect(screen.getByText(/स्पैम/)).toBeInTheDocument();
   });
 });

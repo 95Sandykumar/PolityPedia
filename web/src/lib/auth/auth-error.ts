@@ -21,11 +21,18 @@
 /** A Supabase auth call that came back with a status we did not want. */
 export class AuthCallError extends Error {
   readonly status: number;
+  /**
+   * Supabase's `error_code` (example `otp_expired`), when the body had a safe
+   * one (issue 64-signin-errors-and-resend). Never the message: that text can
+   * quote the code or the token.
+   */
+  readonly code?: string;
 
-  constructor(status: number) {
+  constructor(status: number, code?: string) {
     super('Supabase auth call failed with status ' + status);
     this.name = 'AuthCallError';
     this.status = status;
+    if (code !== undefined) this.code = code;
   }
 }
 
