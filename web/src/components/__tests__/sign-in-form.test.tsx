@@ -171,21 +171,16 @@ describe('SignInForm: why it failed (issue 64-signin-errors-and-resend)', () => 
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows different messages for a wrong code and an expired code', async () => {
-    const verify = vi
-      .fn()
-      .mockRejectedValueOnce(new AuthRequestError(401, 'wrong'))
-      .mockRejectedValueOnce(new AuthRequestError(401, 'expired'));
+  it('names both causes for a code that does not work (83-fix-wrong-code-says-expired)', async () => {
+    const verify = vi.fn().mockRejectedValue(new AuthRequestError(401, 'bad_code'));
     render(<SignInForm client={fakeClient({ verifyEmailCode: verify })} />);
     const code = await reachCodeStep();
     type(code, '111111');
     fireEvent.click(signInButton());
-    const wrong = (await screen.findByRole('alert')).textContent;
-    expect(wrong).toMatch(/not right|wrong/i);
-
-    fireEvent.click(signInButton());
-    await waitFor(() => expect(screen.getByRole('alert').textContent).not.toBe(wrong));
-    expect(screen.getByRole('alert')).toHaveTextContent(/expired/i);
+    const message = (await screen.findByRole('alert')).textContent ?? '';
+    expect(message).toMatch(/wrong/i);
+    expect(message).toMatch(/expired/i);
+    expect(message).toMatch(/resend/i);
     expect(document.body.textContent).not.toContain('111111');
   });
 
