@@ -703,6 +703,12 @@ export const dictionary = {
     'sui.tilePapersHint': 'Past years',
     'sui.tileMocksHint': 'Full tests',
     'sui.tileNewsHint': 'Notices',
+    // A read that FAILED, not one that came back empty
+    // (issue 54a-read-error-core). It names no table, column or key: a
+    // student can do nothing with those, and they tell an attacker where
+    // to push. One line for what happened, one for the fix.
+    'read.failed': 'Could not load this. Check your internet, then tap Retry.',
+    'read.retry': 'Retry',
     'sui.backToTeacher': 'Back to teacher',
     'sui.backToMe': 'Back to Me',
     'sui.backToPapers': 'Back to papers',
@@ -1376,6 +1382,8 @@ export const dictionary = {
     'sui.tilePapersHint': 'पिछले साल',
     'sui.tileMocksHint': 'पूरे टेस्ट',
     'sui.tileNewsHint': 'नोटिस',
+    'read.failed': 'यह लोड नहीं हो सका। अपना इंटरनेट देखें, फिर दोबारा कोशिश करें दबाएं।',
+    'read.retry': 'दोबारा कोशिश करें',
     'sui.backToTeacher': 'शिक्षक के पेज पर',
     'sui.backToMe': 'मेरे पेज पर',
     'sui.backToPapers': 'पेपर की सूची पर',
