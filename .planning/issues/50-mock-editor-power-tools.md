@@ -1,6 +1,6 @@
 ---
 id: 50-mock-editor-power-tools
-status: todo
+status: blocked
 type: afk
 depends_on: [49-subjects-and-topics]
 ---
@@ -33,3 +33,5 @@ Parser: 12+ cases incl. Hindi, broken option count, missing answer, 201 rows. PG
 
 ## Scope guard
 No .docx import, no question bank, no AI writer (Upcoming). Do not edit package.json.
+
+<!-- ralph 2026-11-09T18:51:51.044Z: upstream 56-result-page blocked -->

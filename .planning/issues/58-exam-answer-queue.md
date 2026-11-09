@@ -1,6 +1,6 @@
 ---
 id: 58-exam-answer-queue
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page]
 ---
@@ -27,3 +27,5 @@ B6: bounded retry, at most one request per 10 seconds while failing, stop on unm
 
 ## Notes / scope guard
 No service worker (ticket 78). Practice mode already has an offline queue: reuse its approach where it fits.
+
+<!-- ralph 2026-11-09T18:51:51.031Z: upstream 56-result-page blocked -->

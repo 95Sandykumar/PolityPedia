@@ -185,6 +185,8 @@ describe('refusals', () => {
   const cases: [string, string][] = [
     ['coupon', 'That coupon is not valid.'],
     ['owned', 'You already own this set. Reload the page.'],
+    // Issue 61-block-second-order: the second tap while a payment is in flight.
+    ['pending', 'A payment for this set is already in progress.'],
     ['sign_in', 'Sign in to buy this set.'],
     ['not_configured', 'Payments are not set up yet'],
     ['gateway', 'Could not start the payment. Try again.'],

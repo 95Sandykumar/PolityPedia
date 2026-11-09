@@ -5,7 +5,9 @@
  * own route handlers; they call Supabase and set the httpOnly session cookie.
  *
  * Security: the error message is fixed, so a wrong code is never echoed back.
+ * The error carries the HTTP status and a reason tag, nothing the user typed.
  */
+import { AuthRequestError, parseReason } from './sign-in-errors';
 import type { BrowserAuthClient } from './types';
 
 export const SEND_CODE_PATH = '/api/auth/send-code';
@@ -24,7 +26,16 @@ export function createBrowserAuthClient(fetchImpl?: typeof fetch): BrowserAuthCl
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error('Auth request failed with status ' + res.status);
+    if (!res.ok) {
+      // Only the route's fixed `reason` tag is read (issue 64-signin-errors-and-resend).
+      let reason: unknown;
+      try {
+        reason = ((await res.json()) as { reason?: unknown } | null)?.reason;
+      } catch {
+        reason = undefined;
+      }
+      throw new AuthRequestError(res.status, parseReason(reason));
+    }
   }
 
   return {

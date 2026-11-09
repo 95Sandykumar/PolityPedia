@@ -1,0 +1,15 @@
+{
+  "name": "PolityPedia",
+  "short_name": "PolityPedia",
+  "description": "Political Science practice for UGC NET, CUET PG, TGT and PGT.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#4F46E5",
+  "background_color": "#F8FAFC",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 id: 60-after-pay-screen
-status: todo
+status: blocked
 type: afk
 depends_on: [54-visible-read-errors, 57-review-and-retake]
 ---
@@ -27,3 +27,5 @@ A (money): the client sends only the set id and coupon, never an amount. Access 
 
 ## Notes / scope guard
 No receipt or refund UI (ticket 62). The pending-order block is ticket 61.
+
+<!-- ralph 2026-11-09T18:51:51.067Z: upstream 56-result-page blocked -->

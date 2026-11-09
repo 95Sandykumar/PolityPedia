@@ -46,6 +46,22 @@ function expiryOf(body: TokenResponse, nowMs: number): number | undefined {
   return undefined;
 }
 
+/**
+ * The `error_code` of a failed Supabase auth reply (issue 64-signin-errors-and-resend),
+ * example `otp_expired`. It is a short snake_case tag, so it is the one field
+ * of the body that is safe to keep. The message and every other field are
+ * dropped on purpose: they can quote the code or a token.
+ */
+async function safeErrorCode(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as { error_code?: unknown; code?: unknown } | null;
+    const raw = body?.error_code ?? body?.code;
+    return typeof raw === 'string' && /^[a-z0-9_]{1,64}$/.test(raw) ? raw : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface SupabaseAuthClientOptions {
   env?: Record<string, string | undefined>;
   fetchImpl?: typeof fetch;
@@ -85,7 +101,7 @@ export function createSupabaseAuthClient(
     // throw, because 400 and 401 mean "this token is dead, sign out" while a
     // 500 or a timeout means "ask again later, keep the cookie"
     // (issue 38-session-and-alerts-fixes). Same message as before.
-    if (!res.ok) throw new AuthCallError(res.status);
+    if (!res.ok) throw new AuthCallError(res.status, await safeErrorCode(res));
     return res.status === 204 ? null : ((await res.json()) as unknown);
   }
 

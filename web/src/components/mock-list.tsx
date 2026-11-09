@@ -84,6 +84,10 @@ const BADGE =
 const CHECKOUT_MESSAGE: Record<string, MessageKey> = {
   coupon: 'checkout.badCoupon',
   owned: 'checkout.owned',
+  // The student tapped Unlock twice while Razorpay was still confirming
+  // (issue 61-block-second-order). The server refused the second order, so
+  // the honest thing to say is that their payment is already running.
+  pending: 'checkout.pending',
   sign_in: 'checkout.signIn',
   not_configured: 'checkout.notConfigured',
 };

@@ -13,14 +13,17 @@
  * is logged.
  */
 import { BookOpenCheck, Mail, ShieldCheck } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconChip } from '@/components/student-ui';
 import { createBrowserAuthClient } from '@/lib/auth/browser-auth-client';
+import { queryErrorKey, reasonKey, reasonOf } from '@/lib/auth/sign-in-errors';
 import type { BrowserAuthClient } from '@/lib/auth/types';
 import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
 
 const GOOGLE_PATH = '/auth/google';
 const CODE_LENGTH = 6;
+/** Seconds the Resend button stays locked after a send (issue 64-signin-errors-and-resend). */
+export const RESEND_COOLDOWN_SECONDS = 30;
 
 /** DESIGN.md: 48 px touch target, radius 10, 1 px border, tokens only. */
 const FIELD =
@@ -60,6 +63,7 @@ export function SignInForm({
   mode = DEFAULT_MODE,
   configured = true,
   onSignedIn,
+  initialError,
 }: {
   client?: BrowserAuthClient;
   mode?: LangMode;
@@ -67,6 +71,11 @@ export function SignInForm({
   configured?: boolean;
   /** Called after a successful verify. Defaults to a reload of Home. */
   onSignedIn?: () => void;
+  /**
+   * The raw `?error=` value the Google callback sent. Only the five known
+   * values show a message; anything else is ignored (issue 64-signin-errors-and-resend).
+   */
+  initialError?: string;
 }) {
   const fallback = useMemo(() => createBrowserAuthClient(), []);
   const auth = client ?? fallback;
@@ -75,7 +84,19 @@ export function SignInForm({
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // The key of the message in the banner, or null for no banner.
+  const [failure, setFailure] = useState<MessageKey | null>(() => queryErrorKey(initialError));
+  const [cooldown, setCooldown] = useState(0);
+  const [resent, setResent] = useState(false);
+
+  // One interval runs while the cooldown is above zero. It depends on the
+  // boolean, not the number, so the tick is not torn down every second.
+  const counting = cooldown > 0;
+  useEffect(() => {
+    if (!counting) return;
+    const id = setInterval(() => setCooldown((left) => Math.max(0, left - 1)), 1000);
+    return () => clearInterval(id);
+  }, [counting]);
 
   if (!configured) {
     return (
@@ -95,14 +116,32 @@ export function SignInForm({
     event.preventDefault();
     if (!email.trim() || busy) return;
     setBusy(true);
-    setFailed(false);
+    setFailure(null);
+    setResent(false);
     try {
       await auth.sendEmailCode(email.trim());
       setStep('code');
-    } catch {
-      // Fixed message only: the thrown error may quote Supabase.
-      setFailed(true);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (error) {
+      // A fixed message per reason only: the thrown error may quote Supabase.
+      setFailure(reasonKey(reasonOf(error)));
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resendCode() {
+    if (cooldown > 0 || busy) return;
+    setBusy(true);
+    setFailure(null);
+    setResent(false);
+    try {
+      await auth.sendEmailCode(email.trim());
+      setResent(true);
+    } catch (error) {
+      setFailure(reasonKey(reasonOf(error)));
+    } finally {
+      setCooldown(RESEND_COOLDOWN_SECONDS);
       setBusy(false);
     }
   }
@@ -111,13 +150,14 @@ export function SignInForm({
     event.preventDefault();
     if (code.length !== CODE_LENGTH || busy) return;
     setBusy(true);
-    setFailed(false);
+    setFailure(null);
+    setResent(false);
     try {
       await auth.verifyEmailCode(email.trim(), code);
       if (onSignedIn) onSignedIn();
       else window.location.assign('/');
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailure(reasonKey(reasonOf(error)));
     } finally {
       setBusy(false);
     }
@@ -130,9 +170,9 @@ export function SignInForm({
         <Lines keyName="auth.title" mode={mode} />
       </h1>
 
-      {failed ? (
+      {failure ? (
         <p role="alert" className="rounded-[10px] border border-border bg-card p-3 text-wrong">
-          {plain('auth.failed', mode)}
+          {plain(failure, mode)}
         </p>
       ) : null}
 
@@ -181,6 +221,13 @@ export function SignInForm({
           noValidate
         >
           <p className="text-sm text-muted-foreground">{plain('auth.codeSent', mode)}</p>
+          <p className="text-sm text-muted-foreground">{plain('auth.codeExpires', mode)}</p>
+          <p className="text-sm text-muted-foreground">{plain('auth.spamHint', mode)}</p>
+          {resent ? (
+            <p role="status" className="text-sm text-foreground">
+              {plain('auth.resent', mode)}
+            </p>
+          ) : null}
           <label htmlFor="sign-in-code" className="text-sm font-medium">
             <Lines keyName="auth.code" mode={mode} />
           </label>
@@ -205,10 +252,22 @@ export function SignInForm({
           </button>
           <button
             type="button"
+            onClick={resendCode}
+            disabled={busy || cooldown > 0}
+            className={OUTLINE_BUTTON + ' disabled:opacity-60'}
+          >
+            {cooldown > 0
+              ? plain('auth.resend', mode) + ' (' + cooldown + 's)'
+              : plain('auth.resend', mode)}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setStep('email');
               setCode('');
-              setFailed(false);
+              setFailure(null);
+              setResent(false);
+              setCooldown(0);
             }}
             className="min-h-12 text-sm font-medium text-primary"
           >

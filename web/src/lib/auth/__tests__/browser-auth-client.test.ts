@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createBrowserAuthClient } from '../browser-auth-client';
+import { reasonOf } from '../sign-in-errors';
 
 function fakeFetch(status = 200) {
   const calls: { url: string; init: RequestInit }[] = [];
@@ -43,5 +44,21 @@ describe('createBrowserAuthClient', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).not.toContain('123456');
+  });
+
+  it('carries the reason from the route so the page can pick a message', async () => {
+    const fn = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'verify failed', reason: 'expired' }), { status: 401 }),
+    ) as unknown as typeof fetch;
+    const error = await createBrowserAuthClient(fn)
+      .verifyEmailCode('a@b.test', '123456')
+      .catch((e: unknown) => e);
+    expect(reasonOf(error)).toBe('expired');
+  });
+
+  it('falls back to failed when the body has no known reason', async () => {
+    const { fn } = fakeFetch(500);
+    const error = await createBrowserAuthClient(fn).sendEmailCode('a@b.test').catch((e: unknown) => e);
+    expect(reasonOf(error)).toBe('failed');
   });
 });

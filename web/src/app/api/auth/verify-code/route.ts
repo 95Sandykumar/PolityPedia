@@ -7,6 +7,7 @@
  */
 import { NextResponse } from 'next/server';
 import { SESSION_COOKIE, encodeSession, sessionCookieOptions } from '@/lib/auth/session';
+import { classifyVerifyFailure } from '@/lib/auth/sign-in-errors';
 import { createSupabaseAuthClient } from '@/lib/auth/supabase-auth-client';
 
 export async function POST(request: Request) {
@@ -33,7 +34,10 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ ok: true, role: session.role });
     response.cookies.set(SESSION_COOKIE, encodeSession(session), sessionCookieOptions());
     return response;
-  } catch {
-    return NextResponse.json({ error: 'verify failed' }, { status: 401 });
+  } catch (error) {
+    // Only a fixed reason tag goes back, never the code or Supabase's text.
+    const reason = classifyVerifyFailure(error);
+    const status = reason === 'rate_limited' ? 429 : reason === 'failed' ? 502 : 401;
+    return NextResponse.json({ error: 'verify failed', reason }, { status });
   }
 }

@@ -1,6 +1,6 @@
 ---
 id: 55-schema-guard-and-read-alerts
-status: todo
+status: blocked
 type: afk
 depends_on: [54-visible-read-errors]
 ---
@@ -28,3 +28,5 @@ B1 quota: the throttle above is required, no alert storm. No personal data in an
 
 ## Notes / scope guard
 Do not run the check against the live database yourself. No Telegram or email sending.
+
+<!-- ralph 2026-11-09T18:55:04.448Z: upstream 54-visible-read-errors blocked -->

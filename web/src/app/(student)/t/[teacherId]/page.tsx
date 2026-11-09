@@ -18,9 +18,18 @@
  * Student-ui pass (2026-11-06): the hero also gets the exams this teacher
  * teaches, and each tile gets a count. Both are extra read-only lookups that
  * fail soft: a failed one just leaves that line out.
+ *
+ * Issue 63-public-landing: this URL is what a teacher SHARES, so it is the
+ * first PolityPedia page many students ever open, with no session cookie.
+ * Logged out it now reads the same `teachers_public` view as the `anon` role
+ * (0005 already grants that, so no migration) and shows the public profile
+ * with "Sign in to follow". No teacher, or no Supabase: the landing pitch,
+ * never the old "Teachers are not set up yet" (persona-1 gap 3).
  */
+import { PublicLanding, PublicTeacherCard } from '@/components/public-landing';
 import { TeacherPortfolio } from '@/components/teacher-portfolio';
 import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
+import { readPublicTeacher } from '@/lib/teachers/public-teacher';
 import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
 import { labels } from '@/lib/i18n';
 import {
@@ -35,6 +44,14 @@ export default async function TeacherPortfolioPage({
 }) {
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
+
+  // Logged out: the public fields only, read as `anon`. The tiles are not
+  // drawn at all, because every one of them needs a signed-in read.
+  if (!session) {
+    const shared = await readPublicTeacher(teacherId);
+    return shared ? <PublicTeacherCard teacher={shared} mode={mode} /> : <PublicLanding mode={mode} />;
+  }
+
   const { teacher, following, nextExam } = configured
     ? await readPortfolio(session, teacherId)
     : { teacher: null, following: false, nextExam: null };

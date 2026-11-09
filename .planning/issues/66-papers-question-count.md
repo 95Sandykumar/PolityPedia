@@ -1,6 +1,6 @@
 ---
 id: 66-papers-question-count
-status: todo
+status: done
 type: afk
 model: haiku
 depends_on: []
@@ -27,3 +27,5 @@ B8: a single query for the list. Counts only live, non-archived questions the st
 
 ## Notes / scope guard
 No other papers list changes.
+
+<!-- ralph 2026-11-09T19:25:38.305Z: committed + tests pass -->

@@ -60,6 +60,11 @@ const STATUS_BY_FAILURE: Record<PurchaseFailure, number> = {
   owned: 409,
   own_set: 403,
   coupon: 422,
+  // Never raised on the plan path: PP425 lives in start_set_purchase() only
+  // (issue 61-block-second-order). Listed so this map stays exhaustive over
+  // `PurchaseFailure`, which is what makes a new code a BUILD error here
+  // rather than a 500 in front of a student.
+  pending: 409,
   failed: 502,
 };
 

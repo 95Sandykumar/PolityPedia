@@ -1,6 +1,6 @@
 ---
 id: 62-prepay-card-and-my-purchases
-status: todo
+status: blocked
 type: afk
 depends_on: [60-after-pay-screen]
 ---
@@ -30,3 +30,5 @@ A: do not write "incl. GST" anywhere. The tax rule is marked unverified (0027 X4
 
 ## Notes / scope guard
 No email receipt, no invoice PDF, no refund button.
+
+<!-- ralph 2026-11-09T18:51:51.070Z: upstream 56-result-page blocked -->

@@ -6,6 +6,7 @@
  * so this route cannot be used to find out which emails exist.
  */
 import { NextResponse } from 'next/server';
+import { classifySendFailure } from '@/lib/auth/sign-in-errors';
 import { createSupabaseAuthClient } from '@/lib/auth/supabase-auth-client';
 
 export async function POST(request: Request) {
@@ -25,8 +26,14 @@ export async function POST(request: Request) {
 
   try {
     await client.sendEmailCode(email);
-  } catch {
-    return NextResponse.json({ error: 'send failed' }, { status: 502 });
+  } catch (error) {
+    // The rate limit is the same for a known and an unknown email, so telling
+    // the student to wait reveals nothing about who has an account.
+    const reason = classifySendFailure(error);
+    if (reason === 'rate_limited') {
+      return NextResponse.json({ error: 'rate limited', reason }, { status: 429 });
+    }
+    return NextResponse.json({ error: 'send failed', reason }, { status: 502 });
   }
   return NextResponse.json({ ok: true });
 }

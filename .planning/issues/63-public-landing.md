@@ -1,6 +1,6 @@
 ---
 id: 63-public-landing
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ C (public endpoint): show only public fields; never an alias teacher's real name
 
 ## Notes / scope guard
 No marketing site, no pricing page. "Try a free test" can lead to sign-in for now; the free test card is ticket 68.
+
+<!-- ralph 2026-11-09T19:14:22.497Z: committed + tests pass -->
