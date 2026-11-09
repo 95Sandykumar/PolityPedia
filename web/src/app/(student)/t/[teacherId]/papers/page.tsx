@@ -17,6 +17,7 @@
 import { PapersList } from '@/components/papers-list';
 import { BackLink, PageHeader } from '@/components/student-ui';
 import { readStudentContext } from '@/lib/follows/student-page';
+import { readPaperProgress } from '@/lib/papers/progress';
 import { readLivePapers } from '@/lib/papers/teacher-page';
 import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
 import { plain } from '@/lib/i18n';
@@ -32,6 +33,13 @@ export default async function TeacherPapersPage({
   const [exams, papers] = configured
     ? await Promise.all([readExamCatalogue(session), readLivePapers(session, teacherId)])
     : [[], []];
+  // One question query and one attempt query for the whole list (B8).
+  const progress = configured
+    ? await readPaperProgress(
+        session,
+        papers.map((paper) => paper.id),
+      )
+    : new Map();
 
   return (
     <section className="flex flex-col gap-4">
@@ -39,7 +47,13 @@ export default async function TeacherPapersPage({
       <PageHeader titleKey="tile.papers" mode={mode} />
 
       {configured ? (
-        <PapersList papers={papers} exams={exams} mode={mode} playTeacherId={teacherId} />
+        <PapersList
+          papers={papers}
+          exams={exams}
+          mode={mode}
+          playTeacherId={teacherId}
+          progress={progress}
+        />
       ) : (
         <p role="status" className="text-muted-foreground">
           {plain('papers.notConfigured', mode)}

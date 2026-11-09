@@ -14,11 +14,12 @@
  * minted on the server, for a paper the policy already allowed, and it dies a
  * minute later.
  */
-import { FileText, ListChecks, Play } from 'lucide-react';
+import { Check, FileText, ListChecks, Play } from 'lucide-react';
 import { EmptyState, IconChip } from '@/components/student-ui';
 import Link from 'next/link';
 import { playerPath } from '@/lib/attempts/types';
 import type { Exam } from '@/lib/exams/types';
+import type { PaperProgress } from '@/lib/papers/progress';
 import {
   groupPapers,
   monthLabels,
@@ -44,6 +45,9 @@ const PRACTICE =
 const BADGE =
   'rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground';
 
+/** The question count and the Done tick (issue 66-papers-question-count). */
+const NOTE = 'inline-flex items-center gap-1 text-sm font-medium text-muted-foreground';
+
 export function PapersList({
   papers,
   exams,
@@ -51,6 +55,7 @@ export function PapersList({
   showStatus = false,
   showReview = false,
   playTeacherId,
+  progress,
 }: {
   papers: readonly Paper[];
   /** The catalogue, for the exam headings and their order. */
@@ -64,6 +69,11 @@ export function PapersList({
    * leaves it out, because a draft paper has nothing live to practise.
    */
   playTeacherId?: string;
+  /**
+   * The student's progress per paper (issue 66-papers-question-count). A paper
+   * with no entry has unknown progress: no count, no tick, Practice kept.
+   */
+  progress?: ReadonlyMap<string, PaperProgress>;
   /**
    * True on the teacher's own screen: adds the Review link, which opens the
    * check-and-publish screen (issue 11-ingest-job-review-publish).
@@ -143,24 +153,12 @@ export function PapersList({
                             {/* Student side only: open the question player
                                 (issue 13-question-player). */}
                             {playTeacherId ? (
-                              <Link
-                                href={playerPath(playTeacherId, paper.id)}
-                                prefetch={false}
-                                aria-label={`${paper.label}: ${plain('player.title', mode)}`}
-                                className={PRACTICE}
-                              >
-                                <Play aria-hidden="true" className="size-5" />
-                                <span className="flex flex-col items-start">
-                                  {labels('player.title', mode).map((line, index) => (
-                                    <span
-                                      key={line}
-                                      className={index === 0 ? 'block' : 'block text-xs'}
-                                    >
-                                      {line}
-                                    </span>
-                                  ))}
-                                </span>
-                              </Link>
+                              <PracticeCell
+                                paper={paper}
+                                teacherId={playTeacherId}
+                                known={progress?.get(paper.id)}
+                                mode={mode}
+                              />
                             ) : null}
                             {paper.questionsPath ? (
                               <PdfLink
@@ -213,6 +211,59 @@ export function PapersList({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The student's count, Done tick and Practice link (issue
+ * 66-papers-question-count). With 0 questions there is no link, only "Questions
+ * coming soon": the player would otherwise open on "No questions yet".
+ */
+function PracticeCell({
+  paper,
+  teacherId,
+  known,
+  mode,
+}: {
+  paper: Paper;
+  teacherId: string;
+  known: PaperProgress | undefined;
+  mode: LangMode;
+}) {
+  if (known?.questionCount === 0) {
+    return <span className={NOTE}>{plain('papers.comingSoon', mode)}</span>;
+  }
+
+  return (
+    <>
+      {known ? (
+        <span className={NOTE}>
+          <span className="tabular-nums">{known.questionCount}</span>
+          <span>{plain('papers.questionsWord', mode)}</span>
+        </span>
+      ) : null}
+      {known?.done ? (
+        <span className={NOTE}>
+          <Check aria-hidden="true" className="size-4" />
+          {plain('papers.done', mode)}
+        </span>
+      ) : null}
+      <Link
+        href={playerPath(teacherId, paper.id)}
+        prefetch={false}
+        aria-label={`${paper.label}: ${plain('player.title', mode)}`}
+        className={PRACTICE}
+      >
+        <Play aria-hidden="true" className="size-5" />
+        <span className="flex flex-col items-start">
+          {labels('player.title', mode).map((line, index) => (
+            <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
+              {line}
+            </span>
+          ))}
+        </span>
+      </Link>
+    </>
   );
 }
 
