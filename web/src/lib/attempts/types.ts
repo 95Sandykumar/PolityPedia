@@ -116,6 +116,18 @@ export const ATTEMPT_ANSWERS_PATH = '/api/attempts/answers';
 export const ATTEMPT_SUBMIT_PATH = '/api/attempts/submit';
 
 /**
+ * Our own route the result page reads (issue 56-result-page).
+ *
+ * The attempt id is in the PATH and nothing else is sent, because nothing else
+ * would be believed: `attempts_select_own` (0013) decides whose sitting this
+ * is from the session token, so a student who edits the id sees the same
+ * "nothing to show" a missing id gets.
+ */
+export function attemptResultPath(attemptId: string): string {
+  return `/api/attempts/${encodeURIComponent(attemptId)}/result`;
+}
+
+/**
  * Validate anything into an `AnswerUpsert`, or null.
  *
  * Only the five fields below are carried over, so a `userId` or a `score` in

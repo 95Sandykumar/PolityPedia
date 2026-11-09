@@ -31,9 +31,16 @@
  * prettier countdown and writes nothing.
  */
 import { Check, Clock, LayoutGrid, ListChecks, X } from 'lucide-react';
+import { AttemptResultPanel } from '@/components/attempt-result';
 import { EmptyState } from '@/components/student-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { optionLetter, progressLabel, type AttemptAnswer } from '@/lib/attempts/types';
+import type { BrowserResultReader } from '@/lib/attempts/browser-result-client';
+import {
+  optionLetter,
+  progressLabel,
+  type AttemptAnswer,
+  type AttemptResult,
+} from '@/lib/attempts/types';
 import {
   gridState,
   remainingMs,
@@ -102,6 +109,8 @@ export function ExamPlayer({
   startedAnswers,
   revealed = false,
   score = null,
+  readResult,
+  nextHref = null,
   client,
   now = Date.now,
 }: {
@@ -125,6 +134,18 @@ export function ExamPlayer({
   revealed?: boolean;
   /** The stored score of a sitting that was already submitted. */
   score?: number | null;
+  /**
+   * The RESULT PAGE's read (issue 56-result-page). Asked once, after the close,
+   * and its answer replaces the one-line score with the breakdown: the counts,
+   * the time taken and the questions that went wrong.
+   *
+   * Optional, and a null answer is not an error: the stored score is already
+   * on the sticky bar, so a sitting whose breakdown will not load still shows
+   * the mark the server gave.
+   */
+  readResult?: BrowserResultReader;
+  /** Where the result page's "Next test" goes. Null draws no link. */
+  nextHref?: string | null;
   /** Our own routes. Holds no key, and never marks anything itself. */
   client: BrowserExamClient;
   /** Injected so a test can pin the clock. */
@@ -139,6 +160,8 @@ export function ExamPlayer({
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(revealed ? score : null);
+  /** The result page, once the read behind it answers. Null until then. */
+  const [result, setResult] = useState<AttemptResult | null>(null);
   /**
    * The questions WITH the key. Null until the paper is in, which is the whole
    * of "strip until submit": there is no state of this component before submit
@@ -214,6 +237,33 @@ export function ExamPlayer({
     autoSubmitted.current = true;
     void submit();
   }, [left, submit, submitted]);
+
+  /**
+   * The result page (issue 56-result-page).
+   *
+   * ASKED ONCE, and the ref is why: a null answer means "nothing to show", and
+   * without the latch the effect would ask again on the next render for ever.
+   * It fires for BOTH ways a sitting closes, the student's Submit and the
+   * clock's, because `submitted` is what it watches, and for a sitting that
+   * was already closed when the page opened (`revealed`), which is how a
+   * student who was knocked offline at the deadline sees the same page.
+   *
+   * The read runs on the server with the student's own token, so `right` and
+   * `wrong` here are Postgres's answer, not this component's (0031).
+   */
+  const askedResult = useRef(false);
+  useEffect(() => {
+    if (!submitted || !readResult || askedResult.current) return;
+    askedResult.current = true;
+
+    let alive = true;
+    void readResult(attemptId).then((got) => {
+      if (alive && got) setResult(got);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [attemptId, readResult, submitted]);
 
   const store = useCallback(
     (questionId: string, next: AttemptAnswer) => {
@@ -335,6 +385,20 @@ export function ExamPlayer({
           ) : null}
         </div>
       </div>
+
+      {/* The payoff moment (issue 56-result-page). It REPLACES the one-line
+          score in the bottom bar, and it sits at the top of the paper because
+          it is what the student came back for; the questions below it are
+          still there for the review. */}
+      {result ? (
+        <AttemptResultPanel
+          result={result}
+          mode={mode}
+          // F-E6: the paper is out of MARKS, not questions.
+          outOf={totalMarks(total, marking)}
+          nextHref={nextHref}
+        />
+      ) : null}
 
       {/* Colour never works alone: time up is also a sentence. */}
       {tone === 'over' && !submitted ? (
@@ -496,13 +560,18 @@ export function ExamPlayer({
         ) : null}
 
         {submitted ? (
-          <p
-            data-testid="exam-score"
-            role="status"
-            className="order-5 col-span-2 text-center text-base font-bold tabular-nums"
-          >
-            {plain('player.score', mode)} {finalScore ?? 0} / {totalMarks(total, marking)}
-          </p>
+          // The result page above carries the same mark and a great deal more,
+          // so this line is what shows UNTIL it arrives, and the whole of what
+          // shows if the read never answers. Never both at once.
+          result ? null : (
+            <p
+              data-testid="exam-score"
+              role="status"
+              className="order-5 col-span-2 text-center text-base font-bold tabular-nums"
+            >
+              {plain('player.score', mode)} {finalScore ?? 0} / {totalMarks(total, marking)}
+            </p>
+          )
         ) : (
           // Submit is reachable from EVERY question, not just the last one: a
           // clock means a student may want to stop before the end.
