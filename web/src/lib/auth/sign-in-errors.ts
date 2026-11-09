@@ -11,9 +11,15 @@
  */
 import type { MessageKey } from '@/lib/i18n';
 
-export type FailureReason = 'wrong' | 'expired' | 'rate_limited' | 'failed';
+/**
+ * `bad_code` covers a code that is wrong AND a code that ran out (issue
+ * 83-fix-wrong-code-says-expired). Supabase answers 403 for both and adds
+ * `otp_expired` only some of the time, so splitting them is guesswork. One
+ * reason means we never tell a student their fresh code expired.
+ */
+export type FailureReason = 'bad_code' | 'rate_limited' | 'failed';
 
-const REASONS: readonly FailureReason[] = ['wrong', 'expired', 'rate_limited', 'failed'];
+const REASONS: readonly FailureReason[] = ['bad_code', 'rate_limited', 'failed'];
 
 /** Supabase `error_code` values for the email rate limit. */
 const RATE_LIMIT_CODES = ['over_email_send_rate_limit', 'over_request_rate_limit'];
@@ -49,15 +55,15 @@ function isRateLimited(error: unknown): boolean {
 }
 
 /**
- * A failed verify. Supabase says `otp_expired` for a code that ran out, so
- * that is the only case we call expired. A plain refusal is a wrong code.
- * Anything with no status (a dead network) or a 5xx is a plain failure.
+ * A failed verify. Every refusal of the code itself is `bad_code`, whether
+ * Supabase added `otp_expired` or not, so one message names both causes and
+ * asks the student to check the code or resend it. Anything with no status
+ * (a dead network) or a 5xx is a plain failure.
  */
 export function classifyVerifyFailure(error: unknown): FailureReason {
   if (isRateLimited(error)) return 'rate_limited';
-  if (codeOf(error) === 'otp_expired') return 'expired';
   const status = statusOf(error);
-  if (status === 400 || status === 401 || status === 403 || status === 422) return 'wrong';
+  if (status === 400 || status === 401 || status === 403 || status === 422) return 'bad_code';
   return 'failed';
 }
 
@@ -78,8 +84,7 @@ export function parseReason(value: unknown): FailureReason {
 }
 
 const REASON_KEYS: Record<FailureReason, MessageKey> = {
-  wrong: 'auth.err.wrong',
-  expired: 'auth.err.expired',
+  bad_code: 'auth.err.badCode',
   rate_limited: 'auth.err.rateLimited',
   failed: 'auth.failed',
 };
