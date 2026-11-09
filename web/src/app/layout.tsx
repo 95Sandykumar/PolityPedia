@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_Devanagari } from 'next/font/google';
+import { ServiceWorkerRegister } from '@/components/service-worker-register';
 import './globals.css';
 
 const noto = Noto_Sans_Devanagari({
@@ -12,6 +13,7 @@ const noto = Noto_Sans_Devanagari({
 export const metadata: Metadata = {
   title: 'PolityPedia',
   description: 'Political Science practice for UGC NET, CUET PG, TGT and PGT.',
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -24,7 +26,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={noto.variable}>
-      <body>{children}</body>
+      <body>
+        <ServiceWorkerRegister />
+        {children}
+      </body>
     </html>
   );
 }

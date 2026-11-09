@@ -64,6 +64,9 @@ export const dictionary = {
     'me.saved': 'Saved',
     // Issue 33-session-refresh: the only way off a shared phone.
     'me.signOut': 'Sign out',
+    // Issue 78-installable-app: shown only when the browser offers install.
+    'me.installApp': 'Install app',
+    'me.installIos': 'Tap Share, then Add to Home Screen.',
     // Me > Plans (issue 28-plan-subscriptions). V18: AI Rs 100, Pro Rs 500.
     'mePlans.title': 'Plans',
     'mePlans.hint': 'Monthly. Stop any time. Your plan works until the paid date.',
@@ -782,6 +785,8 @@ export const dictionary = {
     'me.language': 'भाषा',
     'me.saved': 'सेव हो गया',
     'me.signOut': 'साइन आउट',
+    'me.installApp': 'ऐप इंस्टॉल करें',
+    'me.installIos': 'शेयर दबाएँ, फिर Add to Home Screen चुनें।',
     // Me > Plans (issue 28-plan-subscriptions).
     'mePlans.title': 'प्लान',
     'mePlans.hint': 'हर महीने। कभी भी बंद कर सकते हैं। जितने का पैसा दिया, तब तक चलता है।',

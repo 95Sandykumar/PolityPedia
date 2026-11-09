@@ -24,6 +24,7 @@
 import { ChevronRight, CreditCard, Languages, LogOut, UserRound } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { InstallApp } from '@/components/install-app';
 import { LanguageSetting } from '@/components/language-setting';
 import { SignOutButton } from '@/components/sign-out-button';
 import { CARD, IconChip, Lines, PageHeader, SectionTitle } from '@/components/student-ui';
@@ -112,6 +113,9 @@ export default async function MePage() {
           </span>
           <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
         </Link>
+
+        {/* Issue 78-installable-app: renders only when the browser offers install (or the iOS hint). */}
+        <InstallApp mode={mode} />
       </section>
 
       {session ? (
