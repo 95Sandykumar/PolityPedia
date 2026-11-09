@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: blocked
+status: todo
 type: afk
 depends_on: []
 ---
@@ -28,4 +28,10 @@ B3: links keep the existing prefetch wrapper pattern. The error message names no
 ## Notes / scope guard
 Do not change what any query selects. Do not add alert sending. Do not touch teacher screens.
 
-<!-- ralph 2026-11-09T18:55:04.445Z: no new commit -- slice unfinished -->
+## Start here (file map, read ONLY these)
+Do not grep the whole repo. About 45 files match the swallow pattern, and most are teacher-side or write-side and are out of scope. Do not read them. Do not `cat` whole files: use `sed -n` ranges or `grep -n`.
+- Readers to change (student side only): `web/src/lib/{attempts,exam,follows,practice,saved,set-access}/student-page.ts`, `web/src/lib/videos/page-data.ts`, `web/src/lib/posts/server-posts.ts`, `web/src/app/(student)/_data/student-ui-data.ts`
+- Screens that render them: `web/src/components/mock-list.tsx`, `web/src/components/papers-list.tsx`, `web/src/components/student-ui.tsx`, `web/src/app/(student)/page.tsx`, `web/src/app/(student)/practice/page.tsx`
+- Strings: `web/src/lib/i18n.ts`
+- Do NOT touch: `web/src/lib/*/supabase-*-client.ts`, `web/src/lib/*/teacher-page.ts`, `web/src/app/teacher/**`, `web/src/components/exam-player.tsx`
+- Work order: 1) result type + helper, 2) one reader plus its test, 3) shared error component, 4) the other readers, 5) full checks. Commit after each step.

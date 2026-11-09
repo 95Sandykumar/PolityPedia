@@ -1,6 +1,6 @@
 ---
 id: 48-news-text-and-link-preview
-status: blocked
+status: todo
 type: afk
 depends_on: [H6-teacher-v11-picks, 47-videos-youtube-and-instagram]
 ---

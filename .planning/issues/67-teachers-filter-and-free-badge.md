@@ -1,6 +1,6 @@
 ---
 id: 67-teachers-filter-and-free-badge
-status: blocked
+status: todo
 type: afk
 depends_on: []
 ---

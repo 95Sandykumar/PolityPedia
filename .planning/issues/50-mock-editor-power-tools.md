@@ -1,13 +1,13 @@
 ---
 id: 50-mock-editor-power-tools
-status: blocked
+status: todo
 type: afk
 depends_on: [49-subjects-and-topics]
 ---
 # Mock editor: reorder, duplicate, move, bulk paste, preview as student, publish checklist
 
 ## Context
-PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, `web/DESIGN.md`. Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md` sections 5 and 6. DB tests use PGlite. No migration in this ticket unless a function is strictly needed; if so, use **0049** and say why in the header.
+PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, `web/DESIGN.md`. Design: `.planning/intake/2026-11-06-teacher-v1.1/design.md` sections 5 and 6. DB tests use PGlite. No migration in this ticket unless a function is strictly needed; if so, use **0057** and say why in the header.
 
 Today: `/teacher/mocks/[setId]`, APIs under `/api/teacher/mock-sets/...` and `/api/teacher/questions`. `publish_mock_set()` refuses unchecked questions. Unique `(test_id, number)` index on questions. Answer-key changes after publish go through the key lock (`0030_exam_key_lock.sql`); keep that path.
 

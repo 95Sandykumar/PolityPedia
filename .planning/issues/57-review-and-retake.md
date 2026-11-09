@@ -1,6 +1,6 @@
 ---
 id: 57-review-and-retake
-status: blocked
+status: todo
 type: afk
 depends_on: [56-result-page]
 ---

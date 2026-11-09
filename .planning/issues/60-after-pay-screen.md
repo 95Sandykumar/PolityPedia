@@ -1,6 +1,6 @@
 ---
 id: 60-after-pay-screen
-status: blocked
+status: todo
 type: afk
 depends_on: [54-visible-read-errors, 57-review-and-retake]
 ---

@@ -1,6 +1,6 @@
 ---
 id: 47-videos-youtube-and-instagram
-status: blocked
+status: todo
 type: afk
 depends_on: [46-teacher-setup-checklist]
 ---
