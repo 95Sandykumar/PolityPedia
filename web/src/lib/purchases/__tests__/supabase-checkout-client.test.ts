@@ -102,6 +102,7 @@ describe('start', () => {
       ['PP404', 'not_found'],
       ['PP409', 'owned'],
       ['PP422', 'coupon'],
+      ['PP425', 'pending'],
       ['42501', 'failed'],
     ];
 
@@ -112,6 +113,36 @@ describe('start', () => {
         400,
       );
       await expect(client(fetchImpl).start({ setId: SET })).rejects.toMatchObject({ code });
+    }
+  });
+
+  it('carries the pending order id out of the PostgREST details (issue 61)', async () => {
+    const { fetchImpl } = recorder(
+      {
+        code: 'PP425',
+        message: 'a payment for this set is already in progress',
+        details: 'order_pending_1',
+      },
+      false,
+      409,
+    );
+
+    await expect(client(fetchImpl).start({ setId: SET })).rejects.toMatchObject({
+      code: 'pending',
+      pendingOrderId: 'order_pending_1',
+    });
+  });
+
+  it('reads a missing or unusable pending order id as none', async () => {
+    // Postgres sends an EMPTY detail when the second tap landed before the
+    // Razorpay order existed, and anything that is not an order id (a
+    // constraint name, a sentence) must be dropped rather than shown.
+    for (const details of ['', '   ', 42, null, undefined, 'constraint "purchases_paid_check"']) {
+      const { fetchImpl } = recorder({ code: 'PP425', details }, false, 409);
+      await expect(client(fetchImpl).start({ setId: SET })).rejects.toMatchObject({
+        code: 'pending',
+        pendingOrderId: null,
+      });
     }
   });
 
