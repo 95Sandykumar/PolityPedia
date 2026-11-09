@@ -1,6 +1,6 @@
 ---
 id: 52-batch-announcements
-status: todo
+status: blocked
 type: afk
 depends_on: [51-batch-invite-links]
 ---
@@ -24,3 +24,5 @@ PGlite: non-member cannot read, member cannot write, second pin refused, archive
 No replies, reactions or student posts. No push notifications. Do not apply the migration live.
 
 <!-- ralph 2026-11-09T18:51:51.048Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.198Z: upstream 56-result-page blocked -->

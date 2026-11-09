@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -35,3 +35,5 @@ Do not grep the whole repo. About 45 files match the swallow pattern, and most a
 - Strings: `web/src/lib/i18n.ts`
 - Do NOT touch: `web/src/lib/*/supabase-*-client.ts`, `web/src/lib/*/teacher-page.ts`, `web/src/app/teacher/**`, `web/src/components/exam-player.tsx`
 - Work order: 1) result type + helper, 2) one reader plus its test, 3) shared error component, 4) the other readers, 5) full checks. Commit after each step.
+
+<!-- ralph 2026-11-09T21:37:04.249Z: tests FAILED in worktree -->

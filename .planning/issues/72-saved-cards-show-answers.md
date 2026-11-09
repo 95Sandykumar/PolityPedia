@@ -1,6 +1,6 @@
 ---
 id: 72-saved-cards-show-answers
-status: todo
+status: blocked
 type: afk
 depends_on: [57-review-and-retake]
 ---
@@ -30,3 +30,5 @@ Follow the existing question access rules and key lock (0030). Do not add any by
 No practise session (ticket 73). No spaced repetition.
 
 <!-- ralph 2026-11-09T18:51:51.060Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.214Z: upstream 56-result-page blocked -->

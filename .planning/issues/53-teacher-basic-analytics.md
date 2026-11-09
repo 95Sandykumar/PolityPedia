@@ -1,6 +1,6 @@
 ---
 id: 53-teacher-basic-analytics
-status: todo
+status: blocked
 type: afk
 depends_on: [49-subjects-and-topics]
 ---
@@ -22,3 +22,5 @@ PGlite: a teacher cannot read another teacher's batch stats; topic accuracy math
 No per-student timeline, CSV export, percentile prediction (Upcoming). Do not apply the migration live.
 
 <!-- ralph 2026-11-09T18:51:51.040Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.187Z: upstream 56-result-page blocked -->

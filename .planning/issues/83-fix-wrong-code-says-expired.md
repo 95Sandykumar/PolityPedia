@@ -1,6 +1,6 @@
 ---
 id: 83-fix-wrong-code-says-expired
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -27,3 +27,5 @@ A test with the failure shapes the auth service can send (403 with and without `
 
 ## Notes / scope guard
 Do not change the resend cooldown or the rate-limit messages.
+
+<!-- ralph 2026-11-09T22:26:51.610Z: committed + tests pass -->

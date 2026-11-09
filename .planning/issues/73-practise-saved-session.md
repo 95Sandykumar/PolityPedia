@@ -1,6 +1,6 @@
 ---
 id: 73-practise-saved-session
-status: todo
+status: blocked
 type: afk
 depends_on: [72-saved-cards-show-answers]
 ---
@@ -27,3 +27,5 @@ PGlite: a session is created, answers saved, the score is computed on the server
 No due dates or intervals (ticket 74).
 
 <!-- ralph 2026-11-09T18:51:51.062Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.217Z: upstream 56-result-page blocked -->

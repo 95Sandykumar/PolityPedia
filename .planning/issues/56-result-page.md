@@ -1,6 +1,6 @@
 ---
 id: 56-result-page
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -35,3 +35,5 @@ Do not grep the whole repo. Do not `cat` whole files: use `sed -n` ranges or `gr
 - Attempt data and types: `web/src/lib/attempts/types.ts`, `web/src/lib/attempts/student-page.ts`, `web/src/lib/attempts/supabase-attempts-client.ts`
 - Strings: `web/src/lib/i18n.ts`
 - Work order: 1) result reader plus its PGlite test, 2) result component, 3) wire into both players, 4) i18n, 5) full checks. Commit after each step.
+
+<!-- ralph 2026-11-09T21:25:09.150Z: no new commit -- slice unfinished -->

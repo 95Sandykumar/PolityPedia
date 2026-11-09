@@ -59,8 +59,8 @@ describe('POST /api/auth/verify-code', () => {
   const body = { email: 'a@b.test', code: '424242' };
 
   it.each([
-    [new AuthCallError(403, 'otp_expired'), 401, 'expired'],
-    [new AuthCallError(403), 401, 'wrong'],
+    [new AuthCallError(403, 'otp_expired'), 401, 'bad_code'],
+    [new AuthCallError(403), 401, 'bad_code'],
     [new AuthCallError(429), 429, 'rate_limited'],
     [new AuthCallError(500), 502, 'failed'],
   ])('maps %o to %i and %s', async (error, status, reason) => {

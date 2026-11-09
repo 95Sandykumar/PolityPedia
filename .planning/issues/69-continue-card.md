@@ -1,6 +1,6 @@
 ---
 id: 69-continue-card
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page, 68-free-test-card-and-mock-list-cleanup]
 ---
@@ -29,3 +29,5 @@ Read only, own token, RLS decides rows. B3 prefetch wrapper.
 No streak or progress here (ticket 70).
 
 <!-- ralph 2026-11-09T18:51:51.018Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.157Z: upstream 56-result-page blocked -->

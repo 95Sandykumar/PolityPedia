@@ -1,6 +1,6 @@
 ---
 id: 48-news-text-and-link-preview
-status: todo
+status: blocked
 type: afk
 depends_on: [H6-teacher-v11-picks, 47-videos-youtube-and-instagram]
 ---
@@ -27,3 +27,5 @@ Preview fetcher: private IP, `http://`, redirect to 169.254.169.254, oversize bo
 No audio upload. No rich text editor dependency. Do not edit package.json. Do not apply the migration live.
 
 <!-- ralph 2026-11-09T18:51:51.055Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.208Z: upstream 56-result-page blocked -->

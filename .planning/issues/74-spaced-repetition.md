@@ -1,6 +1,6 @@
 ---
 id: 74-spaced-repetition
-status: todo
+status: blocked
 type: afk
 depends_on: [73-practise-saved-session]
 ---
@@ -27,3 +27,5 @@ B8: one query for the badge. India time for "due today".
 No push, no email. The Home Today card is ticket 75.
 
 <!-- ralph 2026-11-09T18:51:51.064Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.220Z: upstream 56-result-page blocked -->

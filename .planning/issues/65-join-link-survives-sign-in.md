@@ -1,6 +1,6 @@
 ---
 id: 65-join-link-survives-sign-in
-status: todo
+status: blocked
 type: afk
 depends_on: [64-signin-errors-and-resend]
 ---
@@ -31,3 +31,5 @@ C: no open redirect. The `join_batch` RPC stays the only writer. Do not reveal m
 No invite links with expiry (teacher ticket 51). No approval flow.
 
 <!-- ralph 2026-11-09T19:59:47.687Z: no new commit -- slice unfinished -->
+
+<!-- ralph 2026-11-09T21:45:56.895Z: no new commit -- slice unfinished -->

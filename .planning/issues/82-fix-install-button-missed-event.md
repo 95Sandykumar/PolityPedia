@@ -1,6 +1,6 @@
 ---
 id: 82-fix-install-button-missed-event
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -26,3 +26,5 @@ A component test where the event is dispatched BEFORE `InstallApp` mounts, then 
 
 ## Notes / scope guard
 Do not change the offline page or the service worker file. Do not add the iPad hint.
+
+<!-- ralph 2026-11-09T22:17:14.135Z: committed + tests pass -->

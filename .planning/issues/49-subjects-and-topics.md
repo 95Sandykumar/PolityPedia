@@ -1,6 +1,6 @@
 ---
 id: 49-subjects-and-topics
-status: todo
+status: blocked
 type: afk
 depends_on: [45-keep-money-and-scores, 55-schema-guard-and-read-alerts, 59-start-screen-and-submit-confirm, 61-block-second-order, 62-prepay-card-and-my-purchases]
 ---
@@ -24,3 +24,5 @@ PGlite: teacher topic invisible to other teachers; question cannot point at anot
 No sections inside one test (Upcoming). Do not apply the migration live.
 
 <!-- ralph 2026-11-09T18:51:51.036Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T21:25:09.182Z: upstream 56-result-page blocked -->
