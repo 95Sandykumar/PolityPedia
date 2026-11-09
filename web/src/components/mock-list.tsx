@@ -36,6 +36,7 @@
 import { BookOpenCheck, Check, ChevronRight, ListChecks, Lock, LockOpen, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { ReadError } from '@/components/read-error';
 import { CARD, EmptyState, Lines } from '@/components/student-ui';
 import { ATTEMPT_MODES, type AttemptMode } from '@/lib/attempts/types';
 import {
@@ -110,10 +111,19 @@ export function MockList({
   teacherId,
   topics = [],
   mode = DEFAULT_MODE,
+  failed = false,
   checkout,
   openCheckout = openRazorpayCheckoutDefault,
 }: {
   sets: readonly MockSetRow[];
+  /**
+   * True when the server read FAILED rather than came back empty
+   * (issue 54a-read-error-core). It wins over `sets`: a failure with rows in
+   * hand means part of the read chain answered and part did not, so the locks,
+   * ticks and scores could be wrong, and a wrong lock is a set sold twice or a
+   * paid set still shut. The screen says so and offers Retry instead.
+   */
+  failed?: boolean;
   /** Whose portfolio this is, so the player link knows where it came from. */
   teacherId: string;
   /**
@@ -173,6 +183,12 @@ export function MockList({
     } finally {
       inFlight.current = false;
     }
+  }
+
+  // Checked BEFORE the empty state, never after: the whole point of the
+  // ticket is that a broken read must not say "No mock tests yet".
+  if (failed) {
+    return <ReadError mode={mode} />;
   }
 
   if (sets.length === 0) {
