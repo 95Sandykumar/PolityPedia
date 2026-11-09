@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -27,3 +27,5 @@ B3: links keep the existing prefetch wrapper pattern. The error message names no
 
 ## Notes / scope guard
 Do not change what any query selects. Do not add alert sending. Do not touch teacher screens.
+
+<!-- ralph 2026-11-09T18:55:04.445Z: no new commit -- slice unfinished -->

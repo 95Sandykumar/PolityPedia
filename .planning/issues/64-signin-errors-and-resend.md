@@ -1,6 +1,6 @@
 ---
 id: 64-signin-errors-and-resend
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -29,3 +29,5 @@ C: no account enumeration; keep the identical reply for known and unknown emails
 
 ## Notes / scope guard
 No new sign-in method, no password.
+
+<!-- ralph 2026-11-09T19:22:36.372Z: committed + tests pass -->

@@ -1,6 +1,6 @@
 ---
 id: 46-teacher-setup-checklist
-status: todo
+status: blocked
 type: afk
 depends_on: [45-keep-money-and-scores, 55-schema-guard-and-read-alerts, 59-start-screen-and-submit-confirm, 61-block-second-order, 62-prepay-card-and-my-purchases]
 ---
@@ -25,3 +25,5 @@ Unit: URL/handle normalisers (10+ good and bad cases). PGlite: teacher can set o
 
 ## Scope guard
 No auto-import from YouTube or Instagram (Upcoming). Do not apply migrations or storage SQL to the live database.
+
+<!-- ralph 2026-11-09T18:51:51.051Z: upstream 56-result-page blocked -->

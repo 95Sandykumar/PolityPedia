@@ -1,6 +1,6 @@
 ---
 id: 57-review-and-retake
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page]
 ---
@@ -26,3 +26,5 @@ PGlite: the attempts row count is unchanged after opening Review in practice and
 
 ## Notes / scope guard
 No analytics, no sharing. Start screens are ticket 59.
+
+<!-- ralph 2026-11-09T18:51:51.057Z: upstream 56-result-page blocked -->

@@ -1,6 +1,6 @@
 ---
 id: 71-exam-countdown-own-exam
-status: todo
+status: blocked
 type: afk
 depends_on: [69-continue-card]
 ---
@@ -26,3 +26,5 @@ Read only, own token. The date is the teacher's date, not an official date: labe
 
 ## Notes / scope guard
 No daily question target.
+
+<!-- ralph 2026-11-09T18:51:51.022Z: upstream 56-result-page blocked -->

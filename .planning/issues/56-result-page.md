@@ -1,6 +1,6 @@
 ---
 id: 56-result-page
-status: todo
+status: blocked
 type: afk
 depends_on: []
 ---
@@ -27,3 +27,5 @@ Fixture attempts: all right, all wrong, some skipped, deadline auto-submit. Coun
 
 ## Notes / scope guard
 No review route (ticket 57), no rank, no share, no topic split.
+
+<!-- ralph 2026-11-09T18:51:51.014Z: no new commit -- slice unfinished -->

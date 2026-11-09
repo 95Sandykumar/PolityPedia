@@ -1,6 +1,6 @@
 ---
 id: 76-topic-filter
-status: todo
+status: blocked
 type: afk
 depends_on: [68-free-test-card-and-mock-list-cleanup, 49-subjects-and-topics]
 ---
@@ -24,3 +24,5 @@ Reuse the topics read rules from 0045. A page view must not write: the sitting s
 
 ## Notes / scope guard
 No weak-topic logic (ticket 77).
+
+<!-- ralph 2026-11-09T18:51:51.038Z: upstream 56-result-page blocked -->

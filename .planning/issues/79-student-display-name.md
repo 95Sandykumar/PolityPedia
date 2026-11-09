@@ -1,6 +1,6 @@
 ---
 id: 79-student-display-name
-status: todo
+status: blocked
 type: afk
 depends_on: [53-teacher-basic-analytics]
 ---
@@ -30,3 +30,5 @@ Privacy: ask for nothing else (no phone, no email, no photo). The name is never 
 
 ## Notes / scope guard
 Do not change `teachers_public`. No avatars.
+
+<!-- ralph 2026-11-09T18:51:51.042Z: upstream 56-result-page blocked -->

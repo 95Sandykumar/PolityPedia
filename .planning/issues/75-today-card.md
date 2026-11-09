@@ -1,6 +1,6 @@
 ---
 id: 75-today-card
-status: todo
+status: blocked
 type: afk
 depends_on: [74-spaced-repetition, 71-exam-countdown-own-exam]
 ---
@@ -24,3 +24,5 @@ Read only until Start. A page view must not write.
 
 ## Notes / scope guard
 No daily goal setting, no streak flame (progress lives in Me, ticket 70).
+
+<!-- ralph 2026-11-09T18:51:51.025Z: upstream 56-result-page blocked -->

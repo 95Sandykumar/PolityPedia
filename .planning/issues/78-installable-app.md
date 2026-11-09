@@ -1,6 +1,6 @@
 ---
 id: 78-installable-app
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -29,3 +29,5 @@ B1 quota: tiny assets only (B4). Service worker scope is `/` and must not break 
 
 ## Notes / scope guard
 No push notifications (human ticket H9). No background sync. No offline question bank.
+
+<!-- ralph 2026-11-09T19:36:31.169Z: committed + tests pass -->

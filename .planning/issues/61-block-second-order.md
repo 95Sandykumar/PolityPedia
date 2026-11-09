@@ -1,6 +1,6 @@
 ---
 id: 61-block-second-order
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -27,3 +27,5 @@ A1 to A6: this function never sets a purchase to paid and never touches the ledg
 
 ## Notes / scope guard
 Do not apply 0049 to the live database (human ticket H7). Do not change the webhook.
+
+<!-- ralph 2026-11-09T19:08:48.652Z: committed + tests pass -->
