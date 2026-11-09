@@ -18,7 +18,7 @@ import { PapersList } from '@/components/papers-list';
 import { BackLink, PageHeader } from '@/components/student-ui';
 import { readStudentContext } from '@/lib/follows/student-page';
 import { readPaperProgress } from '@/lib/papers/progress';
-import { readLivePapers } from '@/lib/papers/teacher-page';
+import { readLivePapersResult } from '@/lib/papers/student-page';
 import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
 import { plain } from '@/lib/i18n';
 
@@ -30,9 +30,12 @@ export default async function TeacherPapersPage({
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
 
-  const [exams, papers] = configured
-    ? await Promise.all([readExamCatalogue(session), readLivePapers(session, teacherId)])
-    : [[], []];
+  // `ok` and `data` apart, so a read that FAILED can never reach the list as
+  // an empty one (issue 54a-read-error-core).
+  const [exams, read] = configured
+    ? await Promise.all([readExamCatalogue(session), readLivePapersResult(session, teacherId)])
+    : [[], { ok: true, data: [] } as const];
+  const papers = read.ok ? read.data : [];
   // One question query and one attempt query for the whole list (B8).
   const progress = configured
     ? await readPaperProgress(
@@ -49,6 +52,7 @@ export default async function TeacherPapersPage({
       {configured ? (
         <PapersList
           papers={papers}
+          failed={!read.ok}
           exams={exams}
           mode={mode}
           playTeacherId={teacherId}
