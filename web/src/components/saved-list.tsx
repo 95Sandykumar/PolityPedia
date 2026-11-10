@@ -27,6 +27,7 @@
  * Remove button names the question number, so "Remove" is never ambiguous.
  */
 import { Bookmark, Play, Trash2, X } from 'lucide-react';
+import { ReadError } from '@/components/read-error';
 import { EmptyState } from '@/components/student-ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -80,11 +81,19 @@ export function SavedList({
   items,
   client,
   mode = DEFAULT_MODE,
+  failed = false,
 }: {
   /** Read on the server, newest first, so the first paint is the real list. */
   items: readonly SavedItem[];
   client?: BrowserSavedClient;
   mode?: LangMode;
+  /**
+   * True when the SERVER read failed rather than came back empty
+   * (issue 54c-read-errors-saved-practice-media). It wins over `items`: a
+   * part-read list shown as if it were whole tells a student their saved
+   * question is gone when it is not.
+   */
+  failed?: boolean;
 }) {
   const fallback = useMemo(() => createBrowserSavedClient(), []);
   const saved = client ?? fallback;
@@ -94,7 +103,15 @@ export function SavedList({
   /** Rows already removed, by `(questionId, tag)`. Put back on a refusal. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set<string>());
-  const [failed, setFailed] = useState(false);
+  /** A REMOVE that was refused. Nothing to do with the read above it. */
+  const [removeFailed, setRemoveFailed] = useState(false);
+
+  // Checked BEFORE anything is drawn, and after the hooks so their order
+  // never changes: a broken read must not say "Nothing saved yet", and the two
+  // filter chips must not offer to narrow rows nobody read.
+  if (failed) {
+    return <ReadError mode={mode} />;
+  }
 
   const live = items.filter((one) => !gone.has(keyOf(one)));
   const shown = filterSaved(live, picked);
@@ -103,7 +120,7 @@ export function SavedList({
     const key = keyOf(item);
     if (busy.has(key)) return;
 
-    setFailed(false);
+    setRemoveFailed(false);
     setBusy((before) => new Set(before).add(key));
     setGone((before) => new Set(before).add(key));
 
@@ -117,7 +134,7 @@ export function SavedList({
         after.delete(key);
         return after;
       });
-      setFailed(true);
+      setRemoveFailed(true);
     } finally {
       setBusy((before) => {
         const after = new Set(before);
@@ -167,7 +184,7 @@ export function SavedList({
         })}
       </div>
 
-      {failed ? (
+      {removeFailed ? (
         <p data-testid="saved-failed" role="alert" className="text-sm text-wrong">
           {plain('saved.failed', mode)}
         </p>
