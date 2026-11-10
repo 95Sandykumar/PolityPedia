@@ -42,6 +42,7 @@ const SESSION = {
 const readStudentContext = vi.fn();
 const readFollowedTeachers = vi.fn();
 const readPortfolio = vi.fn();
+const readPortfolioResult = vi.fn();
 const readPublicTeacher = vi.fn();
 
 vi.mock('@/lib/follows/student-page', () => ({
@@ -54,8 +55,17 @@ vi.mock('@/lib/follows/student-page', () => ({
     ok: true,
     data: await readFollowedTeachers(...args),
   }),
+  // `/t/<id>` reads the RESULT flavour since 54-visible-read-errors, for the
+  // same reason Home does: a failed teacher read must not draw as a teacher
+  // who does not exist. The default wraps the `readPortfolio` spy, so every
+  // case below still drives the page through that one name.
   readPortfolio: (...args: unknown[]) => readPortfolio(...args),
+  readPortfolioResult: (...args: unknown[]) => readPortfolioResult(...args),
 }));
+
+// `ReadError` is a client component with a Retry button, so it asks for the
+// router. Nothing navigates in these tests.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 vi.mock('@/lib/teachers/public-teacher', () => ({
   readPublicTeacher: (...args: unknown[]) => readPublicTeacher(...args),
@@ -91,6 +101,10 @@ beforeEach(() => {
   readStudentContext.mockReset();
   readFollowedTeachers.mockReset().mockResolvedValue([]);
   readPortfolio.mockReset().mockResolvedValue({ teacher: null, following: false, nextExam: null });
+  readPortfolioResult.mockReset().mockImplementation(async (...args: unknown[]) => ({
+    ok: true,
+    data: await readPortfolio(...args),
+  }));
   readPublicTeacher.mockReset().mockResolvedValue(null);
 });
 
@@ -196,5 +210,17 @@ describe('/t/<id> signed in', () => {
     render(await TeacherPage({ params: Promise.resolve({ teacherId: TEACHER_ID }) }));
 
     expect(screen.getByRole('status')).toHaveTextContent(dictionary.en['portfolio.notFound']);
+  });
+
+  it('shows the error state, never "not found", when the read FAILED', async () => {
+    // 0 rows and a broken read used to arrive here as the same `teacher: null`
+    // (issue 54-visible-read-errors). Only one of them is a missing teacher.
+    signedIn();
+    readPortfolioResult.mockResolvedValue({ ok: false });
+    render(await TeacherPage({ params: Promise.resolve({ teacherId: TEACHER_ID }) }));
+
+    expect(screen.getByText(dictionary.en['read.failed'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: dictionary.en['read.retry'] })).toBeTruthy();
+    expect(screen.queryByText(dictionary.en['portfolio.notFound'])).toBeNull();
   });
 });

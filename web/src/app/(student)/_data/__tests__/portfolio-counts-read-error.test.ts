@@ -27,10 +27,7 @@ const EXAM = 'a4000001-0000-4000-8000-000000000001';
 
 const SESSION = { userId: STUDENT, accessToken: 'student.token' } as AuthSession;
 
-/**
- * `videosVisible: false` keeps the videos tile out of the way: that reader is
- * ticket 54c's, so this file does not pretend to cover it.
- */
+/** `videosVisible: false`, so the three non-video counts are read alone. */
 const TEACHER: PublicTeacher = {
   userId: TEACHER_ID,
   identityMode: 'alias',
@@ -68,6 +65,8 @@ function tableOf(url: string): string {
   if (url.includes('/rest/v1/papers')) return 'papers';
   if (url.includes('/rest/v1/mock_sets')) return 'mock_sets';
   if (url.includes('/rest/v1/teacher_posts')) return 'teacher_posts';
+  if (url.includes('/rest/v1/teacher_videos')) return 'teacher_videos';
+  if (url.includes('/rest/v1/teachers_public')) return 'teachers_public';
   return 'other';
 }
 
@@ -93,6 +92,27 @@ function supabase({
 
 function counts(fetchImpl: typeof fetch) {
   return readPortfolioCounts(SESSION, TEACHER, { env: ENV, fetchImpl });
+}
+
+/** The same teacher with videos switched ON, so the videos tile is read too. */
+const SHOWS_VIDEOS: PublicTeacher = { ...TEACHER, videosVisible: true };
+
+/**
+ * One row of the `teachers_public` VIEW. The videos read looks the teacher up
+ * there first, and stops at 0 rows, so the video-count cases need it present.
+ */
+const TEACHER_ROW = {
+  user_id: TEACHER_ID,
+  identity_mode: 'alias',
+  display_name: 'Polity Guru',
+  avatar_path: null,
+  bio_en: null,
+  bio_hi: null,
+  videos_visible: true,
+};
+
+function videoCounts(fetchImpl: typeof fetch) {
+  return readPortfolioCounts(SESSION, SHOWS_VIDEOS, { env: ENV, fetchImpl });
 }
 
 describe('readPortfolioCounts when every read answered 200 with no rows', () => {
@@ -152,5 +172,38 @@ describe('readPortfolioCounts when a read FAILED', () => {
     expect(result.papers).toBeNull();
     expect(result.mocks).toBeNull();
     expect(result.news).toBeNull();
+  });
+});
+
+/**
+ * The videos count was the last one on the old fail-soft shape: it came from
+ * `readStudentVideos`, which turns a failure into an empty list, so `.length`
+ * made a broken read say "0" (issue 54-visible-read-errors, the close-out).
+ */
+describe('the videos tile count', () => {
+  it('is left out when the videos read FAILED', async () => {
+    const result = await videoCounts(
+      supabase({ rows: { teachers_public: [TEACHER_ROW] }, broken: ['teacher_videos'] }),
+    );
+
+    expect(result.videos).toBeNull();
+  });
+
+  it('is left out when the teacher read behind it FAILED', async () => {
+    const result = await videoCounts(supabase({ broken: ['teachers_public'] }));
+
+    expect(result.videos).toBeNull();
+  });
+
+  it('is a real 0 when the read worked and there is nothing to show', async () => {
+    const result = await videoCounts(supabase({ rows: { teachers_public: [TEACHER_ROW] } }));
+
+    expect(result.videos).toBe(0);
+  });
+
+  it('is left out, not 0, when the teacher keeps videos switched off', async () => {
+    const result = await counts(supabase({}));
+
+    expect(result.videos).toBeNull();
   });
 });

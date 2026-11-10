@@ -27,8 +27,9 @@
  * never the old "Teachers are not set up yet" (persona-1 gap 3).
  */
 import { PublicLanding, PublicTeacherCard } from '@/components/public-landing';
+import { ReadError } from '@/components/read-error';
 import { TeacherPortfolio } from '@/components/teacher-portfolio';
-import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
+import { readPortfolioResult, readStudentContext } from '@/lib/follows/student-page';
 import { readPublicTeacher } from '@/lib/teachers/public-teacher';
 import { readExamCatalogue } from '@/lib/teacher-exams/teacher-page';
 import { labels } from '@/lib/i18n';
@@ -52,9 +53,24 @@ export default async function TeacherPortfolioPage({
     return shared ? <PublicTeacherCard teacher={shared} mode={mode} /> : <PublicLanding mode={mode} />;
   }
 
-  const { teacher, following, nextExam } = configured
-    ? await readPortfolio(session, teacherId)
-    : { teacher: null, following: false, nextExam: null };
+  // `ok` and `data` apart, so a read that FAILED can never reach the screen as
+  // a teacher who does not exist (issue 54-visible-read-errors).
+  const read = configured
+    ? await readPortfolioResult(session, teacherId)
+    : ({ ok: true, data: { teacher: null, following: false, nextExam: null } } as const);
+
+  // The read broke. Say so and offer the one way out: this student's teacher
+  // IS there, and "This teacher is not here" is the worst thing to say to the
+  // student who just typed their code.
+  if (!read.ok) {
+    return (
+      <section className="flex flex-col gap-4">
+        <ReadError mode={mode} />
+      </section>
+    );
+  }
+
+  const { teacher, following, nextExam } = read.data;
 
   // No teacher: not approved, not real, or Supabase is not set up. One line,
   // no stack trace, and the nav is still there to go somewhere else
