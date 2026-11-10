@@ -18,9 +18,14 @@
  * The link's accessible name is the teacher's name and nothing else: the bio
  * and the Following pill sit beside it, and the whole card is tappable through
  * a stretched pseudo element on the name link.
+ *
+ * `failed` is the read-error half (issue 54b-read-errors-home-teachers): a
+ * broken read used to reach here as an empty list and be announced as "You
+ * follow nobody yet", which is a lie the student cannot act on.
  */
 import { Check, ChevronRight, Search, Users } from 'lucide-react';
 import Link from 'next/link';
+import { ReadError } from '@/components/read-error';
 import { TeacherAvatar } from '@/components/teacher-avatar';
 import { CARD, EmptyState, Lines, SectionLink, SectionTitle } from '@/components/student-ui';
 import { teacherPath } from '@/lib/follows/types';
@@ -35,6 +40,7 @@ export function TeachersList({
   configured = true,
   variant = 'list',
   followedIds = [],
+  failed = false,
 }: {
   teachers: readonly PublicTeacher[];
   titleKey: MessageKey;
@@ -46,6 +52,13 @@ export function TeachersList({
   variant?: 'list' | 'strip';
   /** Teacher ids the student follows, so the list can say "Following". */
   followedIds?: readonly string[];
+  /**
+   * True when the server read FAILED rather than came back empty
+   * (issue 54b-read-errors-home-teachers). It wins over `teachers`: a
+   * part-read list shown as if it were whole tells a student a teacher is not
+   * there when they are.
+   */
+  failed?: boolean;
 }) {
   const strip = variant === 'strip';
 
@@ -74,6 +87,17 @@ export function TeachersList({
         <p role="status" className="text-muted-foreground">
           {plain('teachers.notConfigured', mode)}
         </p>
+      </section>
+    );
+  }
+
+  // Checked BEFORE the empty state, never after: a broken read must not say
+  // "You follow nobody yet".
+  if (failed) {
+    return (
+      <section className="flex flex-col gap-3">
+        {title}
+        <ReadError mode={mode} />
       </section>
     );
   }

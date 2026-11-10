@@ -9,8 +9,11 @@
  * Supabase and env access is lazy: nothing is read at import time, so the
  * build works with no environment variables (web/CLAUDE.md).
  *
- * Every read fails SOFT. A Supabase hiccup gives an empty list and a page that
- * still renders, never a 500 on the Home tab.
+ * Every read fails SOFT: a Supabase hiccup never 500s a tab. What it does NOT
+ * do any more is lie. The two teacher-list reads come in a `*Result` flavour
+ * that tells an empty read from a failed one (issue 54b-read-errors-home-teachers),
+ * and the screens use that flavour so a broken read shows the shared error
+ * state instead of "You follow nobody yet".
  */
 import { cookies } from 'next/headers';
 import { createSupabaseFollowsClient } from '@/lib/follows/supabase-follows-client';
@@ -22,6 +25,7 @@ import type { PublicTeacher } from '@/lib/teachers/types';
 import { readNextExam } from '@/lib/teacher-exams/teacher-page';
 import type { NextExam } from '@/lib/teacher-exams/types';
 import { DEFAULT_MODE, type LangMode } from '@/lib/i18n';
+import { readOk, readWithProbe, type ReadResult } from '@/lib/read-result';
 
 export interface StudentContext {
   session: AuthSession | null;
@@ -48,48 +52,114 @@ export async function readStudentContext(): Promise<StudentContext> {
   return { session, configured, mode };
 }
 
-function teachersClient(session: AuthSession | null) {
-  return createSupabaseTeachersClient({ accessToken: session?.accessToken ?? '' });
+/** Injected in tests only. Production passes nothing and the env is read lazily. */
+export interface TeacherListOptions {
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
 }
 
-function followsClient(session: AuthSession | null) {
-  return createSupabaseFollowsClient({
+function teachersClient(
+  session: AuthSession | null,
+  options: TeacherListOptions = {},
+  fetchImpl?: typeof fetch,
+) {
+  return createSupabaseTeachersClient({
     accessToken: session?.accessToken ?? '',
-    userId: session?.userId ?? '',
+    ...(options.env ? { env: options.env } : {}),
+    ...(fetchImpl ? { fetchImpl } : {}),
   });
 }
 
-/** Every approved teacher, for the Teachers tab. Reads the view, never the table. */
+function followsClient(
+  session: AuthSession | null,
+  options: TeacherListOptions = {},
+  fetchImpl?: typeof fetch,
+) {
+  return createSupabaseFollowsClient({
+    accessToken: session?.accessToken ?? '',
+    userId: session?.userId ?? '',
+    ...(options.env ? { env: options.env } : {}),
+    ...(fetchImpl ? { fetchImpl } : {}),
+  });
+}
+
+/**
+ * Every approved teacher for the Teachers tab, and whether the read worked.
+ *
+ * The query is the same query as before: the same `listPublic` call on the same
+ * client, so the same `teachers_public` VIEW and the same columns. The only new
+ * thing is a probe handed to the client in place of `fetch`, which remembers a
+ * non-ok status on the way past. The client still turns a 400 into `[]` inside
+ * itself; the probe is what lets the reader know it happened.
+ */
+export async function readApprovedTeachersResult(
+  session: AuthSession | null,
+  options: TeacherListOptions = {},
+): Promise<ReadResult<PublicTeacher[]>> {
+  // Signed out is not broken: there is nothing to read, so it is an OK empty
+  // read and the tab keeps its empty state.
+  if (!session) return readOk<PublicTeacher[]>([]);
+
+  return readWithProbe(
+    (fetchImpl) =>
+      teachersClient(session, options, fetchImpl)
+        .listPublic()
+        .catch(() => [] as PublicTeacher[]),
+    options.fetchImpl,
+  );
+}
+
+/** Every approved teacher, for callers that have no error state yet. */
 export async function readApprovedTeachers(
   session: AuthSession | null,
 ): Promise<PublicTeacher[]> {
-  return teachersClient(session)
-    .listPublic()
-    .catch(() => []);
+  const read = await readApprovedTeachersResult(session);
+  return read.ok ? read.data : [];
 }
 
-/** The teachers this student follows, for the Home tab. */
+/**
+ * The teachers this student follows, for the Home tab, and whether the read
+ * worked.
+ *
+ * TWO queries sit inside ONE probe: the follow ids, then those ids through the
+ * public view. Either one failing makes the whole thing a failure, because a
+ * strip built from half the ids would quietly drop a teacher the student does
+ * follow.
+ */
+export async function readFollowedTeachersResult(
+  session: AuthSession | null,
+  options: TeacherListOptions = {},
+): Promise<ReadResult<PublicTeacher[]>> {
+  if (!session) return readOk<PublicTeacher[]>([]);
+
+  return readWithProbe(async (fetchImpl) => {
+    const ids = await followsClient(session, options, fetchImpl)
+      .listFollowing()
+      .catch(() => [] as string[]);
+    if (ids.length === 0) return [] as PublicTeacher[];
+
+    const teachers = await teachersClient(session, options, fetchImpl)
+      .listPublicByIds(ids)
+      .catch(() => [] as PublicTeacher[]);
+
+    // Keep the follow order (newest first), not the alphabetical order the view
+    // came back in: the teacher the student just followed belongs at the top.
+    const byId = new Map(teachers.map((teacher) => [teacher.userId, teacher]));
+    const out: PublicTeacher[] = [];
+    for (const id of ids) {
+      const found = byId.get(id);
+      if (found) out.push(found);
+    }
+    return out;
+  }, options.fetchImpl);
+}
+
+/** The teachers this student follows, for callers with no error state yet. */
 export async function readFollowedTeachers(
   session: AuthSession | null,
 ): Promise<PublicTeacher[]> {
-  const ids = await followsClient(session)
-    .listFollowing()
-    .catch(() => [] as string[]);
-  if (ids.length === 0) return [];
-
-  const teachers = await teachersClient(session)
-    .listPublicByIds(ids)
-    .catch(() => []);
-
-  // Keep the follow order (newest first), not the alphabetical order the view
-  // came back in: the teacher the student just followed belongs at the top.
-  const byId = new Map(teachers.map((teacher) => [teacher.userId, teacher]));
-  const out: PublicTeacher[] = [];
-  for (const id of ids) {
-    const found = byId.get(id);
-    if (found) out.push(found);
-  }
-  return out;
+  const read = await readFollowedTeachersResult(session);
+  return read.ok ? read.data : [];
 }
 
 export interface PortfolioData {

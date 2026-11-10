@@ -26,15 +26,21 @@
  * empty Home. A visitor used to see "Teachers are not set up yet" and read it
  * as "this app is broken" (persona-1 gap 3), so a logged-out `/` now returns
  * the landing and NOT ONE student read runs.
+ *
+ * Issue 54b-read-errors-home-teachers: both blocks now read a RESULT, so a
+ * broken read shows the shared error state with Retry instead of the empty
+ * state. Home was the worst place for the old behaviour: a student who follows
+ * three teachers was told they follow nobody.
  */
 import { HomeExamCard } from '@/components/home-exam-card';
 import { PostList } from '@/components/post-list';
 import { PublicLanding } from '@/components/public-landing';
 import { PageHeader } from '@/components/student-ui';
 import { TeachersList } from '@/components/teachers-list';
-import { readFollowedTeachers, readStudentContext } from '@/lib/follows/student-page';
-import { readHomePosts } from '@/lib/posts/server-posts';
+import { readFollowedTeachersResult, readStudentContext } from '@/lib/follows/student-page';
+import { readHomePostsResult } from '@/lib/posts/server-posts';
 import type { FeedPost } from '@/lib/posts/types';
+import { readOk, type ReadResult } from '@/lib/read-result';
 import type { PublicTeacher } from '@/lib/teachers/types';
 import { readHomeExam } from './_data/student-ui-data';
 
@@ -46,10 +52,25 @@ export default async function HomePage() {
   // (design constraint C).
   if (!session) return <PublicLanding mode={mode} />;
 
-  const teachers: PublicTeacher[] = configured ? await readFollowedTeachers(session) : [];
-  const [posts, homeExam]: [FeedPost[], Awaited<ReturnType<typeof readHomeExam>>] = configured
-    ? await Promise.all([readHomePosts(session, teachers), readHomeExam(session, teachers)])
-    : [[], null];
+  // `ok` and `data` apart, so a read that FAILED can never reach a list as an
+  // empty one (issue 54b-read-errors-home-teachers).
+  const teachersRead: ReadResult<PublicTeacher[]> = configured
+    ? await readFollowedTeachersResult(session)
+    : readOk<PublicTeacher[]>([]);
+  const teachers: PublicTeacher[] = teachersRead.ok ? teachersRead.data : [];
+
+  const [postsRead, homeExam]: [
+    ReadResult<FeedPost[]>,
+    Awaited<ReturnType<typeof readHomeExam>>,
+  ] = configured
+    ? await Promise.all([readHomePostsResult(session, teachers), readHomeExam(session, teachers)])
+    : [readOk<FeedPost[]>([]), null];
+  const posts: FeedPost[] = postsRead.ok ? postsRead.data : [];
+
+  // The followed list is the notices' FILTER as well as the teacher strip. So
+  // if that read broke, the notices are untrustworthy too even when their own
+  // query answered 200: the feed could be missing a whole teacher.
+  const postsFailed = !teachersRead.ok || !postsRead.ok;
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,6 +92,7 @@ export default async function HomePage() {
         mode={mode}
         configured={configured}
         variant="strip"
+        failed={!teachersRead.ok}
       />
 
       <PostList
@@ -79,6 +101,7 @@ export default async function HomePage() {
         emptyKey="posts.homeNone"
         mode={mode}
         configured={configured}
+        failed={postsFailed}
         // Home mixes several teachers, so every notice names its author.
         showAuthor
       />
