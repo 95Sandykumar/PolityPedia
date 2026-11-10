@@ -273,7 +273,6 @@ export const dictionary = {
     // score is the one the server stored, so nothing here promises a total
     // the browser worked out.
     'result.title': 'Your result',
-    'result.percent': 'Percent',
     'result.right': 'Right',
     'result.wrong': 'Wrong',
     'result.skipped': 'Skipped',
@@ -283,7 +282,10 @@ export const dictionary = {
     'result.noneWrong': 'Nothing wrong in this paper. Well done.',
     // 0030: the key is shut while the same test is open under a clock (F-E5).
     'result.rightLocked': 'The right answer opens once you submit your open exam.',
+    // Two keys, not one template with a plural "s" bolted on: Hindi inflects
+    // the verb for one as well (ticket 56b).
     'result.saved': '{n} wrong answers were saved to Saved.',
+    'result.savedOne': '1 wrong answer was saved to Saved.',
     'result.next': 'Next test',
     // Timed exam mode (issue 18-exam-mode). F-E5: nothing here names a right
     // answer, because no answer is on the phone until the paper is submitted.
@@ -993,7 +995,6 @@ export const dictionary = {
     'player.examOpen': 'पहले परीक्षा पूरी करें और जमा करें। उसके बाद अभ्यास खुलेगा।',
     // परिणाम पेज (issue 56-result-page).
     'result.title': 'आपका परिणाम',
-    'result.percent': 'प्रतिशत',
     'result.right': 'सही',
     'result.wrong': 'गलत',
     'result.skipped': 'छोड़े गए',
@@ -1003,6 +1004,7 @@ export const dictionary = {
     'result.noneWrong': 'इस पेपर में कुछ भी गलत नहीं। बहुत अच्छा।',
     'result.rightLocked': 'सही उत्तर आपकी खुली परीक्षा जमा करने के बाद दिखेगा।',
     'result.saved': '{n} गलत उत्तर Saved में सहेजे गए।',
+    'result.savedOne': '1 गलत उत्तर Saved में सहेजा गया।',
     'result.next': 'अगला टेस्ट',
     // परीक्षा मोड (issue 18-exam-mode).
     'exam.title': 'परीक्षा',
