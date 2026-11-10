@@ -208,6 +208,10 @@ export const dictionary = {
     'papers.comingSoon': 'Questions coming soon',
     'papers.done': 'Done',
     'papers.questionsWord': 'questions',
+    // The student's OWN Review link on a finished paper (ticket 57c). Not
+    // `papers.review` above, which is the teacher's check-and-publish screen:
+    // same word, different person, different route.
+    'papers.reviewAttempt': 'Review',
     'job.queued': 'Waiting to split',
     'job.running': 'Splitting...',
     'job.done': 'Split finished',
@@ -963,6 +967,7 @@ export const dictionary = {
     'papers.comingSoon': 'प्रश्न जल्द आएंगे',
     'papers.done': 'हो गया',
     'papers.questionsWord': 'प्रश्न',
+    'papers.reviewAttempt': 'दोबारा देखें',
     'job.queued': 'बाँटने की बारी में',
     'job.running': 'बाँट रहे हैं...',
     'job.done': 'बाँटना पूरा हुआ',

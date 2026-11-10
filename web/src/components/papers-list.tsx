@@ -14,11 +14,11 @@
  * minted on the server, for a paper the policy already allowed, and it dies a
  * minute later.
  */
-import { Check, FileText, ListChecks, Play } from 'lucide-react';
+import { Check, FileText, History, ListChecks, Play } from 'lucide-react';
 import { ReadError } from '@/components/read-error';
 import { EmptyState, IconChip } from '@/components/student-ui';
 import Link from 'next/link';
-import { playerPath } from '@/lib/attempts/types';
+import { playerPath, reviewPath } from '@/lib/attempts/types';
 import type { Exam } from '@/lib/exams/types';
 import type { PaperProgress } from '@/lib/papers/progress';
 import {
@@ -229,9 +229,16 @@ export function PapersList({
 }
 
 /**
- * The student's count, Done tick and Practice link (issue
- * 66-papers-question-count). With 0 questions there is no link, only "Questions
- * coming soon": the player would otherwise open on "No questions yet".
+ * The student's count, Done tick, Review link and Practice link (issue
+ * 66-papers-question-count, ticket 57c). With 0 questions there is no link,
+ * only "Questions coming soon": the player would otherwise open on "No
+ * questions yet".
+ *
+ * A FINISHED PAPER GETS BOTH LINKS, because they do different things. Review
+ * opens the sitting already submitted and writes nothing; Practice opens
+ * `play`, the start route, and begins a new one. Persona-1 gap 5 was having
+ * only the second one, so a student who wanted the paper back got a blank
+ * sitting and an `attempts` row instead.
  */
 function PracticeCell({
   paper,
@@ -261,6 +268,28 @@ function PracticeCell({
           <Check aria-hidden="true" className="size-4" />
           {plain('papers.done', mode)}
         </span>
+      ) : null}
+      {/* Only a student who FINISHED this paper has anything to review, and
+          `known.done` is the same submitted-sitting fact the review reader
+          gates on, so the link is never dead. Outline, not primary: starting
+          the paper again is the louder action. */}
+      {known?.done ? (
+        <Link
+          href={reviewPath(teacherId, paper.id)}
+          // B3: one tap away, and not fetched for a student who never taps.
+          prefetch={false}
+          aria-label={`${paper.label}: ${plain('papers.reviewAttempt', mode)}`}
+          className={DOWNLOAD}
+        >
+          <History aria-hidden="true" className="size-5" />
+          <span className="flex flex-col items-start">
+            {labels('papers.reviewAttempt', mode).map((line, index) => (
+              <span key={line} className={index === 0 ? 'block' : 'block text-xs'}>
+                {line}
+              </span>
+            ))}
+          </span>
+        </Link>
       ) : null}
       <Link
         href={playerPath(teacherId, paper.id)}
