@@ -8,8 +8,11 @@ export default defineConfig({
   test: {
     // 150+ test files, 27 of them boot a PGlite WASM engine. On a 32-core machine
     // vitest starts ~31 workers and some die ("Worker exited unexpectedly"), which
-    // Ralph reads as TRUNK RED. A cap keeps the suite steady.
-    maxWorkers: 8,
+    // Ralph reads as TRUNK RED. A cap keeps the suite steady. 8 still crashed
+    // on 2026-11-10 when only 5 GB of RAM was free (83 node processes running):
+    // 37 workers died, 2596 of 3289 tests ran. With 4, all 3289 pass (about
+    // 3 minutes instead of 1.5).
+    maxWorkers: 4,
     projects: [
       // UI and library tests. jsdom + testing-library.
       {
