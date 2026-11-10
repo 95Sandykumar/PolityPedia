@@ -287,6 +287,20 @@ export const dictionary = {
     'result.saved': '{n} wrong answers were saved to Saved.',
     'result.savedOne': '1 wrong answer was saved to Saved.',
     'result.next': 'Next test',
+    // The review screen of a finished sitting (ticket 57-review-and-retake).
+    // Review READS a submitted sitting; Retake is the other button, and it is
+    // the only one of the two that starts a new sitting.
+    'recap.title': 'Review',
+    'recap.readOnly': 'This test is finished. This page only shows it. Nothing here is saved.',
+    'recap.questions': 'Every question',
+    'recap.retake': 'Retake',
+    'recap.mistakes': 'Review mistakes',
+    'recap.none': 'Nothing to review yet. Finish this test first.',
+    'recap.skippedOne': 'You skipped this question.',
+    'recap.marked': 'You marked this for later.',
+    // 0037, the twin of `result.rightLocked`: `question_explanations()` refuses
+    // the prose while the same test is open under a clock.
+    'recap.explanationLocked': 'The explanation opens once you submit your open exam.',
     // Timed exam mode (issue 18-exam-mode). F-E5: nothing here names a right
     // answer, because no answer is on the phone until the paper is submitted.
     'exam.title': 'Exam',
@@ -1006,6 +1020,15 @@ export const dictionary = {
     'result.saved': '{n} गलत उत्तर Saved में सहेजे गए।',
     'result.savedOne': '1 गलत उत्तर Saved में सहेजा गया।',
     'result.next': 'अगला टेस्ट',
+    'recap.title': 'समीक्षा',
+    'recap.readOnly': 'यह टेस्ट पूरा हो गया। यह पेज सिर्फ़ दिखाता है। यहाँ कुछ सेव नहीं होता।',
+    'recap.questions': 'सभी सवाल',
+    'recap.retake': 'दोबारा दें',
+    'recap.mistakes': 'गलतियाँ देखें',
+    'recap.none': 'अभी समीक्षा के लिए कुछ नहीं। पहले यह टेस्ट पूरा करें।',
+    'recap.skippedOne': 'आपने यह सवाल छोड़ दिया था।',
+    'recap.marked': 'आपने इसे बाद के लिए मार्क किया था।',
+    'recap.explanationLocked': 'व्याख्या आपकी खुली परीक्षा जमा करने के बाद दिखेगी।',
     // परीक्षा मोड (issue 18-exam-mode).
     'exam.title': 'परीक्षा',
     'exam.timeLeft': 'बाकी समय',
