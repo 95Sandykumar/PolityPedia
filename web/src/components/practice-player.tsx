@@ -35,6 +35,7 @@ export function PracticePlayer({
   marking,
   startedAnswers,
   nextHref = null,
+  reviewHref = null,
 }: {
   questions: readonly Question[];
   attemptId: string;
@@ -49,6 +50,8 @@ export function PracticePlayer({
   startedAnswers?: readonly (readonly [string, AttemptAnswer])[];
   /** Where the result page's "Next test" goes (ticket 56b). */
   nextHref?: string | null;
+  /** Where the result page's "Review mistakes" goes (ticket 57b). */
+  reviewHref?: string | null;
 }) {
   const client = useMemo(() => createBrowserAttemptsClient(), []);
   /** The Saved list writer (issue 14-saved-list). Holds no key either. */
@@ -88,6 +91,7 @@ export function PracticePlayer({
       startedAnswers={answers}
       readResult={readResult}
       nextHref={nextHref}
+      reviewHref={reviewHref}
       onTag={(questionId: string, tag: SavedTag, saved: boolean) => {
         // Never awaited and never thrown: the Saved list is a side effect of
         // answering, so a failure here must not stop the paper. The save is

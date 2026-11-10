@@ -111,3 +111,61 @@ describe('PapersList progress on the student page', () => {
     expect(screen.queryByText('Done')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Ticket 57c. A done paper gets a SECOND link, beside Practice and not instead
+ * of it, because the two do different things: Practice starts a new sitting,
+ * Review opens the one already finished and writes nothing.
+ */
+describe('the Review link on a done paper', () => {
+  function drawStudent() {
+    return render(
+      <PapersList papers={PAPERS} exams={EXAMS} playTeacherId={TEACHER} progress={PROGRESS} />,
+    );
+  }
+
+  it('links a done paper to the review route', () => {
+    drawStudent();
+
+    expect(screen.getByRole('link', { name: 'Shift One: Review' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/papers/${ONE}/review`,
+    );
+  });
+
+  it('keeps Practice on the done paper: it still starts a NEW sitting', () => {
+    drawStudent();
+
+    expect(screen.getByRole('link', { name: 'Shift One: Practice' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/papers/${ONE}/play`,
+    );
+  });
+
+  it('shows no Review link on a paper this student has not finished', () => {
+    drawStudent();
+
+    expect(screen.queryByRole('link', { name: 'Shift Many: Review' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Shift Empty: Review' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /: Review$/ })).toHaveLength(1);
+  });
+
+  it('shows no Review link when nothing is known about the student', () => {
+    render(<PapersList papers={PAPERS} exams={EXAMS} playTeacherId={TEACHER} />);
+
+    expect(screen.queryByRole('link', { name: /: Review$/ })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The teacher's own screen has a "Review" of its own: the check-and-publish
+   * job screen (`papers.review`, issue 11). It is a different label, a
+   * different route and a different person, and it must not appear for a
+   * student or be replaced by the student's one.
+   */
+  it('stays off the teacher screen, which has its own Review', () => {
+    render(<PapersList papers={PAPERS} exams={EXAMS} progress={PROGRESS} />);
+
+    expect(screen.queryByRole('link', { name: 'Shift One: Practice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /: Review$/ })).not.toBeInTheDocument();
+  });
+});

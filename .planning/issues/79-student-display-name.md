@@ -1,6 +1,6 @@
 ---
 id: 79-student-display-name
-status: todo
+status: blocked
 type: afk
 depends_on: [53-teacher-basic-analytics]
 ---
@@ -38,3 +38,5 @@ Do not change `teachers_public`. No avatars.
 <!-- ralph 2026-11-10T00:05:26.324Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.599Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T15:59:02.609Z: upstream 59-start-screen-and-submit-confirm blocked -->

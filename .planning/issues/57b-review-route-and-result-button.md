@@ -1,6 +1,6 @@
 ---
 id: 57b-review-route-and-result-button
-status: todo
+status: done
 type: afk
 depends_on: [57a-review-reader, 56b-result-page-practice-and-fixes]
 ---
@@ -34,3 +34,5 @@ No list link changes (57c). No Retake test (57c). No migration. No new reader co
 - i18n: `web/src/lib/i18n.ts` (add keys only, near the `result.` keys)
 - Do not open migrations or DB test setup. Do not grep the whole repo.
 - Work order (commit after each step): 1) mocks review page plus test, 2) papers review page plus test, 3) result page button plus test, 4) i18n, 5) full checks.
+
+<!-- ralph 2026-11-10T15:09:05.582Z: committed + tests pass -->

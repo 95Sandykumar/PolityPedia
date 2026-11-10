@@ -8,19 +8,42 @@
  * Supabase and env access is lazy: nothing is read at import time, so the
  * build works with no environment variables (web/CLAUDE.md).
  *
- * Every read fails SOFT. A Supabase hiccup gives an empty list and a page that
- * still renders, never a 500 on a teacher page.
+ * Every read fails SOFT. A Supabase hiccup gives a page that still renders,
+ * never a 500 on a teacher page. What it does NOT do any more is lie
+ * (issue 54c-read-errors-saved-practice-media): `readStudentVideosResult`
+ * tells an empty read from a failed one, so the page shows the shared error
+ * state instead of "No videos yet" while the links sit there unread.
+ *
+ * The queries are the same queries as before: the same `readPublic` and the
+ * same `listForTeacher` on the same clients, so the same columns and the same
+ * order. The only new thing is a probe handed to the clients in place of
+ * `fetch`, which remembers a non-ok status on the way past. The clients still
+ * turn a 400 into an empty list inside themselves; the probe is what lets the
+ * reader know it happened.
  */
+import { readWithProbe, type ReadResult } from '@/lib/read-result';
 import { createSupabaseVideosClient } from '@/lib/videos/supabase-videos-client';
 import { createSupabaseTeachersClient } from '@/lib/teachers/supabase-teachers-client';
 import type { AuthSession } from '@/lib/auth/types';
 import type { PublicTeacher } from '@/lib/teachers/types';
 import type { TeacherVideo } from './types';
 
-function videosClient(session: AuthSession | null) {
+/** Injected in tests only. Production passes nothing and the env is read lazily. */
+export interface VideosReadOptions {
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+}
+
+function videosClient(
+  session: AuthSession | null,
+  options: VideosReadOptions = {},
+  fetchImpl?: typeof fetch,
+) {
   return createSupabaseVideosClient({
     accessToken: session?.accessToken ?? '',
     userId: session?.userId ?? '',
+    ...(options.env ? { env: options.env } : {}),
+    ...(fetchImpl ? { fetchImpl } : {}),
   });
 }
 
@@ -34,27 +57,53 @@ export interface StudentVideosData {
   videos: TeacherVideo[];
 }
 
-/** One teacher plus the videos this student may see. */
+/**
+ * One teacher plus the videos this student may see, and whether the read
+ * worked.
+ *
+ * TWO queries sit inside ONE probe: the teacher, then their videos. EITHER one
+ * failing makes the whole thing a failure, because "this teacher has no
+ * videos" and "we could not read this teacher's videos" are the same picture
+ * on the screen and only one of them is true.
+ *
+ * A teacher who is simply NOT THERE (0 rows, status 200) is still an OK read:
+ * not approved, or not real. The page keeps its own not-found line for that.
+ */
+export async function readStudentVideosResult(
+  session: AuthSession | null,
+  teacherId: string,
+  options: VideosReadOptions = {},
+): Promise<ReadResult<StudentVideosData>> {
+  return readWithProbe<StudentVideosData>(async (fetchImpl) => {
+    // The VIEW, never the table: that is what strips an alias teacher's real
+    // name and hides a teacher who is not approved (0005, PRD F-A5).
+    const teacher = await createSupabaseTeachersClient({
+      accessToken: session?.accessToken ?? '',
+      ...(options.env ? { env: options.env } : {}),
+      fetchImpl,
+    })
+      .readPublic(teacherId)
+      .catch(() => null);
+    if (!teacher) return { teacher: null, videos: [] };
+
+    // Asked for either way. Postgres answers with 0 rows on No show, so the
+    // page never has to decide what the student is allowed to read.
+    const videos = await videosClient(session, options, fetchImpl)
+      .listForTeacher(teacher.userId)
+      .catch(() => [] as TeacherVideo[]);
+
+    return { teacher, videos };
+  }, options.fetchImpl);
+}
+
+/** One teacher plus their videos, for callers that have no error state yet. */
 export async function readStudentVideos(
   session: AuthSession | null,
   teacherId: string,
+  options: VideosReadOptions = {},
 ): Promise<StudentVideosData> {
-  // The VIEW, never the table: that is what strips an alias teacher's real
-  // name and hides a teacher who is not approved (0005, PRD F-A5).
-  const teacher = await createSupabaseTeachersClient({
-    accessToken: session?.accessToken ?? '',
-  })
-    .readPublic(teacherId)
-    .catch(() => null);
-  if (!teacher) return { teacher: null, videos: [] };
-
-  // Asked for either way. Postgres answers with 0 rows on No show, so the
-  // page never has to decide what the student is allowed to read.
-  const videos = await videosClient(session)
-    .listForTeacher(teacher.userId)
-    .catch(() => []);
-
-  return { teacher, videos };
+  const read = await readStudentVideosResult(session, teacherId, options);
+  return read.ok ? read.data : { teacher: null, videos: [] };
 }
 
 export interface TeacherVideosData {

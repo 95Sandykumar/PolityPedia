@@ -18,8 +18,10 @@
  *    not available yet. No letter, no option text, nothing invented.
  *  * The deadline auto-submit is the same page, plus one line saying the clock
  *    closed it.
- *  * The Saved note counts the wrong answers, and the "Next test" link is
- *    prefetch-free (B3).
+ *  * The Saved note counts the wrong answers, and the "Next test" and
+ *    "Review mistakes" links are prefetch-free (B3). Both are drawn only when
+ *    the page above hands one down, so a screen with nowhere to send the
+ *    student draws no dead link (ticket 57b).
  *
  * No network and no database here: the panel is handed an `AttemptResult`,
  * exactly the shape `readAttemptResult()` returns, and the PGlite tests of
@@ -260,6 +262,30 @@ describe('AttemptResultPanel', () => {
   it('draws no Next test link when there is nowhere to send the student', () => {
     render(<AttemptResultPanel result={result()} mode="en" />);
     expect(screen.queryByTestId('attempt-result-next')).toBeNull();
+  });
+
+  it('links to the review of this sitting, in words, without prefetching it (B3)', () => {
+    // Ticket 57b. The result page is where a student is told their mark, and
+    // it is the one moment they want the paper back. The review route is read
+    // only, so this link starts nothing.
+    render(
+      <AttemptResultPanel
+        result={result()}
+        mode="en"
+        reviewHref={`/t/abc/mocks/${ATTEMPT}/review`}
+      />,
+    );
+
+    const review = screen.getByTestId('attempt-result-review');
+    expect(review).toHaveAttribute('href', `/t/abc/mocks/${ATTEMPT}/review`);
+    expect(review).toHaveTextContent(dictionary.en['recap.mistakes']);
+    // B3: a result page link must not warm a route the student may never open.
+    expect(review.getAttribute('prefetch')).toBeNull();
+  });
+
+  it('draws no Review mistakes link when the page above gives no review route', () => {
+    render(<AttemptResultPanel result={result()} mode="en" nextHref="/t/abc/mocks" />);
+    expect(screen.queryByTestId('attempt-result-review')).toBeNull();
   });
 
   it('announces itself to a screen reader and carries Hindi too', () => {

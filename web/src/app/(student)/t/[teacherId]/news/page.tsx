@@ -14,12 +14,17 @@
  *
  * DESIGN.md section 7: its own URL, so back always works. It sits in the
  * `(student)` group, so the bottom nav stays put.
+ *
+ * A read that FAILED is told apart from one that came back empty
+ * (issue 54c-read-errors-saved-practice-media). "No notices yet" next to a
+ * teacher who posted a form-date change this morning is the worst thing this
+ * screen can say, so a broken read says so and offers Retry instead.
  */
 import { PostList } from '@/components/post-list';
+import { ReadError } from '@/components/read-error';
 import { BackLink, PageHeader } from '@/components/student-ui';
-import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
-import { readTeacherPosts } from '@/lib/posts/server-posts';
-import type { TeacherPost } from '@/lib/posts/types';
+import { readPortfolioResult, readStudentContext } from '@/lib/follows/student-page';
+import { readTeacherPostsResult } from '@/lib/posts/server-posts';
 import { labels } from '@/lib/i18n';
 
 export default async function TeacherNewsPage({
@@ -30,9 +35,25 @@ export default async function TeacherNewsPage({
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
 
-  const { teacher } = configured
-    ? await readPortfolio(session, teacherId)
-    : { teacher: null };
+  // The teacher read comes back as a RESULT too, so a broken one shows the
+  // shared error state instead of "This teacher is not here", which would stop
+  // the page before the notice list below could say anything
+  // (issue 54-visible-read-errors).
+  const header = configured
+    ? await readPortfolioResult(session, teacherId)
+    : ({ ok: true, data: { teacher: null, following: false, nextExam: null } } as const);
+
+  if (!header.ok) {
+    return (
+      <section className="flex flex-col gap-4">
+        <BackLink href={`/t/${teacherId}`} mode={mode} />
+        <PageHeader titleKey="tile.news" mode={mode} />
+        <ReadError mode={mode} />
+      </section>
+    );
+  }
+
+  const { teacher } = header.data;
 
   // No teacher: not approved, not real, or Supabase is not set up. One line,
   // no stack trace, and the nav is still there (DESIGN.md section 9, Empty).
@@ -51,14 +72,22 @@ export default async function TeacherNewsPage({
     );
   }
 
-  const posts: TeacherPost[] = await readTeacherPosts(session, teacher.userId);
+  // `ok` and `data` apart, so a read that FAILED can never reach the list as
+  // an empty one.
+  const read = await readTeacherPostsResult(session, teacher.userId);
 
   return (
     <section className="flex flex-col gap-4">
       <BackLink href={`/t/${teacherId}`} mode={mode} />
       <PageHeader title={teacher.displayName} mode={mode} />
       {/* The author is already the page title, so the rows do not repeat it. */}
-      <PostList posts={posts} titleKey="tile.news" emptyKey="posts.none" mode={mode} />
+      <PostList
+        posts={read.ok ? read.data : []}
+        failed={!read.ok}
+        titleKey="tile.news"
+        emptyKey="posts.none"
+        mode={mode}
+      />
     </section>
   );
 }

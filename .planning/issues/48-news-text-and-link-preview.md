@@ -1,6 +1,6 @@
 ---
 id: 48-news-text-and-link-preview
-status: todo
+status: blocked
 type: afk
 depends_on: [H6-teacher-v11-picks, 47-videos-youtube-and-instagram]
 ---
@@ -33,3 +33,5 @@ No audio upload. No rich text editor dependency. Do not edit package.json. Do no
 <!-- ralph 2026-11-10T00:05:26.366Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.603Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T15:59:02.630Z: upstream 59-start-screen-and-submit-confirm blocked -->

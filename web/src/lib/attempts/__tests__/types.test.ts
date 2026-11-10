@@ -12,6 +12,7 @@ import {
   isAttemptMode,
   optionLetter,
   playerPath,
+  reviewPath,
   progressLabel,
   readAnswerUpsert,
   verdictOf,
@@ -94,6 +95,17 @@ describe('playerPath', () => {
 
   it('escapes both ids', () => {
     expect(playerPath('a/b', 'c d')).toBe('/t/a%2Fb/papers/c%20d/play');
+  });
+});
+
+describe('reviewPath', () => {
+  it('is NOT the start route: a review must not create a sitting (57c)', () => {
+    expect(reviewPath('t1', 'p2')).toBe('/t/t1/papers/p2/review');
+    expect(reviewPath('t1', 'p2')).not.toBe(playerPath('t1', 'p2'));
+  });
+
+  it('escapes both ids', () => {
+    expect(reviewPath('a/b', 'c d')).toBe('/t/a%2Fb/papers/c%20d/review');
   });
 });
 

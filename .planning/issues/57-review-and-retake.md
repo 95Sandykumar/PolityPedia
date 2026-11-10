@@ -1,6 +1,6 @@
 ---
 id: 57-review-and-retake
-status: todo
+status: done
 type: afk
 depends_on: [57a-review-reader, 57b-review-route-and-result-button, 57c-review-links-and-retake]
 ---
@@ -37,3 +37,4 @@ No analytics, no sharing. Start screens are ticket 59.
 - Do not open migrations. Do not grep the whole repo.
 - Work order: 1) review view plus test, 2) Retake button plus test, 3) link changes in the two lists, 4) result page button, 5) i18n, 6) full checks. Commit after each step.
 
+<!-- ralph 2026-11-10T15:59:28.556Z: shipped on ralph/night-2026-11-10-696 as bc02061 feat(review): the read-only review screen of a finished sitting (57-review-and-retake) -->

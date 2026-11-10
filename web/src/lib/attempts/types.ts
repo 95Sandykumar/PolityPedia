@@ -109,6 +109,18 @@ export function playerPath(teacherId: string, paperId: string): string {
   return `/t/${encodeURIComponent(teacherId)}/papers/${encodeURIComponent(paperId)}/play`;
 }
 
+/**
+ * The paper REVIEW route: `/t/<teacherId>/papers/<paperId>/review` (57c).
+ *
+ * The twin of `playerPath()`, and deliberately a different URL. `play` is the
+ * start route: opening it creates or resumes the `attempts` row. This one only
+ * reads, so a finished paper on the list points here and looking at it leaves
+ * nothing behind. Retake on the review page is the only way back to `play`.
+ */
+export function reviewPath(teacherId: string, paperId: string): string {
+  return `/t/${encodeURIComponent(teacherId)}/papers/${encodeURIComponent(paperId)}/review`;
+}
+
 /** Our own route the player posts an answer to. Holds no key. */
 export const ATTEMPT_ANSWERS_PATH = '/api/attempts/answers';
 

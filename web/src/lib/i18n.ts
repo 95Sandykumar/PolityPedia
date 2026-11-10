@@ -208,6 +208,10 @@ export const dictionary = {
     'papers.comingSoon': 'Questions coming soon',
     'papers.done': 'Done',
     'papers.questionsWord': 'questions',
+    // The student's OWN Review link on a finished paper (ticket 57c). Not
+    // `papers.review` above, which is the teacher's check-and-publish screen:
+    // same word, different person, different route.
+    'papers.reviewAttempt': 'Review',
     'job.queued': 'Waiting to split',
     'job.running': 'Splitting...',
     'job.done': 'Split finished',
@@ -326,6 +330,13 @@ export const dictionary = {
     'exam.submitted': 'Paper submitted',
     'exam.reviewTitle': 'Review',
     'exam.notConfigured': 'Exam mode is not set up yet',
+    // The offline answer queue (issue 58-exam-answer-queue). The bar has to
+    // say WHERE the answers are, because "saved" on its own is what made the
+    // old player a screen that lied.
+    'exam.offlineKept': 'No internet. Your answers are kept on this phone and sent when the net is back.',
+    'exam.saving': 'Saving',
+    'exam.saveFailed': 'Could not save {n} answers. Try again.',
+    'exam.saveFailedOne': 'Could not save 1 answer. Try again.',
     // The Saved tab (issue 14-saved-list). PRD F-E8: one list, two tags, so
     // the two words below are both chip labels and row badges.
     'saved.wrong': 'Wrong',
@@ -956,6 +967,7 @@ export const dictionary = {
     'papers.comingSoon': 'प्रश्न जल्द आएंगे',
     'papers.done': 'हो गया',
     'papers.questionsWord': 'प्रश्न',
+    'papers.reviewAttempt': 'दोबारा देखें',
     'job.queued': 'बाँटने की बारी में',
     'job.running': 'बाँट रहे हैं...',
     'job.done': 'बाँटना पूरा हुआ',
@@ -1058,6 +1070,10 @@ export const dictionary = {
     'exam.submitted': 'पेपर जमा हो गया',
     'exam.reviewTitle': 'दोबारा देखें',
     'exam.notConfigured': 'परीक्षा मोड अभी सेट नहीं है',
+    'exam.offlineKept': 'इंटरनेट नहीं है। आपके उत्तर इसी फ़ोन में रखे हैं और नेट आने पर भेज दिए जाएँगे।',
+    'exam.saving': 'सहेज रहे हैं',
+    'exam.saveFailed': '{n} उत्तर सहेजे नहीं जा सके। दोबारा कोशिश करें।',
+    'exam.saveFailedOne': '1 उत्तर सहेजा नहीं जा सका। दोबारा कोशिश करें।',
     'saved.wrong': 'गलत',
     'saved.marked': 'मार्क किए',
     'saved.filter': 'सहेजे गए प्रश्न छानें',

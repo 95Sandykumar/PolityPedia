@@ -1,6 +1,6 @@
 ---
 id: 56c-result-read-after-submit
-status: todo
+status: blocked
 type: afk
 depends_on: [56b-result-page-practice-and-fixes]
 ---
@@ -24,3 +24,5 @@ No migration. No new i18n. 2 files at most plus the test.
 - `web/src/components/exam-player.tsx` lines 190 to 205 (the correct pattern to copy)
 - Test: `web/src/components/__tests__/question-player.test.tsx`
 - Work order (commit after each step): 1) failing test, 2) the fix, 3) full checks.
+
+<!-- ralph 2026-11-10T14:47:18.164Z: tests FAILED in worktree -->

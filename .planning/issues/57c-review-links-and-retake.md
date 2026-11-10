@@ -1,6 +1,6 @@
 ---
 id: 57c-review-links-and-retake
-status: todo
+status: done
 type: afk
 depends_on: [57b-review-route-and-result-button]
 ---
@@ -33,3 +33,5 @@ No analytics, no sharing. Start screens are ticket 59. No migration. Do not touc
 - i18n: `web/src/lib/i18n.ts` (add keys only)
 - Do not open migrations. Do not grep the whole repo.
 - Work order (commit after each step): 1) mock list link plus test, 2) papers list link plus test, 3) PGlite row count test, 4) i18n, 5) full checks.
+
+<!-- ralph 2026-11-10T15:52:16.440Z: committed + tests pass -->

@@ -29,8 +29,15 @@
  * `attempt_answers_update_open` in `0018_exam_mode.sql` are what actually
  * refuse a late answer, so a student who changes the device clock gets a
  * prettier countdown and writes nothing.
+ *
+ * WRITES GO THROUGH THE QUEUE (issue 58-exam-answer-queue), never straight to
+ * `fetch`. An answer the network refused is kept on the phone and sent when
+ * the net returns, the bar says so, the unsent answer carries a "saving" mark,
+ * and SUBMIT FLUSHES THE QUEUE FIRST and refuses while anything is still held.
+ * The old code fired one `fetch` per tap and swallowed the failure, which is
+ * how a dropped signal turned into a lower score with no warning.
  */
-import { Check, Clock, LayoutGrid, ListChecks, X } from 'lucide-react';
+import { Check, Clock, LayoutGrid, ListChecks, RefreshCw, WifiOff, X } from 'lucide-react';
 import { AttemptResultPanel } from '@/components/attempt-result';
 import { EmptyState } from '@/components/student-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,12 +48,16 @@ import {
   type AttemptAnswer,
   type AttemptResult,
 } from '@/lib/attempts/types';
+import { createExamAnswerQueue } from '@/lib/exam/exam-answer-queue';
 import {
+  AUTO_SUBMIT_TRIES,
+  RETRY_MS,
   gridState,
   remainingMs,
   timerLabel,
   timerTone,
   type BrowserExamClient,
+  type ExamAnswerQueue,
   type ExamQuestion,
   type GridState,
 } from '@/lib/exam/types';
@@ -111,7 +122,9 @@ export function ExamPlayer({
   score = null,
   readResult,
   nextHref = null,
+  reviewHref = null,
   client,
+  queue: given,
   now = Date.now,
 }: {
   /**
@@ -146,8 +159,21 @@ export function ExamPlayer({
   readResult?: BrowserResultReader;
   /** Where the result page's "Next test" goes. Null draws no link. */
   nextHref?: string | null;
+  /**
+   * Where the result page's "Review mistakes" goes: the READ ONLY review
+   * route of this test (ticket 57b). Null draws no link.
+   */
+  reviewHref?: string | null;
   /** Our own routes. Holds no key, and never marks anything itself. */
   client: BrowserExamClient;
+  /**
+   * The offline answer queue (issue 58-exam-answer-queue).
+   *
+   * OPTIONAL, and one over `client.saveAnswer` is built when it is left out,
+   * so every caller gets the retries without wiring anything. A test passes
+   * its own, over a Map instead of `localStorage`.
+   */
+  queue?: ExamAnswerQueue;
   /** Injected so a test can pin the clock. */
   now?: () => number;
 }) {
@@ -171,6 +197,38 @@ export function ExamPlayer({
     revealed ? (questions as readonly Question[]) : null,
   );
   const [left, setLeft] = useState<number | null>(() => remainingMs(deadlineAt, now()));
+  /**
+   * The net, as the browser sees it. STARTS OPTIMISTIC so the server-rendered
+   * markup and the first client render agree; the effect below corrects it on
+   * mount, the same as `question-player.tsx`.
+   */
+  const [online, setOnline] = useState(true);
+  /** The question ids the server has not taken yet. Drives the saving mark. */
+  const [heldIds, setHeldIds] = useState<readonly string[]>([]);
+  /** How many answers Submit could not get through. 0 hides the message. */
+  const [unsaved, setUnsaved] = useState(0);
+
+  /**
+   * The queue. Built here when the caller did not pass one, so there is no
+   * path through this component that writes an answer straight to `fetch`.
+   *
+   * `useMemo` keyed by the sitting: a re-render must not build a second queue
+   * mid-tap, and a second queue over the same `localStorage` key would be two
+   * things sending one line.
+   */
+  const built = useMemo(
+    () =>
+      createExamAnswerQueue({
+        attemptId,
+        save: (answer) => client.saveAnswer(answer),
+        // A wrong `false` would hold answers back for no reason, so an
+        // unreadable `navigator` reads as online: a failed send costs one
+        // request, a held answer costs the student marks.
+        isOnline: () => typeof navigator === 'undefined' || navigator.onLine !== false,
+      }),
+    [attemptId, client],
+  );
+  const queue = given ?? built;
 
   const total = questions.length;
   const question = questions[Math.min(index, Math.max(total - 1, 0))];
@@ -191,12 +249,27 @@ export function ExamPlayer({
    * is a second chance for the screen to flicker.
    */
   const sending = useRef(false);
-  const submit = useCallback(async () => {
-    if (submitted || sending.current) return;
+  const submit = useCallback(async (): Promise<boolean> => {
+    if (submitted) return true;
+    if (sending.current) return false;
     sending.current = true;
     setSubmitting(true);
     setFailed(false);
+    setUnsaved(0);
     try {
+      /**
+       * THE QUEUE GOES FIRST, and a paper with answers still held is NOT
+       * closed. `score_attempt()` marks whatever rows exist at the moment it
+       * runs, so submitting over a held answer would hand the student a score
+       * for a paper they did not sit. Better a message they can act on.
+       */
+      const stillHeld = await queue.flush();
+      if (stillHeld > 0) {
+        setUnsaved(stillHeld);
+        sending.current = false;
+        return false;
+      }
+
       const got = await client.submit(attemptId);
       setFinalScore(got);
       setSubmitted(true);
@@ -204,15 +277,17 @@ export function ExamPlayer({
       // Postgres now has a `submitted_at`.
       const fresh = await client.load().catch(() => null);
       if (fresh?.revealed) setKeyed(fresh.questions as readonly Question[]);
+      return true;
     } catch {
       // The paper is still on screen and the answers are stored, so the
       // student simply taps Submit again. The latch opens for that.
       sending.current = false;
       setFailed(true);
+      return false;
     } finally {
       setSubmitting(false);
     }
-  }, [attemptId, client, submitted]);
+  }, [attemptId, client, queue, submitted]);
 
   // The clock. One interval, and it stops itself once the paper is in.
   useEffect(() => {
@@ -225,18 +300,106 @@ export function ExamPlayer({
     return () => clearInterval(tick);
   }, [deadlineAt, now, submitted]);
 
-  // Time up: submit by itself. Postgres has stopped taking answers at exactly
-  // this moment, so leaving the paper open would be a screen that lies.
-  //
-  // ITS OWN REF, on top of the latch in `submit`. A FAILED auto-submit opens
-  // that latch again so the student can tap Submit, and `left` is still 0, so
-  // without this one the effect would retry for ever on a dead network.
-  const autoSubmitted = useRef(false);
+  /**
+   * Time up: submit by itself. Postgres has stopped taking answers at exactly
+   * this moment, so leaving the paper open would be a screen that lies.
+   *
+   * IT RETRIES, every `RETRY_MS`, which is the bug this slice fixes: a phone
+   * with no signal at 00:00 used to fail once and stop, and the sitting then
+   * sat open with no score until the student noticed. B6 wants the retry
+   * BOUNDED, so there is at most one request per 10 seconds and at most
+   * `AUTO_SUBMIT_TRIES` of them, and every one of them flushes the answer
+   * queue first.
+   *
+   * THE LATCH IS A REF so a re-render cannot start a second chain, and the
+   * CLEANUP RELEASES IT so React's StrictMode remount in development re-arms
+   * instead of going quiet (the same trick as the result read below).
+   */
+  const autoRunning = useRef(false);
   useEffect(() => {
-    if (left !== 0 || submitted || autoSubmitted.current) return;
-    autoSubmitted.current = true;
-    void submit();
+    if (left !== 0 || submitted || autoRunning.current) return;
+    autoRunning.current = true;
+
+    let alive = true;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    async function attempt(): Promise<void> {
+      if (!alive) return;
+      tries += 1;
+      const done = await submit();
+      // Stop on success, on unmount, and at the bound. Never a loop.
+      if (done || !alive || tries >= AUTO_SUBMIT_TRIES) return;
+      timer = setTimeout(() => void attempt(), RETRY_MS);
+    }
+
+    void attempt();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      autoRunning.current = false;
+    };
   }, [left, submit, submitted]);
+
+  /**
+   * The net, straight from the browser. We never poll.
+   *
+   * Coming back online FLUSHES, which is the whole reason for keeping a queue.
+   */
+  useEffect(() => {
+    function up() {
+      setOnline(true);
+      void queue.flush();
+    }
+    function down() {
+      setOnline(false);
+    }
+
+    setOnline(typeof navigator === 'undefined' ? true : navigator.onLine !== false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, [queue]);
+
+  /**
+   * Which answers are still held, so the bar can count them and the question
+   * can carry a "saving" mark.
+   *
+   * READ IN AN EFFECT, never during render: the queue restores from
+   * `localStorage` the moment it is built, and a first client render that knew
+   * about two held answers would not match the server's markup.
+   *
+   * THE SAME EFFECT FLUSHES ON MOUNT, which is how a RELOAD finishes what the
+   * closed tab started. On unmount the queue is stopped (B6), and what is
+   * still held stays on the phone for the next page load.
+   */
+  useEffect(() => {
+    setHeldIds(queue.waiting());
+    const off = queue.subscribe(() => setHeldIds(queue.waiting()));
+    void queue.flush();
+    return () => {
+      off();
+      queue.stop();
+    };
+  }, [queue]);
+
+  /**
+   * While answers are held, try again on the 10 second schedule (B6).
+   *
+   * One request per tick at most, because the queue stops at the first failure
+   * and serialises its sends, and the interval is cleared on unmount. It is
+   * armed only while something is actually stuck, so a healthy sitting runs no
+   * timer at all.
+   */
+  const heldCount = heldIds.length;
+  useEffect(() => {
+    if (submitted || heldCount === 0) return;
+    const tick = setInterval(() => void queue.flush(), RETRY_MS);
+    return () => clearInterval(tick);
+  }, [heldCount, queue, submitted]);
 
   /**
    * The result page (issue 56-result-page).
@@ -279,19 +442,20 @@ export function ExamPlayer({
         after.set(questionId, next);
         return after;
       });
-      // One upsert per change, keyed by attempt and question (A1). Never
-      // awaited and never thrown: a dead network must not stop the paper, and
-      // the answer is already on screen.
-      void client
-        .saveAnswer({
-          attemptId,
-          questionId,
-          chosenIdx: next.chosenIdx,
-          marked: next.marked,
-        })
-        .catch(() => {});
+      // One upsert per change, keyed by attempt and question (A1), THROUGH THE
+      // QUEUE. Never awaited: a dead network must not stop the paper, and the
+      // answer is already on screen. Never caught either, because `push` does
+      // not throw; a failed send is held, not lost.
+      void queue.push({
+        attemptId,
+        questionId,
+        chosenIdx: next.chosenIdx,
+        marked: next.marked,
+      });
+      // A new answer is a new chance, so the old "could not save" count goes.
+      setUnsaved(0);
     },
-    [attemptId, client],
+    [attemptId, queue],
   );
 
   if (total === 0 || !question) {
@@ -334,8 +498,28 @@ export function ExamPlayer({
     setGridOpen(false);
   }
 
+  /** True while the server has not taken THIS question's answer yet. */
+  const saving = !submitted && heldIds.includes(question.id);
+
   return (
     <div className="flex flex-col gap-3">
+      {/* DESIGN.md section 9, with the one word that matters in a timed paper:
+          WHERE the answers are. "Saved" on its own is what the old player
+          implied while it was dropping them. */}
+      {!online ? (
+        <p
+          data-testid="exam-offline"
+          role="status"
+          className={`${CARD} flex items-center gap-2 border-marked text-sm text-marked`}
+        >
+          <WifiOff aria-hidden="true" className="size-5 shrink-0" />
+          <span className="grow">{plain('exam.offlineKept', mode)}</span>
+          {heldCount > 0 ? (
+            <span className="shrink-0 tabular-nums font-bold">{heldCount}</span>
+          ) : null}
+        </p>
+      ) : null}
+
       <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-1 border-b border-border bg-background px-4 py-2 md:-mx-6 md:px-6">
         {examName ? (
           <p className="text-sm font-medium text-muted-foreground">{examName}</p>
@@ -404,6 +588,7 @@ export function ExamPlayer({
           // F-E6: the paper is out of MARKS, not questions.
           outOf={totalMarks(total, marking)}
           nextHref={nextHref}
+          reviewHref={reviewHref}
         />
       ) : null}
 
@@ -506,6 +691,20 @@ export function ExamPlayer({
           })}
         </ul>
 
+        {/* The saving mark. Icon AND word, so the amber never stands alone,
+            and it is per QUESTION, because that is what the student can act
+            on: this is the one the server has not got yet. */}
+        {saving ? (
+          <p
+            data-testid="exam-saving"
+            role="status"
+            className="flex items-center gap-1 text-sm font-medium text-marked"
+          >
+            <RefreshCw aria-hidden="true" className="size-4 shrink-0" />
+            {plain('exam.saving', mode)}
+          </p>
+        ) : null}
+
         {/* F-E5, said out loud. A student who sees no tick must know why. */}
         {!submitted ? (
           <p className="text-sm text-muted-foreground">{plain('exam.hidden', mode)}</p>
@@ -527,6 +726,24 @@ export function ExamPlayer({
           </details>
         ) : null}
       </div>
+
+      {/* Submit stopped because answers are still on the phone. It names the
+          COUNT, so the student knows how much is at stake, and the paper is
+          still open behind it. One wrong answer gets its own sentence, never
+          "1 answers"; the replace is global because `both` mode joins the
+          English and the Hindi line and {n} is in each of them. */}
+      {unsaved > 0 ? (
+        <p
+          data-testid="exam-save-failed"
+          role="status"
+          className={`${CARD} border-wrong text-sm text-wrong`}
+        >
+          {plain(unsaved === 1 ? 'exam.saveFailedOne' : 'exam.saveFailed', mode).replace(
+            /\{n\}/g,
+            String(unsaved),
+          )}
+        </p>
+      ) : null}
 
       {failed ? (
         <p role="status" className={`${CARD} border-wrong text-sm text-wrong`}>

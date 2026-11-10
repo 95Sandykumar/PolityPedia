@@ -1,6 +1,6 @@
 ---
 id: 65-join-link-survives-sign-in
-status: todo
+status: blocked
 type: afk
 depends_on: [64-signin-errors-and-resend]
 ---
@@ -37,3 +37,5 @@ No invite links with expiry (teacher ticket 51). No approval flow.
 <!-- ralph 2026-11-09T23:38:56.956Z: no new commit -- slice unfinished -->
 
 <!-- ralph 2026-11-10T03:10:57.878Z: no new commit -- slice unfinished -->
+
+<!-- ralph 2026-11-10T15:21:27.043Z: no new commit -- slice unfinished -->

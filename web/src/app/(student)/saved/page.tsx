@@ -19,12 +19,17 @@
 import { PageHeader } from '@/components/student-ui';
 import { SavedList } from '@/components/saved-list';
 import { readStudentContext } from '@/lib/follows/student-page';
-import { readSavedQuestions } from '@/lib/saved/student-page';
+import { readSavedQuestionsResult } from '@/lib/saved/student-page';
 import { plain } from '@/lib/i18n';
 
 export default async function SavedPage() {
   const { session, configured, mode } = await readStudentContext();
-  const items = configured ? await readSavedQuestions(session) : [];
+  // `ok` and `data` apart, so a read that FAILED can never reach the list as
+  // an empty one (issue 54c-read-errors-saved-practice-media).
+  const read = configured
+    ? await readSavedQuestionsResult(session)
+    : ({ ok: true, data: [] } as const);
+  const items = read.ok ? read.data : [];
 
   return (
     <section className="flex flex-col gap-4">
@@ -33,7 +38,7 @@ export default async function SavedPage() {
       {/* No keys, or nobody signed in: say so rather than draw an empty list
           that looks like "you have saved nothing". */}
       {configured ? (
-        <SavedList items={items} mode={mode} />
+        <SavedList items={items} failed={!read.ok} mode={mode} />
       ) : (
         <p role="status" className="text-muted-foreground">
           {plain('saved.notConfigured', mode)}
