@@ -1,6 +1,6 @@
 ---
 id: 56c-result-read-after-submit
-status: blocked
+status: todo
 type: afk
 depends_on: [56b-result-page-practice-and-fixes]
 ---

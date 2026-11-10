@@ -1,6 +1,6 @@
 ---
 id: 51-batch-invite-links
-status: blocked
+status: todo
 type: afk
 depends_on: [H6-teacher-v11-picks, 50-mock-editor-power-tools]
 ---

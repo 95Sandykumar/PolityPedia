@@ -1,6 +1,6 @@
 ---
 id: 65-join-link-survives-sign-in
-status: blocked
+status: todo
 type: afk
 depends_on: [64-signin-errors-and-resend]
 ---

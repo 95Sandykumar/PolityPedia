@@ -1,6 +1,6 @@
 ---
 id: 77-weak-topic-chips
-status: blocked
+status: todo
 type: afk
 depends_on: [70-progress-and-streak, 76-topic-filter]
 ---

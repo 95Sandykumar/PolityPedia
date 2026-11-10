@@ -1,6 +1,6 @@
 ---
 id: 53-teacher-basic-analytics
-status: blocked
+status: todo
 type: afk
 depends_on: [49-subjects-and-topics]
 ---

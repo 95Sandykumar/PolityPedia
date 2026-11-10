@@ -1,6 +1,6 @@
 ---
 id: 59-start-screen-and-submit-confirm
-status: blocked
+status: todo
 type: afk
 depends_on: [58-exam-answer-queue]
 ---
