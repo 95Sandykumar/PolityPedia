@@ -103,6 +103,9 @@ export default async function MockPlayerPage({
           startedAnswers={exam.answers}
           revealed={exam.revealed}
           score={exam.attempt.score}
+          // Where the result page's "Next test" goes (ticket 56b). The mocks
+          // list of this teacher, which is where the next test of the set is.
+          nextHref={`/t/${teacherId}/mocks`}
         />
       ) : practice?.attempt ? (
         <PracticePlayer
@@ -112,6 +115,9 @@ export default async function MockPlayerPage({
           examName={practice.heading}
           marking={practice.marking}
           startedAnswers={practice.answers}
+          // The same list in practice mode: one test done, the next one is
+          // one tap away (ticket 56b).
+          nextHref={`/t/${teacherId}/mocks`}
         />
       ) : null}
     </section>

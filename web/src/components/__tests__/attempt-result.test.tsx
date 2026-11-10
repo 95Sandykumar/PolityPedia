@@ -30,6 +30,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AttemptResultPanel } from '../attempt-result';
 import type { AttemptResult, ResultWrongQuestion } from '@/lib/attempts/types';
+import { dictionary } from '@/lib/i18n';
 
 const ATTEMPT = '11111111-1111-4111-8111-111111111111';
 
@@ -142,6 +143,32 @@ describe('AttemptResultPanel', () => {
   it('notes how many wrong answers went to Saved', () => {
     render(<AttemptResultPanel result={result({ wrong: 6 })} mode="en" />);
     expect(screen.getByTestId('attempt-result-saved')).toHaveTextContent('6');
+  });
+
+  /**
+   * One wrong answer is one sentence, not "1 wrong answers" (ticket 56b). Two
+   * keys, because Hindi inflects the verb as well and a template with a plural
+   * "s" in it cannot carry that.
+   */
+  it('says "1 wrong answer was saved" for a single wrong answer', () => {
+    render(<AttemptResultPanel result={result({ wrong: 1 })} mode="en" />);
+    expect(screen.getByTestId('attempt-result-saved')).toHaveTextContent(
+      '1 wrong answer was saved to Saved.',
+    );
+  });
+
+  it('says "2 wrong answers were saved" for more than one', () => {
+    render(<AttemptResultPanel result={result({ wrong: 2 })} mode="en" />);
+    expect(screen.getByTestId('attempt-result-saved')).toHaveTextContent(
+      '2 wrong answers were saved to Saved.',
+    );
+  });
+
+  it('says the singular in Hindi too', () => {
+    render(<AttemptResultPanel result={result({ wrong: 1 })} mode="hi" />);
+    expect(screen.getByTestId('attempt-result-saved')).toHaveTextContent(
+      dictionary.hi['result.savedOne'],
+    );
   });
 
   it('has no wrong list and no Saved note for an all-right sitting', () => {

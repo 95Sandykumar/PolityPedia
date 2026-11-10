@@ -262,6 +262,13 @@ export function ExamPlayer({
     });
     return () => {
       alive = false;
+      // The latch is a ref, so it SURVIVES a remount, and React's StrictMode
+      // remounts every component once in development. Without this reset the
+      // second mount of an already closed sitting reads the latch as "asked"
+      // while the first mount's answer was thrown away by `alive`, and the
+      // developer never sees the result page the student sees. The cost is
+      // one extra read in development only (ticket 56b).
+      askedResult.current = false;
     };
   }, [attemptId, readResult, submitted]);
 

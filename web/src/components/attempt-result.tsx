@@ -251,8 +251,13 @@ export function AttemptResultPanel({
           data-testid="attempt-result-saved"
           className="text-sm leading-5 text-muted-foreground"
         >
-          {/* Global, because `both` mode joins the English and the Hindi line. */}
-          {plain('result.saved', mode).replace(/\{n\}/g, String(result.wrong))}
+          {/* One wrong answer gets its own sentence, never "1 wrong answers"
+              (ticket 56b). Global replace, because `both` mode joins the
+              English and the Hindi line and {n} is in each of them. */}
+          {plain(result.wrong === 1 ? 'result.savedOne' : 'result.saved', mode).replace(
+            /\{n\}/g,
+            String(result.wrong),
+          )}
         </p>
       )}
 
