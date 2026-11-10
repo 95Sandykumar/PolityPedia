@@ -107,7 +107,7 @@ describe('the hub on a failed read, rendered directly', () => {
         teachers={[
           {
             userId: TEACHER,
-            identityMode: 'real',
+            identityMode: 'public',
             displayName: 'Dr Meena Rao',
             avatarPath: null,
             bioEn: null,
