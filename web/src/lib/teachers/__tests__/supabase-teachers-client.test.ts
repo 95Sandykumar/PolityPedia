@@ -304,3 +304,176 @@ describe('listPublicByIds', () => {
     expect(calls[0].url).not.toContain('nope');
   });
 });
+
+/**
+ * listCards / readCard: the Teachers list with the exam filter and the
+ * free-sample badge (issue 67a-teachers-reader-filter).
+ *
+ * Both read the VIEW `teacher_cards`, which is `teachers_public` plus two
+ * computed columns, so the privacy rule of `listPublic` is inherited: there is
+ * no `real_name` column to ask for, and a pending teacher is not in the view.
+ *
+ * The badge itself is decided in SQL (0050), not here. What these tests pin
+ * down is the request the reader makes and the ORDER it promises the page:
+ * free sample first, then A to Z.
+ */
+describe('listCards', () => {
+  const FREE = {
+    user_id: TEACHER,
+    identity_mode: 'public',
+    display_name: 'Zoya Khan',
+    avatar_path: null,
+    bio_en: null,
+    bio_hi: null,
+    videos_visible: true,
+    has_free_sample: true,
+  };
+  const PAID = { ...FREE, user_id: ADMIN, display_name: 'Amit Rao', has_free_sample: false };
+  const ALSO_FREE = {
+    ...FREE,
+    user_id: '55555555-5555-4555-8555-555555555555',
+    display_name: 'Bina Das',
+    has_free_sample: true,
+  };
+
+  const NET = 'a4000001-0000-4000-8000-000000000001';
+  const CUET = 'a4000001-0000-4000-8000-000000000002';
+
+  it('reads the teacher_cards VIEW, never the teachers table, and asks for no real name', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+    await client(fn).listCards();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/rest/v1/teacher_cards?select=');
+    expect(calls[0].url).not.toContain('/rest/v1/teachers?');
+    expect(calls[0].url).toContain('has_free_sample');
+    expect(calls[0].url).not.toContain('real_name');
+    expect(calls[0].url).not.toContain('photo_path');
+  });
+
+  it('filter OFF: no exam filter in the URL, so every approved teacher comes back', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+    await client(fn).listCards();
+
+    expect(calls[0].url).not.toContain('exam_ids');
+  });
+
+  it('filter ON: one overlap filter for the whole list, never one call per teacher', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+    await client(fn).listCards({ examIds: [NET, CUET] });
+
+    expect(calls).toHaveLength(1);
+    expect(decodeURIComponent(calls[0].url)).toContain(`exam_ids=ov.{${NET},${CUET}}`);
+  });
+
+  it('drops an exam id that is not a uuid instead of putting it in the URL', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [] }]);
+    await client(fn).listCards({ examIds: ['nope', NET] });
+
+    expect(decodeURIComponent(calls[0].url)).toContain(`exam_ids=ov.{${NET}}`);
+    expect(calls[0].url).not.toContain('nope');
+  });
+
+  it('fails CLOSED: an asked-for filter with no usable id lists nobody, and calls nothing', async () => {
+    const { fn, calls } = fakeFetch();
+
+    expect(await client(fn).listCards({ examIds: [] })).toEqual([]);
+    expect(await client(fn).listCards({ examIds: ['nope'] })).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('orders free sample first, then A to Z, whatever order the rows arrive in', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [PAID, FREE, ALSO_FREE] }]);
+
+    const rows = await client(fn).listCards();
+
+    expect(rows.map((row) => row.displayName)).toEqual(['Bina Das', 'Zoya Khan', 'Amit Rao']);
+    // The database is asked for the same order, so the sort is free on a long list.
+    expect(calls[0].url).toContain('order=has_free_sample.desc,display_name.asc');
+  });
+
+  it('maps the badge and still carries no real name', async () => {
+    const { fn } = fakeFetch([{ status: 200, body: [FREE, PAID] }]);
+
+    const rows = await client(fn).listCards();
+
+    expect(rows[0]).toEqual({
+      userId: TEACHER,
+      identityMode: 'public',
+      displayName: 'Zoya Khan',
+      avatarPath: null,
+      bioEn: null,
+      bioHi: null,
+      videosVisible: true,
+      hasFreeSample: true,
+    });
+    expect(rows[1].hasFreeSample).toBe(false);
+    expect(Object.keys(rows[0])).not.toContain('realName');
+  });
+
+  it('reads a missing or odd has_free_sample as NO badge, never as one', async () => {
+    const { fn } = fakeFetch([
+      {
+        status: 200,
+        body: [
+          { ...FREE, has_free_sample: undefined },
+          { ...PAID, has_free_sample: 'true' },
+        ],
+      },
+    ]);
+
+    const rows = await client(fn).listCards();
+
+    expect(rows.map((row) => row.hasFreeSample)).toEqual([false, false]);
+  });
+
+  it('drops a row the view somehow returned with no display name', async () => {
+    const { fn } = fakeFetch([{ status: 200, body: [{ ...FREE, display_name: null }] }]);
+    expect(await client(fn).listCards()).toEqual([]);
+  });
+
+  it('returns an empty list on any failure, so the page still renders', async () => {
+    const { fn } = fakeFetch([{ status: 500, body: {} }]);
+    expect(await client(fn).listCards()).toEqual([]);
+  });
+});
+
+describe('readCard', () => {
+  const ROW = {
+    user_id: TEACHER,
+    identity_mode: 'alias',
+    display_name: 'Polity Guru',
+    avatar_path: null,
+    bio_en: null,
+    bio_hi: null,
+    videos_visible: true,
+    has_free_sample: true,
+  };
+
+  it('reads one row of the view by id, with the badge', async () => {
+    const { fn, calls } = fakeFetch([{ status: 200, body: [ROW] }]);
+
+    const card = await client(fn).readCard(TEACHER);
+
+    expect(card?.hasFreeSample).toBe(true);
+    expect(calls[0].url).toContain('/rest/v1/teacher_cards?select=');
+    expect(calls[0].url).toContain(`user_id=eq.${TEACHER}`);
+    expect(calls[0].url).not.toContain('real_name');
+  });
+
+  it('is null for a teacher the view does not return (pending, or gone)', async () => {
+    const { fn } = fakeFetch([{ status: 200, body: [] }]);
+    expect(await client(fn).readCard(TEACHER)).toBeNull();
+  });
+
+  it('is null, and makes no call, for an id that is not a uuid', async () => {
+    const { fn, calls } = fakeFetch();
+    expect(await client(fn).readCard('../../rest/v1/teachers')).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('is null on any failure', async () => {
+    const { fn } = fakeFetch([{ status: 500, body: {} }]);
+    expect(await client(fn).readCard(TEACHER)).toBeNull();
+  });
+});
