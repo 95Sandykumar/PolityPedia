@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: blocked
+status: todo
 type: afk
 depends_on: [54b-read-errors-home-teachers, 54c-read-errors-saved-practice-media]
 ---

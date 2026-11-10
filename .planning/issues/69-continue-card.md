@@ -1,6 +1,6 @@
 ---
 id: 69-continue-card
-status: blocked
+status: todo
 type: afk
 depends_on: [56-result-page, 68-free-test-card-and-mock-list-cleanup]
 ---

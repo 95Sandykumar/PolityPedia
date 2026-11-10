@@ -1,6 +1,6 @@
 ---
 id: 62-prepay-card-and-my-purchases
-status: blocked
+status: todo
 type: afk
 depends_on: [60-after-pay-screen]
 ---

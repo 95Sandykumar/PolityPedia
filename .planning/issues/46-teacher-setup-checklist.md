@@ -1,6 +1,6 @@
 ---
 id: 46-teacher-setup-checklist
-status: blocked
+status: todo
 type: afk
 depends_on: [45-keep-money-and-scores, 55-schema-guard-and-read-alerts, 59-start-screen-and-submit-confirm, 61-block-second-order, 62-prepay-card-and-my-purchases]
 ---

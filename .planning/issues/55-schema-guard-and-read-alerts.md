@@ -1,6 +1,6 @@
 ---
 id: 55-schema-guard-and-read-alerts
-status: blocked
+status: todo
 type: afk
 depends_on: [54-visible-read-errors]
 ---

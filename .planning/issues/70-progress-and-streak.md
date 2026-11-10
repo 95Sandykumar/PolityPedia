@@ -1,6 +1,6 @@
 ---
 id: 70-progress-and-streak
-status: blocked
+status: todo
 type: afk
 depends_on: [69-continue-card]
 ---

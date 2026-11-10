@@ -1,10 +1,12 @@
 ---
 id: 57-review-and-retake
-status: done
+status: todo
 type: afk
-depends_on: [57a-review-reader]
+depends_on: [57a-review-reader, 57b-review-route-and-result-button, 57c-review-links-and-retake]
 ---
 # Review opens the finished sitting; Retake is its own button (screens only)
+
+> CLOSE-OUT ONLY. The first run built the review component but wired nothing. The wiring is now tickets 57b (routes, result button) and 57c (list links, Retake test). This ticket only checks that the Definition of done below is true in the running code. Do not rebuild. If it is all true, add a one line note and commit.
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, look and feel `web/DESIGN.md`. Evidence: walk persona-1 gap 5, persona-3 step 16. DB tests use PGlite. Do not apply migrations to the live database.
@@ -35,4 +37,3 @@ No analytics, no sharing. Start screens are ticket 59.
 - Do not open migrations. Do not grep the whole repo.
 - Work order: 1) review view plus test, 2) Retake button plus test, 3) link changes in the two lists, 4) result page button, 5) i18n, 6) full checks. Commit after each step.
 
-<!-- ralph 2026-11-10T03:33:12.776Z: committed + tests pass -->

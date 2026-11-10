@@ -1,6 +1,6 @@
 ---
 id: 68-free-test-card-and-mock-list-cleanup
-status: blocked
+status: todo
 type: afk
 depends_on: [62-prepay-card-and-my-purchases, 63-public-landing, 67-teachers-filter-and-free-badge]
 ---

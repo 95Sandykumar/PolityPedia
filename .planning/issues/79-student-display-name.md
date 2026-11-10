@@ -1,6 +1,6 @@
 ---
 id: 79-student-display-name
-status: blocked
+status: todo
 type: afk
 depends_on: [53-teacher-basic-analytics]
 ---

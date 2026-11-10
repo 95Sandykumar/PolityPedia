@@ -1,6 +1,6 @@
 ---
 id: 75-today-card
-status: blocked
+status: todo
 type: afk
 depends_on: [74-spaced-repetition, 71-exam-countdown-own-exam]
 ---

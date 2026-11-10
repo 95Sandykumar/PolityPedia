@@ -1,6 +1,6 @@
 ---
 id: 71-exam-countdown-own-exam
-status: blocked
+status: todo
 type: afk
 depends_on: [69-continue-card]
 ---

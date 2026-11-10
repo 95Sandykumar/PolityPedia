@@ -1,6 +1,6 @@
 ---
 id: 54c-read-errors-saved-practice-media
-status: blocked
+status: todo
 type: afk
 depends_on: [54a-read-error-core]
 ---
