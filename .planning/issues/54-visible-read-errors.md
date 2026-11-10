@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: todo
+status: blocked
 type: afk
 depends_on: [54a-read-error-core]
 ---
@@ -35,3 +35,5 @@ Do not change what any query selects. Do not add alert sending. Do not touch tea
 - Strings: `web/src/lib/i18n.ts` (add keys only)
 - Do NOT touch: `web/src/lib/*/supabase-*-client.ts`, `web/src/lib/*/teacher-page.ts`, `web/src/app/teacher/**`, `web/src/components/exam-player.tsx`
 - Work order: do ONE screen per step (reader, screen, test), commit after each step, run the full checks last.
+
+<!-- ralph 2026-11-10T00:05:26.296Z: no new commit -- slice unfinished -->

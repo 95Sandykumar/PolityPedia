@@ -1,6 +1,6 @@
 ---
 id: 54a-read-error-core
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -31,3 +31,5 @@ For the mock list reader and the papers list reader: a 400 gives the error state
 
 ## Notes / scope guard
 Do not change what any query selects. No alerts (ticket 55). Do not touch teacher screens or the other student screens: ticket 54 does those.
+
+<!-- ralph 2026-11-09T23:26:43.587Z: committed + tests pass -->

@@ -1,6 +1,6 @@
 ---
 id: 76-topic-filter
-status: todo
+status: blocked
 type: afk
 depends_on: [68-free-test-card-and-mock-list-cleanup, 49-subjects-and-topics]
 ---
@@ -28,3 +28,5 @@ No weak-topic logic (ticket 77).
 <!-- ralph 2026-11-09T18:51:51.038Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.185Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T23:38:30.977Z: upstream 67-teachers-filter-and-free-badge blocked -->

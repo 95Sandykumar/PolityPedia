@@ -1,6 +1,6 @@
 ---
 id: 73-practise-saved-session
-status: todo
+status: blocked
 type: afk
 depends_on: [72-saved-cards-show-answers]
 ---
@@ -29,3 +29,5 @@ No due dates or intervals (ticket 74).
 <!-- ralph 2026-11-09T18:51:51.062Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.217Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-10T00:17:23.776Z: upstream 57-review-and-retake blocked -->

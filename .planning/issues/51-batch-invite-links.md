@@ -1,6 +1,6 @@
 ---
 id: 51-batch-invite-links
-status: todo
+status: blocked
 type: afk
 depends_on: [H6-teacher-v11-picks, 50-mock-editor-power-tools]
 ---
@@ -29,3 +29,5 @@ No chat (D4). Helper/co-teacher role UI is Upcoming. Do not apply the migration 
 <!-- ralph 2026-11-09T18:51:51.046Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.196Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-10T00:05:26.335Z: upstream 54-visible-read-errors blocked -->

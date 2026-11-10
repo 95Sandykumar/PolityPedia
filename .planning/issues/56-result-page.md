@@ -1,6 +1,6 @@
 ---
 id: 56-result-page
-status: todo
+status: done
 type: afk
 depends_on: [56a-result-reader]
 ---
@@ -34,3 +34,5 @@ No review route (ticket 57), no rank, no share, no topic split.
 - Tests: copy the style of the existing component tests next to the players in `web/src/components/__tests__/`
 - Do not open migrations or DB test setup. Do not grep the whole repo.
 - Work order: 1) result component plus its test, 2) wire into one player, 3) wire into the others, 4) i18n, 5) full checks. Commit after each step.
+
+<!-- ralph 2026-11-10T00:02:14.256Z: committed + tests pass -->
