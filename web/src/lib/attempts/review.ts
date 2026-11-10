@@ -50,6 +50,7 @@ import {
 } from './result';
 import {
   optionLetter,
+  type AttemptMode,
   type AttemptReview,
   type ResultOption,
   type ReviewQuestion,
@@ -60,6 +61,15 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * A target that has already been checked: exactly ONE parent, and every id a
+ * uuid. A union rather than two nullable fields, so the caller that builds a
+ * query cannot forget which parent it has and no cast is needed to get at it.
+ */
+export type ReviewAsk =
+  | { paperId: string; testId: null; topicId: string | null; mode: AttemptMode | null }
+  | { paperId: null; testId: string; topicId: string | null; mode: AttemptMode | null };
+
+/**
  * A target with exactly one parent and valid ids, or null.
  *
  * `attempts_one_parent_check` (0013) says a sitting has a paper OR a test and
@@ -67,17 +77,21 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * null RIGHT HERE, before any read happens, so a malformed ask costs no
  * database call and leaks nothing about what exists.
  */
-export function readReviewTarget(target: ReviewTarget): ReviewTarget | null {
+export function readReviewTarget(target: ReviewTarget): ReviewAsk | null {
   const paperId = target.paperId ?? null;
   const testId = target.testId ?? null;
   const topicId = target.topicId ?? null;
+  const rest = { topicId, mode: target.mode ?? null };
 
   if ((paperId === null) === (testId === null)) return null;
-  if (paperId !== null && !UUID_RE.test(paperId)) return null;
-  if (testId !== null && !UUID_RE.test(testId)) return null;
   if (topicId !== null && !UUID_RE.test(topicId)) return null;
 
-  return { paperId, testId, topicId, mode: target.mode ?? null };
+  if (paperId !== null) {
+    if (!UUID_RE.test(paperId)) return null;
+    return { paperId, testId: null, ...rest };
+  }
+  if (testId === null || !UUID_RE.test(testId)) return null;
+  return { paperId: null, testId, ...rest };
 }
 
 /** All four options, in order, with the letter that was on the button. */
@@ -255,15 +269,13 @@ export function createSupabaseReviewSource(
       const parent =
         asked.paperId !== null
           ? `paper_id=eq.${encodeURIComponent(asked.paperId)}`
-          : `test_id=eq.${encodeURIComponent(asked.testId as string)}`;
+          : `test_id=eq.${encodeURIComponent(asked.testId)}`;
       const topic =
         asked.topicId === null
           ? ''
           : `&topic_id=eq.${encodeURIComponent(asked.topicId)}`;
       const mode =
-        asked.mode === null || asked.mode === undefined
-          ? ''
-          : `&mode=eq.${encodeURIComponent(asked.mode)}`;
+        asked.mode === null ? '' : `&mode=eq.${encodeURIComponent(asked.mode)}`;
 
       // `user_id` is NOT in this query, on purpose: `attempts_select_own`
       // (0013) decides whose sitting this is from the session token, and a
