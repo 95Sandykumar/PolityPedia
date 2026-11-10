@@ -11,6 +11,7 @@
  */
 import { Bookmark, ChevronRight, FileText, ListChecks } from 'lucide-react';
 import Link from 'next/link';
+import { ReadError } from '@/components/read-error';
 import { TeacherAvatar } from '@/components/teacher-avatar';
 import { CARD, EmptyState, IconChip, PageHeader, SectionTitle } from '@/components/student-ui';
 import { tilePath, teacherPath } from '@/lib/follows/types';
@@ -24,11 +25,19 @@ export function PracticeHub({
   teachers,
   mode = DEFAULT_MODE,
   configured = true,
+  failed = false,
 }: {
   teachers: readonly PublicTeacher[];
   mode?: LangMode;
   /** False when the Supabase env vars are missing, or nobody is signed in. */
   configured?: boolean;
+  /**
+   * True when the followed-teachers read FAILED rather than came back empty
+   * (issue 54c-read-errors-saved-practice-media). It wins over `teachers`: a
+   * part-read hub sends a student to Teachers to find somebody they already
+   * follow.
+   */
+  failed?: boolean;
 }) {
   return (
     <section className="flex flex-col gap-6">
@@ -38,6 +47,10 @@ export function PracticeHub({
         <p role="status" className="text-muted-foreground">
           {plain('player.notConfigured', mode)}
         </p>
+      ) : failed ? (
+        // BEFORE the empty state, never after: a broken read must not say
+        // "You follow nobody yet".
+        <ReadError mode={mode} />
       ) : teachers.length === 0 ? (
         <EmptyState
           Icon={ListChecks}
