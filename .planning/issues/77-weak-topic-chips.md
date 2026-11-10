@@ -1,6 +1,6 @@
 ---
 id: 77-weak-topic-chips
-status: todo
+status: blocked
 type: afk
 depends_on: [70-progress-and-streak, 76-topic-filter]
 ---
@@ -30,3 +30,5 @@ No teacher-side topic reports (teacher ticket 53 owns those).
 <!-- ralph 2026-11-09T21:25:09.173Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T23:38:30.978Z: upstream 67-teachers-filter-and-free-badge blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.592Z: upstream 54c-read-errors-saved-practice-media blocked -->

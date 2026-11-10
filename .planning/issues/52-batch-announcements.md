@@ -1,6 +1,6 @@
 ---
 id: 52-batch-announcements
-status: todo
+status: blocked
 type: afk
 depends_on: [51-batch-invite-links]
 ---
@@ -28,3 +28,5 @@ No replies, reactions or student posts. No push notifications. Do not apply the 
 <!-- ralph 2026-11-09T21:25:09.198Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-10T00:05:26.347Z: upstream 54-visible-read-errors blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.601Z: upstream 54c-read-errors-saved-practice-media blocked -->

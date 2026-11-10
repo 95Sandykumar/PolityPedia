@@ -1,6 +1,6 @@
 ---
 id: 68-free-test-card-and-mock-list-cleanup
-status: todo
+status: blocked
 type: afk
 depends_on: [62-prepay-card-and-my-purchases, 63-public-landing, 67-teachers-filter-and-free-badge]
 ---
@@ -36,3 +36,5 @@ No topic filter. No Home Continue card (ticket 69).
 <!-- ralph 2026-11-09T21:25:09.228Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T23:38:30.975Z: upstream 67-teachers-filter-and-free-badge blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.589Z: upstream 54c-read-errors-saved-practice-media blocked -->

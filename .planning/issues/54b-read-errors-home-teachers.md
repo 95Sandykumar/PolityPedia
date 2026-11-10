@@ -1,6 +1,6 @@
 ---
 id: 54b-read-errors-home-teachers
-status: todo
+status: done
 type: afk
 depends_on: [54a-read-error-core]
 ---
@@ -24,3 +24,5 @@ For each of the three readers: a 400 gives the error state, a 200 with `[]` give
 
 ## Notes / scope guard
 Do not change what any query selects. No alerts (ticket 55).
+
+<!-- ralph 2026-11-10T02:32:21.409Z: committed + tests pass -->

@@ -1,6 +1,6 @@
 ---
 id: 58-exam-answer-queue
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page]
 ---
@@ -33,3 +33,5 @@ No service worker (ticket 78). Practice mode already has an offline queue: reuse
 <!-- ralph 2026-11-09T21:25:09.177Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-10T00:24:23.910Z: no new commit -- slice unfinished -->
+
+<!-- ralph 2026-11-10T03:11:08.502Z: no new commit -- slice unfinished -->

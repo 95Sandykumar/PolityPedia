@@ -1,6 +1,6 @@
 ---
 id: 57-review-and-retake
-status: todo
+status: done
 type: afk
 depends_on: [57a-review-reader]
 ---
@@ -34,3 +34,5 @@ No analytics, no sharing. Start screens are ticket 59.
 - Shared pieces: `web/src/components/student-ui.tsx` (prefetch link wrapper), `web/src/lib/i18n.ts` (add keys only)
 - Do not open migrations. Do not grep the whole repo.
 - Work order: 1) review view plus test, 2) Retake button plus test, 3) link changes in the two lists, 4) result page button, 5) i18n, 6) full checks. Commit after each step.
+
+<!-- ralph 2026-11-10T03:33:12.776Z: committed + tests pass -->

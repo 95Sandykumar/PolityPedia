@@ -1,6 +1,6 @@
 ---
 id: 54c-read-errors-saved-practice-media
-status: todo
+status: blocked
 type: afk
 depends_on: [54a-read-error-core]
 ---
@@ -23,3 +23,5 @@ For each of the four readers: a 400 gives the error state, a 200 with `[]` gives
 
 ## Notes / scope guard
 Do not change what any query selects. No alerts (ticket 55).
+
+<!-- ralph 2026-11-10T02:33:51.584Z: merge conflict against integration branch -->

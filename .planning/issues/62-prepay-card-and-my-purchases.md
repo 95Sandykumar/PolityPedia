@@ -1,6 +1,6 @@
 ---
 id: 62-prepay-card-and-my-purchases
-status: todo
+status: blocked
 type: afk
 depends_on: [60-after-pay-screen]
 ---
@@ -36,3 +36,5 @@ No email receipt, no invoice PDF, no refund button.
 <!-- ralph 2026-11-09T21:25:09.225Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-10T00:05:26.308Z: upstream 54-visible-read-errors blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.588Z: upstream 54c-read-errors-saved-practice-media blocked -->
