@@ -360,3 +360,103 @@ export interface ResultSource {
    */
   readKeys(questionIds: readonly string[]): Promise<Map<string, number>>;
 }
+
+// --------------------------------------------------------------------------
+// The review read (issue 57a-review-reader)
+// --------------------------------------------------------------------------
+//
+// The next question a student asks after the result: "show me the whole paper
+// again". `AttemptResult` is the summary with the wrong ones in one line each;
+// `AttemptReview` is EVERY question of the sitting, in paper order, with the
+// full stem, all four options, the one they picked, the right one and the
+// teacher's prose. The reader is `review.ts`; the screens are ticket 57.
+//
+// THREE RULES ARE SHAPED INTO THESE TYPES:
+//
+//  * `ReviewSource` has no write method, and never will. A review is a read:
+//    looking at one must not create, resume or close a sitting.
+//  * `readNewestSubmitted` asks for a SUBMITTED sitting and nothing else, so
+//    the key read of 0030 is unreachable from an open one.
+//  * `right` and `explanation` are both nullable, because `question_keys()`
+//    (0030) and `question_explanations()` (0037) both refuse while the caller
+//    has an open exam sitting of the same test. Null means "locked right now",
+//    not "there is no right answer", and the screen can say so.
+
+/** Which paper or test to review. Exactly one parent, as a sitting has. */
+export interface ReviewTarget {
+  paperId?: string | null;
+  testId?: string | null;
+  /** Narrows to one topic, when the sitting was of one topic (issue 17). */
+  topicId?: string | null;
+  /** Narrows to practice or exam sittings. Both when left out. */
+  mode?: AttemptMode | null;
+}
+
+/** One question of the sitting, as the review screen shows it. */
+export interface ReviewQuestion {
+  questionId: string;
+  /** The number in the paper, one-based: the number the student saw. */
+  number: number;
+  /** The WHOLE stem. The review shows it all; only the result list cuts it. */
+  stem: string;
+  /** All four options, in order, with the letter the student saw. */
+  options: ResultOption[];
+  /** What the student picked, or null when they skipped it. */
+  chosen: ResultOption | null;
+  /** The right answer, or null while the key is locked (0030). */
+  right: ResultOption | null;
+  /** The stored verdict. Null when the question was never answered. */
+  isCorrect: boolean | null;
+  /** They flagged it during the sitting. Still worth showing afterwards. */
+  marked: boolean;
+  /** The teacher's prose, or null: none written, or locked (0037). */
+  explanation: string | null;
+}
+
+/** Everything a review screen needs for one submitted sitting. */
+export interface AttemptReview {
+  attemptId: string;
+  mode: AttemptMode;
+  /** The SERVER-stored score (0031). Read, never worked out again. */
+  score: number;
+  /** Questions in the sitting. `right + wrong + skipped` is exactly this. */
+  total: number;
+  /** Right answers as a whole percentage of `total`. 0 for an empty paper. */
+  percent: number;
+  right: number;
+  wrong: number;
+  /** Not answered: untouched, or marked for later and left. */
+  skipped: number;
+  /** Whole seconds between the start and the close. Never negative. */
+  timeTakenSec: number;
+  /** True when the close happened at or after the exam deadline. */
+  autoSubmitted: boolean;
+  /** Every question of the sitting, in paper order. */
+  questions: ReviewQuestion[];
+}
+
+/**
+ * Where the review read gets its rows. READ ONLY, by construction.
+ *
+ * It extends `ResultSource` rather than restating it: the questions, the
+ * answers and the key come from the same three reads the result page makes,
+ * and one reader for each is the point. Two methods are new: the sitting is
+ * found by paper or test instead of by id, and the prose has its own
+ * definer function.
+ */
+export interface ReviewSource extends ResultSource {
+  /**
+   * The student's NEWEST SUBMITTED sitting of this paper or test, or null.
+   *
+   * Null is every "nothing to review" at once: no sitting, every sitting
+   * still open, or a sitting RLS did not hand over because it is somebody
+   * else's. A caller cannot tell those apart, and must not.
+   */
+  readNewestSubmitted(target: ReviewTarget): Promise<ResultAttempt | null>;
+  /**
+   * `question_explanations()`: the teacher's prose for the ids asked (0037).
+   * An id missing from the map has no prose, or the prose is locked. An empty
+   * map is a valid answer and means the whole call was refused.
+   */
+  readExplanations(questionIds: readonly string[]): Promise<Map<string, string>>;
+}
