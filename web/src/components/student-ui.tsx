@@ -137,16 +137,20 @@ export function SectionLink({
   href,
   children,
   ariaLabel,
+  testId,
 }: {
   href: string;
   children: ReactNode;
   ariaLabel?: string;
+  /** So a caller's own test can find its link. Undefined renders no attribute. */
+  testId?: string;
 }) {
   return (
     <Link
       href={href}
       prefetch={false}
       aria-label={ariaLabel}
+      data-testid={testId}
       className="inline-flex min-h-12 items-center text-sm font-medium text-primary"
     >
       {children}
