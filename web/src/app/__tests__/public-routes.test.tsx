@@ -47,6 +47,13 @@ const readPublicTeacher = vi.fn();
 vi.mock('@/lib/follows/student-page', () => ({
   readStudentContext: () => readStudentContext(),
   readFollowedTeachers: (...args: unknown[]) => readFollowedTeachers(...args),
+  // Home reads the RESULT flavour since 54b-read-errors-home-teachers. Both
+  // names go through the same spy, so "reads nothing when logged out" still
+  // watches the one read that matters.
+  readFollowedTeachersResult: async (...args: unknown[]) => ({
+    ok: true,
+    data: await readFollowedTeachers(...args),
+  }),
   readPortfolio: (...args: unknown[]) => readPortfolio(...args),
 }));
 
@@ -56,6 +63,7 @@ vi.mock('@/lib/teachers/public-teacher', () => ({
 
 vi.mock('@/lib/posts/server-posts', () => ({
   readHomePosts: async () => [],
+  readHomePostsResult: async () => ({ ok: true, data: [] }),
 }));
 
 vi.mock('@/lib/teacher-exams/teacher-page', () => ({
