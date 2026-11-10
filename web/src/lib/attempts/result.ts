@@ -89,8 +89,14 @@ export function shortStem(stem: string): string {
   return cut.trimEnd() + ELLIPSIS;
 }
 
-/** An index plus the letter and text the student saw, or null for a bad index. */
-function optionAt(options: QuestionOptions, idx: number | null): ResultOption | null {
+/**
+ * An index plus the letter and text the student saw, or null for a bad index.
+ *
+ * Exported for `review.ts` (57a), which shows the same options on the same
+ * rows: one way to turn an index into a labelled option, or the review and
+ * the result would disagree about a bad one.
+ */
+export function optionAt(options: QuestionOptions, idx: number | null): ResultOption | null {
   if (idx === null || !Number.isInteger(idx)) return null;
   const text = options[idx];
   if (typeof text !== 'string') return null;
@@ -98,7 +104,7 @@ function optionAt(options: QuestionOptions, idx: number | null): ResultOption | 
 }
 
 /** Whole seconds between two ISO timestamps. Never negative, never NaN. */
-function secondsBetween(from: string, to: string): number {
+export function secondsBetween(from: string, to: string): number {
   const start = Date.parse(from);
   const end = Date.parse(to);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
@@ -106,7 +112,7 @@ function secondsBetween(from: string, to: string): number {
 }
 
 /** True when the close landed on or after the deadline: the clock did it. */
-function closedOnTheClock(deadlineAt: string | null, submittedAt: string): boolean {
+export function closedOnTheClock(deadlineAt: string | null, submittedAt: string): boolean {
   if (deadlineAt === null) return false;
   const deadline = Date.parse(deadlineAt);
   const submitted = Date.parse(submittedAt);
