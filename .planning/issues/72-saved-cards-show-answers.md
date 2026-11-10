@@ -1,6 +1,6 @@
 ---
 id: 72-saved-cards-show-answers
-status: blocked
+status: todo
 type: afk
 depends_on: [57-review-and-retake]
 ---

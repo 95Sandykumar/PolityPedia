@@ -1,6 +1,6 @@
 ---
 id: 50-mock-editor-power-tools
-status: blocked
+status: todo
 type: afk
 depends_on: [49-subjects-and-topics]
 ---

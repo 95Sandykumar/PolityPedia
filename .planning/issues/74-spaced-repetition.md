@@ -1,6 +1,6 @@
 ---
 id: 74-spaced-repetition
-status: blocked
+status: todo
 type: afk
 depends_on: [73-practise-saved-session]
 ---

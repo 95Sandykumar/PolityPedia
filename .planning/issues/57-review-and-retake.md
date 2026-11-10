@@ -1,25 +1,25 @@
 ---
 id: 57-review-and-retake
-status: blocked
+status: todo
 type: afk
-depends_on: [56-result-page]
+depends_on: [57a-review-reader]
 ---
-# Review opens the finished sitting; Retake is its own button
+# Review opens the finished sitting; Retake is its own button (screens only)
 
 ## Context
 PolityPedia is a Next.js web app in `web/`. Conventions: `web/CLAUDE.md`, `web/AGENTS.md`, look and feel `web/DESIGN.md`. Evidence: walk persona-1 gap 5, persona-3 step 16. DB tests use PGlite. Do not apply migrations to the live database.
 
-Today "Review" on a finished practice test opens a blank new sitting, and in exam mode it can start a new timed sitting. Each tap also adds an attempts row.
+The read only reader is built by ticket 57a: reuse it, do not rewrite it. This ticket is the screens. Today "Review" on a finished practice test opens a blank new sitting, and in exam mode it can start a new timed sitting. Each tap also adds an attempts row.
 
 ## Definition of done
 On the mock list, past papers list and the result page: "Review" on a submitted sitting opens that sitting read only: every question with the student's answer, the right answer and the explanation. Opening Review never creates an attempt row. "Retake" is a separate button that starts a new sitting. The result page (ticket 56) gets a "Review mistakes" button.
 
 ## Vertical slice
-- service: read the newest submitted sitting for a test or paper
-- UI: read-only review view + Retake button + link changes in the mock list and papers list
+- UI: read-only review view, Retake button, link changes in the mock list and papers list, "Review mistakes" button on the result page
+- i18n: EN and HI
 
 ## Test that proves it
-PGlite: the attempts row count is unchanged after opening Review in practice and exam mode; Retake adds exactly one row. Component test for the read-only view. `npm test`, `npm run typecheck`, `npm run build` pass.
+Component test for the read-only view. A test that the Review link points to the review view and Retake starts a new sitting (exactly one new attempts row, PGlite). `npm test`, `npm run typecheck`, `npm run build` pass.
 
 ## Design constraints
 0030 key lock: keys and explanations show only for a submitted attempt. A page view must not write data. B3 prefetch wrapper.
@@ -27,8 +27,10 @@ PGlite: the attempts row count is unchanged after opening Review in practice and
 ## Notes / scope guard
 No analytics, no sharing. Start screens are ticket 59.
 
-<!-- ralph 2026-11-09T18:51:51.057Z: upstream 56-result-page blocked -->
-
-<!-- ralph 2026-11-09T21:25:09.212Z: upstream 56-result-page blocked -->
-
-<!-- ralph 2026-11-10T00:17:23.770Z: no new commit -- slice unfinished -->
+## Start here (file map, read ONLY these, use `sed -n` ranges or `grep -n`, never `cat` a whole file)
+- Reader from 57a (read the new function signature only), result component from 56 (find with `git log --stat -3 -- web/src/components`)
+- Where the Review and Retake links live: `web/src/components/mock-list.tsx`, `web/src/components/papers-list.tsx`
+- Existing play route to copy the shape of for a review route: `web/src/app/(student)/t/[teacherId]/mocks/[testId]/play/page.tsx`
+- Shared pieces: `web/src/components/student-ui.tsx` (prefetch link wrapper), `web/src/lib/i18n.ts` (add keys only)
+- Do not open migrations. Do not grep the whole repo.
+- Work order: 1) review view plus test, 2) Retake button plus test, 3) link changes in the two lists, 4) result page button, 5) i18n, 6) full checks. Commit after each step.
