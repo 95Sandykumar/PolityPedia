@@ -225,6 +225,25 @@ export function mockPlayerPath(
   return tail.length > 0 ? `${base}?${tail}` : base;
 }
 
+/**
+ * The mock REVIEW route of a finished test: `/t/<id>/mocks/<id>/review`
+ * (ticket 57c).
+ *
+ * The twin of `mockPlayerPath()`, and deliberately NOT the same URL. `play` is
+ * the start route: opening it creates or resumes the `attempts` row. This one
+ * only reads, so a taken row on the list points here and a student who looks
+ * at an old test leaves nothing behind. Persona-1 gap 5 was exactly that: the
+ * list's "Review" went to `play`, so every look started a sitting, and in exam
+ * mode a timed one.
+ *
+ * NO MODE AND NO TOPIC. Those are a choice about a new sitting; the review
+ * page reads the newest submitted sitting and takes the mode off the row, then
+ * builds its own Retake link from it.
+ */
+export function mockReviewPath(teacherId: string, testId: string): string {
+  return `/t/${encodeURIComponent(teacherId)}/mocks/${encodeURIComponent(testId)}/review`;
+}
+
 /** Rupees the way the dictionary writes them: "Rs 399" in English. */
 export function rupees(priceInr: number, lang: 'en' | 'hi'): string {
   const whole = Number.isFinite(priceInr) ? Math.max(0, Math.round(priceInr)) : 0;

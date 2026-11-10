@@ -17,6 +17,7 @@ import {
   isTaken,
   isValidUntilLive,
   mockPlayerPath,
+  mockReviewPath,
   MOCK_TOPIC_ALL,
   priceLabels,
   rupees,
@@ -186,6 +187,20 @@ describe('mockPlayerPath', () => {
 
   it('escapes both ids, so a path cannot be forged out of one', () => {
     expect(mockPlayerPath('a/b', 'c?d')).toBe('/t/a%2Fb/mocks/c%3Fd/play');
+  });
+});
+
+describe('mockReviewPath', () => {
+  it('points at review, not at the start route', () => {
+    expect(mockReviewPath(TEACHER, TEST_1)).toBe(`/t/${TEACHER}/mocks/${TEST_1}/review`);
+  });
+
+  it('carries no mode and no topic: a review is not a new sitting', () => {
+    expect(mockReviewPath(TEACHER, TEST_1)).not.toContain('?');
+  });
+
+  it('escapes both ids, so a path cannot be forged out of one', () => {
+    expect(mockReviewPath('a/b', 'c?d')).toBe('/t/a%2Fb/mocks/c%3Fd/review');
   });
 });
 
