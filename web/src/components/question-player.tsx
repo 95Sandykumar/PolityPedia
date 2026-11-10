@@ -95,6 +95,7 @@ export function QuestionPlayer({
   onTag,
   readResult,
   nextHref = null,
+  reviewHref = null,
   revisionClient,
   revisionLive,
   revisionConfigured = true,
@@ -142,6 +143,13 @@ export function QuestionPlayer({
   readResult?: BrowserResultReader;
   /** Where the result page's "Next test" goes. Null draws no link. */
   nextHref?: string | null;
+  /**
+   * Where the result page's "Review mistakes" goes: the READ ONLY review
+   * route of this paper or test (ticket 57b). Passed straight through, like
+   * `nextHref`, because only the page above knows the route. Null draws no
+   * link.
+   */
+  reviewHref?: string | null;
   /**
    * The Revision (AI) screen's two outside things (issue 23-revision-screen).
    * Passed straight through, so this file's own test drives the panel with no
@@ -362,6 +370,7 @@ export function QuestionPlayer({
           // F-E6: the paper is out of MARKS, not questions.
           outOf={totalMarks(total, marking)}
           nextHref={nextHref}
+          reviewHref={reviewHref}
         />
       ) : null}
 

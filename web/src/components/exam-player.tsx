@@ -111,6 +111,7 @@ export function ExamPlayer({
   score = null,
   readResult,
   nextHref = null,
+  reviewHref = null,
   client,
   now = Date.now,
 }: {
@@ -146,6 +147,11 @@ export function ExamPlayer({
   readResult?: BrowserResultReader;
   /** Where the result page's "Next test" goes. Null draws no link. */
   nextHref?: string | null;
+  /**
+   * Where the result page's "Review mistakes" goes: the READ ONLY review
+   * route of this test (ticket 57b). Null draws no link.
+   */
+  reviewHref?: string | null;
   /** Our own routes. Holds no key, and never marks anything itself. */
   client: BrowserExamClient;
   /** Injected so a test can pin the clock. */
@@ -404,6 +410,7 @@ export function ExamPlayer({
           // F-E6: the paper is out of MARKS, not questions.
           outOf={totalMarks(total, marking)}
           nextHref={nextHref}
+          reviewHref={reviewHref}
         />
       ) : null}
 

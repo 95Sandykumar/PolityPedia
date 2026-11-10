@@ -65,6 +65,9 @@ export default async function PaperPlayPage({
           // list of this teacher: the next paper is the next thing to do, and
           // the student is already inside that teacher's work.
           nextHref={`/t/${teacherId}/papers`}
+          // And where "Review mistakes" goes (ticket 57b): the READ ONLY review
+          // of this same paper, which creates no sitting.
+          reviewHref={`/t/${teacherId}/papers/${paperId}/review`}
         />
       ) : (
         <EmptyState Icon={ListChecks} text={plain('player.notConfigured', mode)} />

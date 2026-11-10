@@ -43,6 +43,7 @@
 import Link from 'next/link';
 import { Check, Clock, ListChecks, Lock, Minus, Timer, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { SectionLink } from '@/components/student-ui';
 import type { AttemptResult, ResultWrongQuestion } from '@/lib/attempts/types';
 import { timerLabel } from '@/lib/exam/types';
 import { DEFAULT_MODE, plain, type LangMode } from '@/lib/i18n';
@@ -135,6 +136,7 @@ export function AttemptResultPanel({
   mode = DEFAULT_MODE,
   outOf,
   nextHref = null,
+  reviewHref = null,
 }: {
   /** Exactly what `readAttemptResult()` returned. Nothing is recomputed here. */
   result: AttemptResult;
@@ -147,6 +149,12 @@ export function AttemptResultPanel({
   outOf?: number;
   /** Where "Next test" goes. Null when the page above has nowhere to send them. */
   nextHref?: string | null;
+  /**
+   * Where "Review mistakes" goes: the REVIEW route of this paper or test
+   * (ticket 57b), which is read only and creates no sitting. Null draws no
+   * link, so a screen that has no review route shows no dead one.
+   */
+  reviewHref?: string | null;
 }) {
   const outOfMarks = outOf ?? result.total;
 
@@ -260,6 +268,17 @@ export function AttemptResultPanel({
           )}
         </p>
       )}
+
+      {/* Back to the paper itself (ticket 57b). A quieter link than Next test,
+          because it does not move the student on; `SectionLink` is the shared
+          prefetch-off wrapper, and B3 is why it is prefetch-off: the review is
+          one tap away but it must not be fetched for a student who never taps
+          it. The route behind it is READ ONLY and starts no sitting. */}
+      {reviewHref ? (
+        <SectionLink href={reviewHref} testId="attempt-result-review">
+          {plain('recap.mistakes', mode)}
+        </SectionLink>
+      ) : null}
 
       {nextHref ? (
         <Link

@@ -1,5 +1,5 @@
 /**
- * The play pages hand the result page somewhere to go next (ticket 56b).
+ * The play pages hand the result page somewhere to go (tickets 56b and 57b).
  *
  * `AttemptResultPanel` only draws "Next test" when the page above gives it an
  * href, and ticket 56 gave it none, so the link never showed anywhere. The
@@ -9,6 +9,11 @@
  *  * the past paper play page sends the student to that teacher's PAPERS list
  *  * the mock play page sends them to that teacher's MOCKS list, in exam mode
  *    and in practice mode alike
+ *
+ * Ticket 57b adds the second href, and it is the one that fixes persona-1
+ * gap 5: "Review mistakes" must point at the READ ONLY review route of the
+ * same paper, never back at this page, because THIS page is the start route
+ * and opening it creates or resumes a sitting.
  *
  * The players are stubs, so this test is about the prop and not about the
  * player, and every reader is faked, so nothing here touches the network and
@@ -61,14 +66,32 @@ vi.mock('@/lib/exam/student-page', () => ({
  * A stub, not the real player: what is under test is the PROP the page passes.
  */
 vi.mock('@/components/practice-player', () => ({
-  PracticePlayer: ({ nextHref }: { nextHref?: string | null }) => (
-    <p data-testid="practice-next">{nextHref ?? 'none'}</p>
+  PracticePlayer: ({
+    nextHref,
+    reviewHref,
+  }: {
+    nextHref?: string | null;
+    reviewHref?: string | null;
+  }) => (
+    <>
+      <p data-testid="practice-next">{nextHref ?? 'none'}</p>
+      <p data-testid="practice-review">{reviewHref ?? 'none'}</p>
+    </>
   ),
 }));
 
 vi.mock('@/components/mock-exam-player', () => ({
-  MockExamPlayer: ({ nextHref }: { nextHref?: string | null }) => (
-    <p data-testid="exam-next">{nextHref ?? 'none'}</p>
+  MockExamPlayer: ({
+    nextHref,
+    reviewHref,
+  }: {
+    nextHref?: string | null;
+    reviewHref?: string | null;
+  }) => (
+    <>
+      <p data-testid="exam-next">{nextHref ?? 'none'}</p>
+      <p data-testid="exam-review">{reviewHref ?? 'none'}</p>
+    </>
   ),
 }));
 
@@ -156,6 +179,16 @@ describe('the past paper play page', () => {
 
     expect(screen.getByTestId('practice-next')).toHaveTextContent(`/t/${TEACHER}/papers`);
   });
+
+  it('sends "Review mistakes" to the review route of the SAME paper', async () => {
+    render(
+      await PaperPlayPage({ params: Promise.resolve({ teacherId: TEACHER, paperId: PAPER }) }),
+    );
+
+    expect(screen.getByTestId('practice-review')).toHaveTextContent(
+      `/t/${TEACHER}/papers/${PAPER}/review`,
+    );
+  });
 });
 
 describe('the mock play page', () => {
@@ -179,5 +212,29 @@ describe('the mock play page', () => {
     );
 
     expect(screen.getByTestId('practice-next')).toHaveTextContent(`/t/${TEACHER}/mocks`);
+  });
+
+  it('sends "Review mistakes" to the review route of the SAME test, in both modes', async () => {
+    render(
+      await MockPlayerPage({
+        params: Promise.resolve({ teacherId: TEACHER, testId: TEST }),
+        searchParams: Promise.resolve({ mode: 'exam' }),
+      }),
+    );
+
+    expect(screen.getByTestId('exam-review')).toHaveTextContent(
+      `/t/${TEACHER}/mocks/${TEST}/review`,
+    );
+
+    render(
+      await MockPlayerPage({
+        params: Promise.resolve({ teacherId: TEACHER, testId: TEST }),
+        searchParams: Promise.resolve({ mode: 'practice' }),
+      }),
+    );
+
+    expect(screen.getByTestId('practice-review')).toHaveTextContent(
+      `/t/${TEACHER}/mocks/${TEST}/review`,
+    );
   });
 });

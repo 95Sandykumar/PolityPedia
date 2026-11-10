@@ -38,6 +38,7 @@ export function MockExamPlayer({
   revealed,
   score,
   nextHref = null,
+  reviewHref = null,
 }: {
   questions: readonly (Question | ExamQuestion)[];
   attemptId: string;
@@ -55,6 +56,8 @@ export function MockExamPlayer({
   score?: number | null;
   /** Where the result page's "Next test" goes (issue 56-result-page). */
   nextHref?: string | null;
+  /** Where the result page's "Review mistakes" goes (ticket 57b). */
+  reviewHref?: string | null;
 }) {
   const client = useMemo(
     () => createBrowserExamClient({ testId, topicId }),
@@ -81,6 +84,7 @@ export function MockExamPlayer({
       score={score}
       readResult={readResult}
       nextHref={nextHref}
+      reviewHref={reviewHref}
       client={client}
     />
   );

@@ -106,6 +106,10 @@ export default async function MockPlayerPage({
           // Where the result page's "Next test" goes (ticket 56b). The mocks
           // list of this teacher, which is where the next test of the set is.
           nextHref={`/t/${teacherId}/mocks`}
+          // And where "Review mistakes" goes (ticket 57b): the READ ONLY review
+          // of this same test. Not this page again, which would start a new
+          // sitting, which is the bug persona-1 hit.
+          reviewHref={`/t/${teacherId}/mocks/${testId}/review`}
         />
       ) : practice?.attempt ? (
         <PracticePlayer
@@ -118,6 +122,8 @@ export default async function MockPlayerPage({
           // The same list in practice mode: one test done, the next one is
           // one tap away (ticket 56b).
           nextHref={`/t/${teacherId}/mocks`}
+          // The same review route in practice mode (ticket 57b).
+          reviewHref={`/t/${teacherId}/mocks/${testId}/review`}
         />
       ) : null}
     </section>
