@@ -23,7 +23,7 @@ import { createSupabaseTeacherExamsClient } from '@/lib/teacher-exams/supabase-t
 import { readNextExam } from '@/lib/teacher-exams/teacher-page';
 import { todayIso, type NextExam } from '@/lib/teacher-exams/types';
 import type { PublicTeacher } from '@/lib/teachers/types';
-import { readStudentVideos } from '@/lib/videos/page-data';
+import { readStudentVideosResult } from '@/lib/videos/page-data';
 
 /** How many followed teachers Home asks for an exam date. Keeps Home to a few small reads. */
 const MAX_EXAM_LOOKUPS = 5;
@@ -97,12 +97,14 @@ export interface PortfolioCountsOptions {
  * (issue 54b-read-errors-home-teachers). A count is the read-error bug in
  * miniature: the query broke, the Supabase client swallowed the 400 into `[]`,
  * `.length` made that a confident `0`, and the Past papers tile told the
- * student the teacher had uploaded nothing. Three of the four reads now return
- * a RESULT, so a failure gives `null` and the tile shows NO number at all,
- * which is the only honest answer. A real 0 is still a real 0 and still shown.
+ * student the teacher had uploaded nothing. ALL FOUR reads now return a
+ * RESULT, so a failure gives `null` and the tile shows NO number at all, which
+ * is the only honest answer. A real 0 is still a real 0 and still shown.
  *
- * The videos count is the exception and keeps the old fail-soft shape: that
- * reader belongs to ticket 54c, which does the videos screen.
+ * The videos count was the last one left on the old fail-soft shape, where a
+ * broken read came back as an empty list and the tile said "0"
+ * (issue 54-visible-read-errors, the close-out pass). It now reads the same
+ * result flavour as the other three.
  */
 export async function readPortfolioCounts(
   session: AuthSession | null,
@@ -110,10 +112,12 @@ export async function readPortfolioCounts(
   options: PortfolioCountsOptions = {},
 ): Promise<PortfolioCounts> {
   const [videos, papers, mocks, news] = await Promise.all([
+    // No tile at all when the teacher switched videos off, which is not a
+    // failed read and must not look like one.
     teacher.videosVisible
-      ? readStudentVideos(session, teacher.userId)
-          .then((data) => data.videos.length)
-          .catch(() => null)
+      ? readStudentVideosResult(session, teacher.userId, options).then((read) =>
+          read.ok ? read.data.videos.length : null,
+        )
       : Promise.resolve(null),
     readLivePapersResult(session, teacher.userId, options).then((read) =>
       read.ok ? read.data.length : null,

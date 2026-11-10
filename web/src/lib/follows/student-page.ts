@@ -217,26 +217,61 @@ export interface PortfolioData {
   nextExam: NextExam | null;
 }
 
-/** One teacher, whether this student follows them, and their next exam date. */
+const NO_PORTFOLIO: PortfolioData = { teacher: null, following: false, nextExam: null };
+
+/**
+ * One teacher, whether this student follows them, their next exam date, and
+ * whether the read worked (issue 54-visible-read-errors).
+ *
+ * Why the result flavour: a failed teacher read used to come back as
+ * `teacher: null`, and `/t/<id>` draws that as "This teacher is not here", one
+ * calm line. So a dropped connection, or a view that lost a column, told the
+ * student their teacher does not exist. That is the same lie ticket 54 took
+ * off the lists, on the screen that holds all of them.
+ *
+ * TWO queries sit inside ONE probe: the teacher card, then the follow list.
+ * Either one failing is a failed read, because the page cannot draw a follow
+ * button it did not read. The next exam date stays SOFT and outside the
+ * decision: it is one pill in the header, and no pill is honest.
+ *
+ * A teacher who is really NOT THERE (0 rows, status 200) is still an OK read.
+ * The page keeps its own not-found line for exactly that.
+ */
+export async function readPortfolioResult(
+  session: AuthSession | null,
+  teacherId: string,
+  options: TeacherListOptions = {},
+): Promise<ReadResult<PortfolioData>> {
+  // Signed out is not broken: nothing to read, so the page keeps its own line.
+  if (!session) return readOk<PortfolioData>(NO_PORTFOLIO);
+
+  return readWithProbe<PortfolioData>(async (fetchImpl) => {
+    // `readCard`, not `readPublic`: the `teacher_cards` view repeats every
+    // `teachers_public` column and adds the badge, so this is the same privacy
+    // and one request, not two. The view is granted to `authenticated` only
+    // (0050), which is exactly who reaches this function: the logged-out
+    // `/t/<id>` page takes the `readPublicTeacher` path instead.
+    const teacher = await teachersClient(session, options, fetchImpl)
+      .readCard(teacherId)
+      .catch(() => null);
+    if (!teacher) return NO_PORTFOLIO;
+
+    const ids = await followsClient(session, options, fetchImpl)
+      .listFollowing()
+      .catch(() => [] as string[]);
+
+    const nextExam = await readNextExam(session, teacher.userId).catch(() => null);
+
+    return { teacher, following: ids.includes(teacher.userId), nextExam };
+  }, options.fetchImpl);
+}
+
+/** One teacher and their follow state, for callers with no error state yet. */
 export async function readPortfolio(
   session: AuthSession | null,
   teacherId: string,
+  options: TeacherListOptions = {},
 ): Promise<PortfolioData> {
-  // `readCard`, not `readPublic`: the `teacher_cards` view repeats every
-  // `teachers_public` column and adds the badge, so this is the same privacy
-  // and one request, not two. The view is granted to `authenticated` only
-  // (0050), which is exactly who reaches this function: the logged-out
-  // `/t/<id>` page takes the `readPublicTeacher` path instead.
-  const teacher = await teachersClient(session)
-    .readCard(teacherId)
-    .catch(() => null);
-  if (!teacher) return { teacher: null, following: false, nextExam: null };
-
-  const ids = await followsClient(session)
-    .listFollowing()
-    .catch(() => [] as string[]);
-
-  const nextExam = await readNextExam(session, teacher.userId).catch(() => null);
-
-  return { teacher, following: ids.includes(teacher.userId), nextExam };
+  const read = await readPortfolioResult(session, teacherId, options);
+  return read.ok ? read.data : NO_PORTFOLIO;
 }

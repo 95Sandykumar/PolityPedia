@@ -21,8 +21,9 @@
  * screen can say, so a broken read says so and offers Retry instead.
  */
 import { PostList } from '@/components/post-list';
+import { ReadError } from '@/components/read-error';
 import { BackLink, PageHeader } from '@/components/student-ui';
-import { readPortfolio, readStudentContext } from '@/lib/follows/student-page';
+import { readPortfolioResult, readStudentContext } from '@/lib/follows/student-page';
 import { readTeacherPostsResult } from '@/lib/posts/server-posts';
 import { labels } from '@/lib/i18n';
 
@@ -34,9 +35,25 @@ export default async function TeacherNewsPage({
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
 
-  const { teacher } = configured
-    ? await readPortfolio(session, teacherId)
-    : { teacher: null };
+  // The teacher read comes back as a RESULT too, so a broken one shows the
+  // shared error state instead of "This teacher is not here", which would stop
+  // the page before the notice list below could say anything
+  // (issue 54-visible-read-errors).
+  const header = configured
+    ? await readPortfolioResult(session, teacherId)
+    : ({ ok: true, data: { teacher: null, following: false, nextExam: null } } as const);
+
+  if (!header.ok) {
+    return (
+      <section className="flex flex-col gap-4">
+        <BackLink href={`/t/${teacherId}`} mode={mode} />
+        <PageHeader titleKey="tile.news" mode={mode} />
+        <ReadError mode={mode} />
+      </section>
+    );
+  }
+
+  const { teacher } = header.data;
 
   // No teacher: not approved, not real, or Supabase is not set up. One line,
   // no stack trace, and the nav is still there (DESIGN.md section 9, Empty).

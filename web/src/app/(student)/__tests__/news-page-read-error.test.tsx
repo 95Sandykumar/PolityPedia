@@ -21,12 +21,12 @@ import type { TeacherPost } from '@/lib/posts/types';
 import type { TeacherCard } from '@/lib/teachers/types';
 
 const readStudentContext = vi.fn();
-const readPortfolio = vi.fn();
+const readPortfolioResult = vi.fn();
 const readTeacherPostsResult = vi.fn();
 
 vi.mock('@/lib/follows/student-page', () => ({
   readStudentContext: () => readStudentContext(),
-  readPortfolio: (...args: unknown[]) => readPortfolio(...args),
+  readPortfolioResult: (...args: unknown[]) => readPortfolioResult(...args),
 }));
 
 vi.mock('@/lib/posts/server-posts', () => ({
@@ -76,7 +76,9 @@ beforeEach(() => {
     mode: 'en',
     examIds: [],
   });
-  readPortfolio.mockReset().mockResolvedValue({ teacher: TEACHER, following: false });
+  readPortfolioResult
+    .mockReset()
+    .mockResolvedValue({ ok: true, data: { teacher: TEACHER, following: false, nextExam: null } });
   readTeacherPostsResult.mockReset().mockResolvedValue({ ok: true, data: [] });
 });
 
@@ -140,5 +142,21 @@ describe('the news screen on an OK read', () => {
 
     expect(screen.getByText('Form date moved to 20 June')).toBeInTheDocument();
     expect(screen.queryByText(en['read.failed'])).not.toBeInTheDocument();
+  });
+});
+
+describe('the news screen when the TEACHER read failed', () => {
+  it('shows the error state, never "this teacher is not here"', async () => {
+    // The header read is the gate: it used to answer `teacher: null`, and the
+    // page stopped there with the not-found line, so the notice list below
+    // never got to say anything (issue 54-visible-read-errors).
+    readPortfolioResult.mockResolvedValue({ ok: false });
+
+    render(await TeacherNewsPage({ params }));
+
+    expect(screen.getByText(en['read.failed'])).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en['read.retry'] })).toBeInTheDocument();
+    expect(screen.queryByText(en['portfolio.notFound'])).not.toBeInTheDocument();
+    expect(screen.queryByText(en['posts.none'])).not.toBeInTheDocument();
   });
 });

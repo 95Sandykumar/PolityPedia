@@ -18,6 +18,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   readApprovedTeachersResult,
   readFollowedTeachersResult,
+  readPortfolioResult,
   readTeacherCardsResult,
 } from '../student-page';
 import type { AuthSession } from '@/lib/auth/types';
@@ -247,5 +248,62 @@ describe('readTeacherCardsResult (Teachers tab with the exam filter)', () => {
     const result = await readTeacherCardsResult(null, {}, { env: ENV, fetchImpl: always([]) });
 
     expect(result).toEqual({ ok: true, data: [] });
+  });
+});
+
+/**
+ * `/t/<id>` itself, the screen that holds all the lists
+ * (issue 54-visible-read-errors, the close-out pass).
+ *
+ * The teacher read used to end in `.catch(() => null)`, and the page draws
+ * `teacher: null` as "Teacher not found". So a dropped request told the
+ * student their own teacher does not exist, which is worse than any empty
+ * list: there is nothing left on the screen to retry.
+ */
+describe('readPortfolioResult (/t/<id>)', () => {
+  it('a 200 with no such teacher is an OK read, so the page keeps its own line', async () => {
+    const result = await readPortfolioResult(SESSION, TEACHER, {
+      env: ENV,
+      fetchImpl: always([]),
+    });
+
+    expect(result).toEqual({ ok: true, data: { teacher: null, following: false, nextExam: null } });
+  });
+
+  it('a 400 on the teacher read is a FAILED read, never a missing teacher', async () => {
+    const result = await readPortfolioResult(SESSION, TEACHER, {
+      env: ENV,
+      fetchImpl: always({ message: 'column teachers.archived_at does not exist' }, 400),
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('a 400 on the FOLLOW read fails too: no follow state, no honest button', async () => {
+    const result = await readPortfolioResult(SESSION, TEACHER, {
+      env: ENV,
+      fetchImpl: inOrder({ body: [CARD_ROW] }, { body: { message: 'bad request' }, status: 400 }),
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('a thrown request is a FAILED read', async () => {
+    const fetchImpl = (async () => {
+      throw new Error('network down');
+    }) as unknown as typeof fetch;
+
+    const result = await readPortfolioResult(SESSION, TEACHER, { env: ENV, fetchImpl });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('signed out is an OK empty read, not a failure', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+
+    const result = await readPortfolioResult(null, TEACHER, { env: ENV, fetchImpl });
+
+    expect(result).toEqual({ ok: true, data: { teacher: null, following: false, nextExam: null } });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
