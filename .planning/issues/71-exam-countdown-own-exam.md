@@ -1,6 +1,6 @@
 ---
 id: 71-exam-countdown-own-exam
-status: todo
+status: blocked
 type: afk
 depends_on: [69-continue-card]
 ---
@@ -34,3 +34,5 @@ No daily question target.
 <!-- ralph 2026-11-09T23:38:30.980Z: upstream 67-teachers-filter-and-free-badge blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.594Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T16:14:47.505Z: upstream 60-after-pay-screen blocked -->

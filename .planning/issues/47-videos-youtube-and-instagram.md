@@ -1,6 +1,6 @@
 ---
 id: 47-videos-youtube-and-instagram
-status: todo
+status: blocked
 type: afk
 depends_on: [46-teacher-setup-checklist]
 ---
@@ -32,3 +32,5 @@ No YouTube Data API, no Instagram Graph API, no scraping. Do not apply the migra
 <!-- ralph 2026-11-10T00:05:26.360Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.603Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T15:59:02.628Z: upstream 59-start-screen-and-submit-confirm blocked -->

@@ -1,6 +1,6 @@
 ---
 id: 69-continue-card
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page, 68-free-test-card-and-mock-list-cleanup]
 ---
@@ -35,3 +35,5 @@ No streak or progress here (ticket 70).
 <!-- ralph 2026-11-09T23:38:30.979Z: upstream 67-teachers-filter-and-free-badge blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.593Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T16:14:47.504Z: upstream 60-after-pay-screen blocked -->

@@ -1,6 +1,6 @@
 ---
 id: 46-teacher-setup-checklist
-status: todo
+status: blocked
 type: afk
 depends_on: [45-keep-money-and-scores, 55-schema-guard-and-read-alerts, 59-start-screen-and-submit-confirm, 61-block-second-order, 62-prepay-card-and-my-purchases]
 ---
@@ -33,3 +33,5 @@ No auto-import from YouTube or Instagram (Upcoming). Do not apply migrations or 
 <!-- ralph 2026-11-10T00:05:26.353Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.602Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T15:59:02.626Z: upstream 59-start-screen-and-submit-confirm blocked -->

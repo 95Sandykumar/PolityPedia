@@ -1,6 +1,6 @@
 ---
 id: 74-spaced-repetition
-status: todo
+status: blocked
 type: afk
 depends_on: [73-practise-saved-session]
 ---
@@ -33,3 +33,5 @@ No push, no email. The Home Today card is ticket 75.
 <!-- ralph 2026-11-10T00:17:23.779Z: upstream 57-review-and-retake blocked -->
 
 <!-- ralph 2026-11-10T03:45:31.389Z: upstream 72-saved-cards-show-answers blocked -->
+
+<!-- ralph 2026-11-10T16:25:48.920Z: upstream 72-saved-cards-show-answers blocked -->

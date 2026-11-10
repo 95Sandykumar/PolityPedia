@@ -1,6 +1,6 @@
 ---
 id: 49-subjects-and-topics
-status: todo
+status: blocked
 type: afk
 depends_on: [45-keep-money-and-scores, 55-schema-guard-and-read-alerts, 59-start-screen-and-submit-confirm, 61-block-second-order, 62-prepay-card-and-my-purchases]
 ---
@@ -30,3 +30,5 @@ No sections inside one test (Upcoming). Do not apply the migration live.
 <!-- ralph 2026-11-10T00:05:26.313Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T02:33:51.597Z: upstream 54c-read-errors-saved-practice-media blocked -->
+
+<!-- ralph 2026-11-10T15:59:02.593Z: upstream 59-start-screen-and-submit-confirm blocked -->

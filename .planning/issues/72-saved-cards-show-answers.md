@@ -1,6 +1,6 @@
 ---
 id: 72-saved-cards-show-answers
-status: todo
+status: blocked
 type: afk
 depends_on: [57-review-and-retake]
 ---
@@ -36,3 +36,5 @@ No practise session (ticket 73). No spaced repetition.
 <!-- ralph 2026-11-10T00:17:23.773Z: upstream 57-review-and-retake blocked -->
 
 <!-- ralph 2026-11-10T03:45:31.386Z: no new commit -- slice unfinished -->
+
+<!-- ralph 2026-11-10T16:25:48.916Z: no new commit -- slice unfinished -->
