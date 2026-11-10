@@ -1,6 +1,6 @@
 ---
 id: 70-progress-and-streak
-status: todo
+status: blocked
 type: afk
 depends_on: [69-continue-card]
 ---
@@ -32,3 +32,5 @@ No leaderboard, no goals, no topic split (ticket 77).
 <!-- ralph 2026-11-09T18:51:51.027Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.167Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-09T23:38:30.983Z: upstream 67-teachers-filter-and-free-badge blocked -->

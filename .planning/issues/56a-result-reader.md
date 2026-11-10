@@ -1,6 +1,6 @@
 ---
 id: 56a-result-reader
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -28,3 +28,5 @@ Fixture attempts: all right, all wrong, some skipped, deadline auto-submit. Coun
 
 ## Notes / scope guard
 No screens. No review route (ticket 57), no rank, no share, no topic split.
+
+<!-- ralph 2026-11-09T23:23:33.670Z: committed + tests pass -->

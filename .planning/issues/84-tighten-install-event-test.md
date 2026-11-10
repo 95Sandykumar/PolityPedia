@@ -1,6 +1,6 @@
 ---
 id: 84-tighten-install-event-test
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -24,3 +24,5 @@ Use `vi.resetModules()` plus a dynamic import for this one test, so nothing else
 
 ## Notes / scope guard
 Tests only. Do not change production code.
+
+<!-- ralph 2026-11-09T23:45:08.912Z: committed + tests pass -->

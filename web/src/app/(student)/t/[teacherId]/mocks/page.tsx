@@ -16,7 +16,7 @@
 import { MockList } from '@/components/mock-list';
 import { BackLink, PageHeader } from '@/components/student-ui';
 import { readStudentContext } from '@/lib/follows/student-page';
-import { readMockList } from '@/lib/set-access/student-page';
+import { readMockListResult } from '@/lib/set-access/student-page';
 import { plain } from '@/lib/i18n';
 
 export default async function TeacherMocksPage({
@@ -27,7 +27,11 @@ export default async function TeacherMocksPage({
   const { teacherId } = await params;
   const { session, configured, mode } = await readStudentContext();
 
-  const sets = configured ? await readMockList(session, teacherId) : [];
+  // `ok` and `data` apart, so a read that FAILED can never reach the list as
+  // an empty one (issue 54a-read-error-core).
+  const read = configured
+    ? await readMockListResult(session, teacherId)
+    : ({ ok: true, data: [] } as const);
 
   return (
     <section className="flex flex-col gap-3">
@@ -35,7 +39,12 @@ export default async function TeacherMocksPage({
       <PageHeader titleKey="tile.mocks" mode={mode} />
 
       {configured ? (
-        <MockList sets={sets} teacherId={teacherId} mode={mode} />
+        <MockList
+          sets={read.ok ? read.data : []}
+          failed={!read.ok}
+          teacherId={teacherId}
+          mode={mode}
+        />
       ) : (
         <p role="status" className="text-muted-foreground">
           {plain('mockList.notConfigured', mode)}

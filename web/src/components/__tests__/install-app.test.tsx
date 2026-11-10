@@ -63,6 +63,27 @@ describe('InstallApp', () => {
     expect(screen.getByRole('button', { name: 'Install app' })).toBeInTheDocument();
   });
 
+  it('the always mounted register alone catches the event, with nothing else listening', async () => {
+    // Earlier tests mounted `InstallApp`, whose effect also starts the listener,
+    // so the module listener is already on. A fresh copy of the modules starts
+    // with no listener: only `ServiceWorkerRegister` may install it here.
+    cleanup();
+    vi.resetModules();
+    const fresh = {
+      register: (await import('../service-worker-register')).ServiceWorkerRegister,
+      install: (await import('../install-app')).InstallApp,
+    };
+
+    render(<fresh.register serviceWorker={{ register: vi.fn() }} enabled={false} />);
+    const event = offerInstall();
+    expect(event.defaultPrevented).toBe(true);
+
+    // The student taps Me later. Only the held offer can show the button now.
+    cleanup();
+    render(<fresh.install mode="en" userAgent={ANDROID} />);
+    expect(screen.getByRole('button', { name: 'Install app' })).toBeInTheDocument();
+  });
+
   it('opens the browser prompt on tap, then hides the button', async () => {
     render(<InstallApp mode="en" userAgent={ANDROID} />);
     const event = offerInstall('accepted');

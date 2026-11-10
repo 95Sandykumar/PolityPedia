@@ -1,6 +1,6 @@
 ---
 id: 60-after-pay-screen
-status: todo
+status: blocked
 type: afk
 depends_on: [54-visible-read-errors, 57-review-and-retake]
 ---
@@ -31,3 +31,5 @@ No receipt or refund UI (ticket 62). The pending-order block is ticket 61.
 <!-- ralph 2026-11-09T18:51:51.067Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.222Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-10T00:05:26.299Z: upstream 54-visible-read-errors blocked -->

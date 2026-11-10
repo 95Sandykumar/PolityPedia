@@ -268,6 +268,23 @@ export const dictionary = {
     // Issue 30-exam-key-lock: practice shows the right answer, so it stays
     // shut while the same test's exam sitting is still open.
     'player.examOpen': 'Finish and submit your exam first. Practice opens after that.',
+    // The result page after a sitting (issue 56-result-page). Every number
+    // behind these words comes from `readAttemptResult()`; 0031 means the
+    // score is the one the server stored, so nothing here promises a total
+    // the browser worked out.
+    'result.title': 'Your result',
+    'result.percent': 'Percent',
+    'result.right': 'Right',
+    'result.wrong': 'Wrong',
+    'result.skipped': 'Skipped',
+    'result.timeTaken': 'Time taken',
+    'result.autoSubmitted': 'Time ran out, so your paper was submitted for you.',
+    'result.wrongTitle': 'Questions you got wrong',
+    'result.noneWrong': 'Nothing wrong in this paper. Well done.',
+    // 0030: the key is shut while the same test is open under a clock (F-E5).
+    'result.rightLocked': 'The right answer opens once you submit your open exam.',
+    'result.saved': '{n} wrong answers were saved to Saved.',
+    'result.next': 'Next test',
     // Timed exam mode (issue 18-exam-mode). F-E5: nothing here names a right
     // answer, because no answer is on the phone until the paper is submitted.
     'exam.title': 'Exam',
@@ -703,6 +720,12 @@ export const dictionary = {
     'sui.tilePapersHint': 'Past years',
     'sui.tileMocksHint': 'Full tests',
     'sui.tileNewsHint': 'Notices',
+    // A read that FAILED, not one that came back empty
+    // (issue 54a-read-error-core). It names no table, column or key: a
+    // student can do nothing with those, and they tell an attacker where
+    // to push. One line for what happened, one for the fix.
+    'read.failed': 'Could not load this. Check your internet, then tap Retry.',
+    'read.retry': 'Retry',
     'sui.backToTeacher': 'Back to teacher',
     'sui.backToMe': 'Back to Me',
     'sui.backToPapers': 'Back to papers',
@@ -968,6 +991,19 @@ export const dictionary = {
     'player.offline': 'इंटरनेट नहीं है। उत्तर सहेजे गए हैं और नेट आने पर भेज दिए जाएँगे।',
     'player.notConfigured': 'अभ्यास अभी सेट नहीं है',
     'player.examOpen': 'पहले परीक्षा पूरी करें और जमा करें। उसके बाद अभ्यास खुलेगा।',
+    // परिणाम पेज (issue 56-result-page).
+    'result.title': 'आपका परिणाम',
+    'result.percent': 'प्रतिशत',
+    'result.right': 'सही',
+    'result.wrong': 'गलत',
+    'result.skipped': 'छोड़े गए',
+    'result.timeTaken': 'लगा समय',
+    'result.autoSubmitted': 'समय पूरा हो गया, इसलिए आपका पेपर अपने आप जमा हो गया।',
+    'result.wrongTitle': 'जो प्रश्न गलत हुए',
+    'result.noneWrong': 'इस पेपर में कुछ भी गलत नहीं। बहुत अच्छा।',
+    'result.rightLocked': 'सही उत्तर आपकी खुली परीक्षा जमा करने के बाद दिखेगा।',
+    'result.saved': '{n} गलत उत्तर Saved में सहेजे गए।',
+    'result.next': 'अगला टेस्ट',
     // परीक्षा मोड (issue 18-exam-mode).
     'exam.title': 'परीक्षा',
     'exam.timeLeft': 'बाकी समय',
@@ -1376,6 +1412,8 @@ export const dictionary = {
     'sui.tilePapersHint': 'पिछले साल',
     'sui.tileMocksHint': 'पूरे टेस्ट',
     'sui.tileNewsHint': 'नोटिस',
+    'read.failed': 'यह लोड नहीं हो सका। अपना इंटरनेट देखें, फिर दोबारा कोशिश करें दबाएं।',
+    'read.retry': 'दोबारा कोशिश करें',
     'sui.backToTeacher': 'शिक्षक के पेज पर',
     'sui.backToMe': 'मेरे पेज पर',
     'sui.backToPapers': 'पेपर की सूची पर',

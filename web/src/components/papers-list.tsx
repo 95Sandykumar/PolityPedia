@@ -15,6 +15,7 @@
  * minute later.
  */
 import { Check, FileText, ListChecks, Play } from 'lucide-react';
+import { ReadError } from '@/components/read-error';
 import { EmptyState, IconChip } from '@/components/student-ui';
 import Link from 'next/link';
 import { playerPath } from '@/lib/attempts/types';
@@ -56,6 +57,7 @@ export function PapersList({
   showReview = false,
   playTeacherId,
   progress,
+  failed = false,
 }: {
   papers: readonly Paper[];
   /** The catalogue, for the exam headings and their order. */
@@ -79,7 +81,19 @@ export function PapersList({
    * check-and-publish screen (issue 11-ingest-job-review-publish).
    */
   showReview?: boolean;
+  /**
+   * True when the server read FAILED rather than came back empty
+   * (issue 54a-read-error-core). It wins over `papers`: a part-read list shown
+   * as if it were whole tells a student a paper does not exist when it does.
+   */
+  failed?: boolean;
 }) {
+  // Checked BEFORE the empty state, never after: a broken read must not say
+  // "No papers yet".
+  if (failed) {
+    return <ReadError mode={mode} />;
+  }
+
   const groups = groupPapers(papers, exams);
 
   if (groups.length === 0) {

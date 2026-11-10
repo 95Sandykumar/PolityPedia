@@ -1,6 +1,6 @@
 ---
 id: 57-review-and-retake
-status: todo
+status: blocked
 type: afk
 depends_on: [56-result-page]
 ---
@@ -30,3 +30,5 @@ No analytics, no sharing. Start screens are ticket 59.
 <!-- ralph 2026-11-09T18:51:51.057Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T21:25:09.212Z: upstream 56-result-page blocked -->
+
+<!-- ralph 2026-11-10T00:17:23.770Z: no new commit -- slice unfinished -->
