@@ -29,19 +29,22 @@
  */
 import { Bookmark, BookmarkCheck, Check, Eye, ListChecks, Sparkles, WifiOff, X } from 'lucide-react';
 import { EmptyState } from '@/components/student-ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AttemptResultPanel } from '@/components/attempt-result';
 import { RevisionPanel } from '@/components/revision-panel';
 import {
   explanationLang,
   type BrowserRevisionClient,
   type ExplanationLive,
 } from '@/lib/ai/revision-screen';
+import type { BrowserResultReader } from '@/lib/attempts/browser-result-client';
 import {
   optionLetter,
   progressLabel,
   verdictOf,
   type AnswerQueue,
   type AttemptAnswer,
+  type AttemptResult,
 } from '@/lib/attempts/types';
 import {
   DEFAULT_MARKING,
@@ -90,6 +93,8 @@ export function QuestionPlayer({
   startedAnswers,
   onFinish,
   onTag,
+  readResult,
+  nextHref = null,
   revisionClient,
   revisionLive,
   revisionConfigured = true,
@@ -124,6 +129,20 @@ export function QuestionPlayer({
    */
   onTag?: (questionId: string, tag: SavedTag, saved: boolean) => void;
   /**
+   * The RESULT PAGE's read (ticket 56b, the same prop exam mode has had since
+   * 56). Asked once, after Finish, and its answer replaces the one-line score
+   * with the breakdown: the counts, the time taken and what went wrong.
+   *
+   * Optional, and a null answer is not an error: the one-line score stands, so
+   * a student whose breakdown will not load still sees a mark.
+   *
+   * The read runs on the server with the student's own token, so `right` and
+   * `wrong` here are Postgres's answer, not this component's (0031).
+   */
+  readResult?: BrowserResultReader;
+  /** Where the result page's "Next test" goes. Null draws no link. */
+  nextHref?: string | null;
+  /**
    * The Revision (AI) screen's two outside things (issue 23-revision-screen).
    * Passed straight through, so this file's own test drives the panel with no
    * `fetch` and no socket. Left out in the app: the panel builds the real ones
@@ -141,6 +160,8 @@ export function QuestionPlayer({
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [revisionAsked, setRevisionAsked] = useState(false);
   const [finished, setFinished] = useState(false);
+  /** The server's breakdown of this sitting, once it has arrived (56b). */
+  const [result, setResult] = useState<AttemptResult | null>(null);
   // Starts optimistic, so the server-rendered markup and the first client
   // render agree. The effect below corrects it on mount.
   const [online, setOnline] = useState(true);
@@ -188,6 +209,30 @@ export function QuestionPlayer({
     },
     [attemptId, queue],
   );
+
+  /**
+   * The result page (ticket 56b). The same shape exam mode uses, because it is
+   * the same reader and the same panel.
+   *
+   * ASKED ONCE, and the ref is why: a null answer means "nothing to show", and
+   * without the latch the effect would ask again on every render for ever.
+   * The cleanup CLEARS the latch, so React's StrictMode remount in development
+   * asks again instead of showing nothing.
+   */
+  const askedResult = useRef(false);
+  useEffect(() => {
+    if (!finished || !readResult || askedResult.current) return;
+    askedResult.current = true;
+
+    let alive = true;
+    void readResult(attemptId).then((got) => {
+      if (alive && got) setResult(got);
+    });
+    return () => {
+      alive = false;
+      askedResult.current = false;
+    };
+  }, [attemptId, finished, readResult]);
 
   if (total === 0 || !question) {
     return <EmptyState Icon={ListChecks} text={plain('player.none', mode)} />;
@@ -305,6 +350,20 @@ export function QuestionPlayer({
           </p>
         </div>
       </div>
+
+      {/* The payoff moment (ticket 56b). It REPLACES the one-line score in the
+          bottom row, and it sits at the top because it is what the student
+          finished for; the questions below it are still there for the review.
+          The same place exam mode puts it. */}
+      {result ? (
+        <AttemptResultPanel
+          result={result}
+          mode={mode}
+          // F-E6: the paper is out of MARKS, not questions.
+          outOf={totalMarks(total, marking)}
+          nextHref={nextHref}
+        />
+      ) : null}
 
       <div className={`${CARD} flex flex-col gap-3`}>
         <p className="text-[17px] leading-[26px] font-medium">{question.stem}</p>
@@ -468,14 +527,18 @@ export function QuestionPlayer({
 
         {last ? (
           finished ? (
-            <p
-              data-testid="player-score"
-              role="status"
-              className="order-2 text-right text-base font-bold tabular-nums"
-            >
-              {plain('player.score', mode)} {scoreAnswers(answers, marking)} /{' '}
-              {totalMarks(total, marking)}
-            </p>
+            /* One mark on screen, never two: the breakdown above carries the
+               STORED score (0031), so this line steps aside once it lands. */
+            result ? null : (
+              <p
+                data-testid="player-score"
+                role="status"
+                className="order-2 text-right text-base font-bold tabular-nums"
+              >
+                {plain('player.score', mode)} {scoreAnswers(answers, marking)} /{' '}
+                {totalMarks(total, marking)}
+              </p>
+            )
           ) : (
             <button type="button" onClick={finish} className={`${PRIMARY} order-2`}>
               {plain('player.finish', mode)}
