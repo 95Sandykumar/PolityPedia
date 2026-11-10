@@ -97,6 +97,57 @@ describe('an unlocked set', () => {
     // The untaken one still says Attempt.
     expect(screen.getByRole('link', { name: 'Test 2: Attempt' })).toBeInTheDocument();
   });
+
+  /**
+   * Persona-1 gap 5 (ticket 57c): "Review" pointed at `/play`, the START
+   * route, so every look at a finished test opened a blank new sitting and
+   * left an `attempts` row behind. A taken row goes to `/review`, which
+   * writes nothing; Retake on that page is the only way back to `/play`.
+   */
+  it('sends a taken test to the REVIEW route, never to the player', () => {
+    draw(rows({ unlocked: true, scores: [{ testId: TEST_1, score: 64 }] }));
+
+    expect(screen.getByRole('link', { name: 'Test 1: Review' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/mocks/${TEST_1}/review`,
+    );
+  });
+
+  it('leaves an untaken test on the play route', () => {
+    draw(rows({ unlocked: true, scores: [{ testId: TEST_1, score: 64 }] }));
+
+    expect(screen.getByRole('link', { name: 'Test 2: Attempt' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/mocks/${TEST_2}/play?mode=practice`,
+    );
+  });
+
+  /**
+   * The mode and the topic are a choice about a NEW sitting, so they have no
+   * business on a read-only page: the review route reads the newest submitted
+   * sitting and takes its mode from the row.
+   */
+  it('keeps the mode and the topic out of the review link', () => {
+    render(
+      <MockList
+        sets={rows({ unlocked: true, scores: [{ testId: TEST_1, score: 64 }] })}
+        teacherId={TEACHER}
+        topics={[{ id: 'polity', name: 'Indian Polity' }]}
+      />,
+    );
+    fireEvent.change(topicField(), { target: { value: 'polity' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Exam' }));
+
+    expect(screen.getByRole('link', { name: 'Test 1: Review' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/mocks/${TEST_1}/review`,
+    );
+    // The untaken row still carries both, because it starts a sitting.
+    expect(screen.getByRole('link', { name: 'Test 2: Attempt' })).toHaveAttribute(
+      'href',
+      `/t/${TEACHER}/mocks/${TEST_2}/play?mode=exam&topic=polity`,
+    );
+  });
 });
 
 describe('topic and mode', () => {

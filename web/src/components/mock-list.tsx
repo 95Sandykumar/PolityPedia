@@ -52,6 +52,7 @@ import {
   MOCK_TOPIC_ALL,
   isTaken,
   mockPlayerPath,
+  mockReviewPath,
   priceLabels,
   unlockLabels,
   type MockSetRow,
@@ -345,13 +346,25 @@ export function MockList({
 
                     {/* An open test gets exactly one button: Review once it has
                         been taken, Attempt before that. A locked test gets none:
-                        the set has ONE Unlock button, under the list. */}
+                        the set has ONE Unlock button, under the list.
+
+                        THE TWO BUTTONS GO TO DIFFERENT ROUTES (ticket 57c).
+                        Attempt opens `play`, the start route, in the mode and
+                        the topic chosen above. Review opens `review`, which
+                        writes nothing: persona-1 gap 5 was that Review went to
+                        `play` too, so looking at a finished test opened a blank
+                        new sitting. Retake on the review page is now the only
+                        way from a review to a new sitting. */}
                     {test.open ? (
                       <Link
-                        href={mockPlayerPath(teacherId, test.id, {
-                          mode: attemptMode,
-                          topicId,
-                        })}
+                        href={
+                          isTaken(test)
+                            ? mockReviewPath(teacherId, test.id)
+                            : mockPlayerPath(teacherId, test.id, {
+                                mode: attemptMode,
+                                topicId,
+                              })
+                        }
                         prefetch={false}
                         aria-label={`${test.title}: ${plain(
                           isTaken(test) ? 'mockList.review' : 'mockList.attempt',
