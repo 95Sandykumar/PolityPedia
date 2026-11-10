@@ -28,7 +28,7 @@
  * A tile link keeps `aria-label` = its one word, so its name stays stable; the
  * count is tied to it with `aria-describedby`.
  */
-import { Bell, Check, FileText, ListChecks, Plus, Video, type LucideIcon } from 'lucide-react';
+import { Bell, Check, FileText, Gift, ListChecks, Plus, Video, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { TeacherAvatar } from '@/components/teacher-avatar';
@@ -38,7 +38,7 @@ import { examLabels, type Exam } from '@/lib/exams/types';
 import { tilePath, type BrowserFollowsClient, type TileSlug } from '@/lib/follows/types';
 import { nextExamLines, type NextExam } from '@/lib/teacher-exams/types';
 import { DEFAULT_MODE, labels, plain, type LangMode, type MessageKey } from '@/lib/i18n';
-import type { PublicTeacher } from '@/lib/teachers/types';
+import type { PublicTeacher, TeacherCard } from '@/lib/teachers/types';
 import { cn } from '@/lib/utils';
 
 interface Tile {
@@ -74,7 +74,13 @@ export function TeacherPortfolio({
   mode = DEFAULT_MODE,
   configured = true,
 }: {
-  teacher: PublicTeacher;
+  /**
+   * A `TeacherCard` carries `hasFreeSample`, which lights the badge on the
+   * Mocks tile (issue 67-teachers-filter-and-free-badge). A plain
+   * `PublicTeacher` has no such field and gets no badge, which is what the
+   * logged-out path hands in.
+   */
+  teacher: PublicTeacher | TeacherCard;
   /** Read on the server from `follows`, so the button is right on first paint. */
   following: boolean;
   client?: BrowserFollowsClient;
@@ -98,6 +104,12 @@ export function TeacherPortfolio({
   // V6: comes straight off `teachers_public`, so the teacher's own switch
   // decides whether the Videos tile opens (issue 08-videos-tile).
   const videosVisible = teacher.videosVisible;
+
+  // Decided in SQL by the `teacher_cards` view (0050): a LIVE, non-archived
+  // set with a non-archived free sample test. `=== true` and nothing looser,
+  // the same rule as the Teachers list, because the one wrong answer that
+  // matters is telling a student a test is free when it is not.
+  const freeSample = 'hasFreeSample' in teacher && teacher.hasFreeSample === true;
 
   const [following, setFollowing] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -258,6 +270,15 @@ export function TeacherPortfolio({
                 <span className="text-sm leading-5 font-normal text-muted-foreground">
                   {plain(hintKey, mode)}
                 </span>
+                {/* The same badge, the same words as the Teachers list card.
+                    The tile keeps its `aria-label` of one word, so this is
+                    read as part of the tile, not as its name. */}
+                {slug === 'mocks' && freeSample ? (
+                  <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 text-xs leading-5 font-medium text-primary">
+                    <Gift aria-hidden="true" className="size-3.5" strokeWidth={2.5} />
+                    {plain('teachers.freeSample', mode)}
+                  </span>
+                ) : null}
               </span>
             </>
           );
