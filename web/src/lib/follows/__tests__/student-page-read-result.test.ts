@@ -15,7 +15,11 @@
  * exists in the suite (web/CLAUDE.md).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { readApprovedTeachersResult, readFollowedTeachersResult } from '../student-page';
+import {
+  readApprovedTeachersResult,
+  readFollowedTeachersResult,
+  readTeacherCardsResult,
+} from '../student-page';
 import type { AuthSession } from '@/lib/auth/types';
 
 const ENV = {
@@ -167,5 +171,81 @@ describe('readApprovedTeachersResult (Teachers tab)', () => {
 
     expect(seen[0]).toContain('/rest/v1/teachers_public');
     expect(seen[0]).not.toContain('select=*');
+  });
+});
+
+/**
+ * Issue 67-teachers-filter-and-free-badge: the Teachers tab reader.
+ *
+ * The badge and the exam filter are both columns of the `teacher_cards` view
+ * (0050), so the whole list is ONE request (B8). These tests watch the URL,
+ * because that is where the promise lives: one call, the right view, the
+ * overlap filter, and no `select=*`.
+ */
+const CARD_ROW = { ...TEACHER_ROW, has_free_sample: true };
+const EXAM_A = '22222222-2222-4222-8222-222222222222';
+const EXAM_B = '33333333-3333-4333-8333-333333333333';
+
+/** Every URL the reader asked for, in order. */
+function watchUrls(seen: string[], body: unknown = [], status = 200): typeof fetch {
+  return (async (input: RequestInfo | URL) => {
+    seen.push(String(input));
+    return new Response(JSON.stringify(body), { status });
+  }) as unknown as typeof fetch;
+}
+
+describe('readTeacherCardsResult (Teachers tab with the exam filter)', () => {
+  it('reads the card view in ONE request, never one per teacher', async () => {
+    const seen: string[] = [];
+    await readTeacherCardsResult(SESSION, { examIds: [EXAM_A, EXAM_B] }, {
+      env: ENV,
+      fetchImpl: watchUrls(seen, [CARD_ROW]),
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('/rest/v1/teacher_cards');
+    expect(seen[0]).not.toContain('select=*');
+  });
+
+  it('sends the chosen exams as an overlap filter', async () => {
+    const seen: string[] = [];
+    await readTeacherCardsResult(SESSION, { examIds: [EXAM_A, EXAM_B] }, {
+      env: ENV,
+      fetchImpl: watchUrls(seen),
+    });
+
+    expect(seen[0]).toContain(`exam_ids=ov.{${EXAM_A},${EXAM_B}}`);
+  });
+
+  it('sends no exam filter at all for "Show all"', async () => {
+    const seen: string[] = [];
+    await readTeacherCardsResult(SESSION, {}, { env: ENV, fetchImpl: watchUrls(seen) });
+
+    expect(seen[0]).not.toContain('exam_ids');
+  });
+
+  it('carries the badge through to the screen', async () => {
+    const result = await readTeacherCardsResult(SESSION, {}, {
+      env: ENV,
+      fetchImpl: always([CARD_ROW]),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data[0]?.hasFreeSample).toBe(true);
+  });
+
+  it('a 400 is a FAILED read, never an empty list', async () => {
+    const result = await readTeacherCardsResult(SESSION, {}, {
+      env: ENV,
+      fetchImpl: always({ message: 'bad request' }, 400),
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('is an OK empty read when nobody is signed in', async () => {
+    const result = await readTeacherCardsResult(null, {}, { env: ENV, fetchImpl: always([]) });
+
+    expect(result).toEqual({ ok: true, data: [] });
   });
 });

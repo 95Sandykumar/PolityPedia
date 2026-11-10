@@ -12,15 +12,15 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionary } from '@/lib/i18n';
-import type { PublicTeacher } from '@/lib/teachers/types';
+import type { TeacherCard } from '@/lib/teachers/types';
 
 const readStudentContext = vi.fn();
-const readApprovedTeachersResult = vi.fn();
+const readTeacherCardsResult = vi.fn();
 const readFollowedTeachersResult = vi.fn();
 
 vi.mock('@/lib/follows/student-page', () => ({
   readStudentContext: () => readStudentContext(),
-  readApprovedTeachersResult: (...args: unknown[]) => readApprovedTeachersResult(...args),
+  readTeacherCardsResult: (...args: unknown[]) => readTeacherCardsResult(...args),
   readFollowedTeachersResult: (...args: unknown[]) => readFollowedTeachersResult(...args),
 }));
 
@@ -37,7 +37,7 @@ const SESSION = {
   expiresAt: 4_000_000_000,
 };
 
-const TEACHER: PublicTeacher = {
+const TEACHER: TeacherCard = {
   userId: '44444444-4444-4444-8444-444444444444',
   identityMode: 'alias',
   displayName: 'Polity Guru',
@@ -45,19 +45,22 @@ const TEACHER: PublicTeacher = {
   bioEn: null,
   bioHi: null,
   videosVisible: true,
+  hasFreeSample: false,
 };
 
 beforeEach(() => {
   readStudentContext
     .mockReset()
-    .mockResolvedValue({ session: SESSION, configured: true, mode: 'en' });
-  readApprovedTeachersResult.mockReset().mockResolvedValue({ ok: true, data: [] });
+    // No exam picked, so the page shows every teacher: this file is about the
+    // read ERROR, not about the exam filter (issue 67 covers that).
+    .mockResolvedValue({ session: SESSION, configured: true, mode: 'en', examIds: [] });
+  readTeacherCardsResult.mockReset().mockResolvedValue({ ok: true, data: [] });
   readFollowedTeachersResult.mockReset().mockResolvedValue({ ok: true, data: [] });
 });
 
 describe('/teachers when the read succeeded with zero rows', () => {
   it('keeps the friendly empty state', async () => {
-    render(await TeachersPage());
+    render(await TeachersPage({}));
 
     expect(screen.getByRole('status')).toHaveTextContent(en['teachers.none']);
   });
@@ -65,22 +68,22 @@ describe('/teachers when the read succeeded with zero rows', () => {
 
 describe('/teachers when the read FAILED', () => {
   it('shows the shared error state', async () => {
-    readApprovedTeachersResult.mockResolvedValue({ ok: false });
-    render(await TeachersPage());
+    readTeacherCardsResult.mockResolvedValue({ ok: false });
+    render(await TeachersPage({}));
 
     expect(screen.getByRole('status')).toHaveTextContent(en['read.failed']);
   });
 
   it('never shows the empty-state text', async () => {
-    readApprovedTeachersResult.mockResolvedValue({ ok: false });
-    render(await TeachersPage());
+    readTeacherCardsResult.mockResolvedValue({ ok: false });
+    render(await TeachersPage({}));
 
     expect(screen.queryByText(en['teachers.none'])).not.toBeInTheDocument();
   });
 
   it('offers Retry', async () => {
-    readApprovedTeachersResult.mockResolvedValue({ ok: false });
-    render(await TeachersPage());
+    readTeacherCardsResult.mockResolvedValue({ ok: false });
+    render(await TeachersPage({}));
 
     expect(screen.getByRole('button', { name: en['read.retry'] })).toBeInTheDocument();
   });
@@ -88,18 +91,18 @@ describe('/teachers when the read FAILED', () => {
 
 describe('/teachers when only the FOLLOWED read failed', () => {
   it('still lists the teachers: the follow read only draws a pill', async () => {
-    readApprovedTeachersResult.mockResolvedValue({ ok: true, data: [TEACHER] });
+    readTeacherCardsResult.mockResolvedValue({ ok: true, data: [TEACHER] });
     readFollowedTeachersResult.mockResolvedValue({ ok: false });
-    render(await TeachersPage());
+    render(await TeachersPage({}));
 
     expect(screen.getByText('Polity Guru')).toBeInTheDocument();
     expect(screen.queryByText(en['read.failed'])).not.toBeInTheDocument();
   });
 
   it('leaves the Following pill off rather than guessing', async () => {
-    readApprovedTeachersResult.mockResolvedValue({ ok: true, data: [TEACHER] });
+    readTeacherCardsResult.mockResolvedValue({ ok: true, data: [TEACHER] });
     readFollowedTeachersResult.mockResolvedValue({ ok: false });
-    render(await TeachersPage());
+    render(await TeachersPage({}));
 
     expect(screen.queryByText(en['follow.following'])).not.toBeInTheDocument();
   });
