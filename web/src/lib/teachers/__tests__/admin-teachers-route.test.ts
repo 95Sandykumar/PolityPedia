@@ -32,6 +32,8 @@ function fakeClient(overrides: Partial<TeachersClient> = {}): TeachersClient {
     listPublic: vi.fn(async () => []),
     readPublic: vi.fn(async () => null),
     listPublicByIds: vi.fn(async () => []),
+    listCards: vi.fn(async () => []),
+    readCard: vi.fn(async () => null),
     ...overrides,
   };
 }
