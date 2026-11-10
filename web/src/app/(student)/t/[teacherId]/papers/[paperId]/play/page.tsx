@@ -61,6 +61,10 @@ export default async function PaperPlayPage({
           mode={mode}
           examName={examName}
           startedAnswers={practice.answers}
+          // Where the result page's "Next test" goes (ticket 56b). The papers
+          // list of this teacher: the next paper is the next thing to do, and
+          // the student is already inside that teacher's work.
+          nextHref={`/t/${teacherId}/papers`}
         />
       ) : (
         <EmptyState Icon={ListChecks} text={plain('player.notConfigured', mode)} />
