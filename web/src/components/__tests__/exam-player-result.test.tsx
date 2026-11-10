@@ -18,6 +18,7 @@
  * The client and the read are both fakes, so there is no network here.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExamPlayer } from '../exam-player';
 import type { AttemptResult } from '@/lib/attempts/types';
@@ -218,6 +219,76 @@ describe('ExamPlayer, the result page', () => {
         readResult={readResult}
         client={fakeClient()}
       />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attempt-result')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('attempt-result-score')).toHaveTextContent('7 / 12');
+  });
+
+  /**
+   * The dev-mode remount (ticket 56b).
+   *
+   * React's StrictMode mounts, unmounts and mounts again in development, so
+   * every effect runs twice. The "ask once" latch is a ref, and a ref SURVIVES
+   * that remount: without a reset in the cleanup the second mount reads the
+   * latch as already asked and the student is left staring at no result page
+   * for the whole dev session.
+   *
+   * So the cleanup clears the latch. The cost is a second read in development
+   * only; the gain is that what the developer sees is what the student sees.
+   */
+  it('still shows the result page on a StrictMode remount', async () => {
+    const readResult = vi.fn(async () => serverResult());
+
+    render(
+      <StrictMode>
+        <ExamPlayer
+          questions={STRIPPED}
+          attemptId={ATTEMPT}
+          deadlineAt={null}
+          mode="en"
+          marking={CUET}
+          readResult={readResult}
+          client={fakeClient()}
+        />
+      </StrictMode>,
+    );
+
+    fireEvent.click(screen.getByTestId('exam-submit'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attempt-result')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('attempt-result-score')).toHaveTextContent('7 / 12');
+    expect(screen.queryByTestId('exam-score')).toBeNull();
+  });
+
+  /**
+   * The same remount, for a sitting that was ALREADY closed when the page
+   * opened. This is the case the latch actually broke: the first mount asks,
+   * the cleanup throws its answer away (`alive` is false), and a latch that
+   * survived would make the second mount skip the ask for ever.
+   */
+  it('still shows the result page of an already submitted sitting on a StrictMode remount', async () => {
+    const readResult = vi.fn(async () => serverResult());
+
+    render(
+      <StrictMode>
+        <ExamPlayer
+          questions={PAPER}
+          attemptId={ATTEMPT}
+          deadlineAt={null}
+          mode="en"
+          marking={CUET}
+          revealed
+          score={7}
+          readResult={readResult}
+          client={fakeClient()}
+        />
+      </StrictMode>,
     );
 
     await waitFor(() => {
