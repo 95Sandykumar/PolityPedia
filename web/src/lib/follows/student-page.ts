@@ -21,7 +21,7 @@ import { SESSION_COOKIE, decodeSession } from '@/lib/auth/session';
 import type { AuthSession } from '@/lib/auth/types';
 import { createSupabaseExamsClient } from '@/lib/exams/supabase-exams-client';
 import { createSupabaseTeachersClient } from '@/lib/teachers/supabase-teachers-client';
-import type { PublicTeacher } from '@/lib/teachers/types';
+import type { ListTeacherCardsInput, PublicTeacher, TeacherCard } from '@/lib/teachers/types';
 import { readNextExam } from '@/lib/teacher-exams/teacher-page';
 import type { NextExam } from '@/lib/teacher-exams/types';
 import { DEFAULT_MODE, type LangMode } from '@/lib/i18n';
@@ -33,6 +33,13 @@ export interface StudentContext {
   configured: boolean;
   /** `profiles.lang`, so every label is in the student's chosen language. */
   mode: LangMode;
+  /**
+   * The exams this student picked at onboarding
+   * (issue 67-teachers-filter-and-free-badge). Comes out of the SAME
+   * `readStudentState` read the language already needed, so the Teachers list
+   * costs no extra request. Empty when nobody is signed in.
+   */
+  examIds: readonly string[];
 }
 
 /** Session plus the saved language. The same two lines every student page needs. */
@@ -42,14 +49,16 @@ export async function readStudentContext(): Promise<StudentContext> {
   const configured = exams.isConfigured() && session !== null;
 
   let mode: LangMode = DEFAULT_MODE;
+  let examIds: readonly string[] = [];
   if (configured && session) {
-    mode = await exams
+    const state = await exams
       .readStudentState(session)
-      .then((state) => state.lang)
-      .catch(() => DEFAULT_MODE);
+      .catch(() => ({ lang: DEFAULT_MODE, hasExams: false, examIds: [] as readonly string[] }));
+    mode = state.lang;
+    examIds = state.examIds;
   }
 
-  return { session, configured, mode };
+  return { session, configured, mode, examIds };
 }
 
 /** Injected in tests only. Production passes nothing and the env is read lazily. */
@@ -109,6 +118,37 @@ export async function readApprovedTeachersResult(
   );
 }
 
+/**
+ * The Teachers tab list (issue 67-teachers-filter-and-free-badge): approved
+ * teachers WITH the free-sample badge, cut to the given exams or not cut at
+ * all, and whether the read worked.
+ *
+ * ONE request for the whole list (B8). The badge and the exam ids both live on
+ * the `teacher_cards` view (0050), so there is no per-teacher lookup here and
+ * no second round trip for the filter.
+ *
+ * `input.examIds` left out is "Show all"; given, it is the student's own
+ * exams. The reader fails CLOSED on an empty list of ids, so the CALLER has to
+ * decide what no chosen exam means: see the Teachers page.
+ */
+export async function readTeacherCardsResult(
+  session: AuthSession | null,
+  input: ListTeacherCardsInput = {},
+  options: TeacherListOptions = {},
+): Promise<ReadResult<TeacherCard[]>> {
+  // Signed out is not broken, the same rule as the list above: nothing to
+  // read, so it is an OK empty read and the tab keeps its empty state.
+  if (!session) return readOk<TeacherCard[]>([]);
+
+  return readWithProbe(
+    (fetchImpl) =>
+      teachersClient(session, options, fetchImpl)
+        .listCards(input)
+        .catch(() => [] as TeacherCard[]),
+    options.fetchImpl,
+  );
+}
+
 /** Every approved teacher, for callers that have no error state yet. */
 export async function readApprovedTeachers(
   session: AuthSession | null,
@@ -163,8 +203,12 @@ export async function readFollowedTeachers(
 }
 
 export interface PortfolioData {
-  /** Null when there is no approved teacher with that id. */
-  teacher: PublicTeacher | null;
+  /**
+   * Null when there is no approved teacher with that id. A `TeacherCard`, so
+   * the Mocks tile can show the same "Free sample" badge as the list
+   * (issue 67-teachers-filter-and-free-badge).
+   */
+  teacher: TeacherCard | null;
   following: boolean;
   /**
    * The nearest future exam date for the header pill, or null
@@ -178,8 +222,13 @@ export async function readPortfolio(
   session: AuthSession | null,
   teacherId: string,
 ): Promise<PortfolioData> {
+  // `readCard`, not `readPublic`: the `teacher_cards` view repeats every
+  // `teachers_public` column and adds the badge, so this is the same privacy
+  // and one request, not two. The view is granted to `authenticated` only
+  // (0050), which is exactly who reaches this function: the logged-out
+  // `/t/<id>` page takes the `readPublicTeacher` path instead.
   const teacher = await teachersClient(session)
-    .readPublic(teacherId)
+    .readCard(teacherId)
     .catch(() => null);
   if (!teacher) return { teacher: null, following: false, nextExam: null };
 

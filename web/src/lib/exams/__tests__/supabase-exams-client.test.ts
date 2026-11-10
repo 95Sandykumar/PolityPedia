@@ -84,7 +84,7 @@ describe('createSupabaseExamsClient', () => {
     const state = await createSupabaseExamsClient({ env: ENV, fetchImpl: f }).readStudentState(
       CALLER,
     );
-    expect(state).toEqual({ lang: 'hi', hasExams: true });
+    expect(state).toEqual({ lang: 'hi', hasExams: true, examIds: ['e1'] });
   });
 
   it('falls back to English and "no exams yet" for a brand new student', async () => {
@@ -92,7 +92,33 @@ describe('createSupabaseExamsClient', () => {
     const state = await createSupabaseExamsClient({ env: ENV, fetchImpl: f }).readStudentState(
       CALLER,
     );
-    expect(state).toEqual({ lang: 'en', hasExams: false });
+    expect(state).toEqual({ lang: 'en', hasExams: false, examIds: [] });
+  });
+
+  /**
+   * Issue 67-teachers-filter-and-free-badge: the Teachers list filters by the
+   * exams a student picked, so the ids themselves are now needed, not just
+   * "did they pick any". `limit=1` would answer the old question and quietly
+   * cut the filter down to one exam.
+   */
+  it('reads EVERY exam the student picked, not just the first one', async () => {
+    const f = fakeFetch([[{ lang: 'en' }], [{ exam_id: 'e1' }, { exam_id: 'e2' }]]);
+    const state = await createSupabaseExamsClient({ env: ENV, fetchImpl: f }).readStudentState(
+      CALLER,
+    );
+
+    expect(state.examIds).toEqual(['e1', 'e2']);
+    expect(calls(f)[1][0]).not.toContain('limit=1');
+  });
+
+  it('drops an exam id that is not a usable string', async () => {
+    const f = fakeFetch([[{ lang: 'en' }], [{ exam_id: 'e1' }, { exam_id: null }, {}]]);
+    const state = await createSupabaseExamsClient({ env: ENV, fetchImpl: f }).readStudentState(
+      CALLER,
+    );
+
+    expect(state.examIds).toEqual(['e1']);
+    expect(state.hasExams).toBe(true);
   });
 
   it('replaces the picked exams and writes the language', async () => {

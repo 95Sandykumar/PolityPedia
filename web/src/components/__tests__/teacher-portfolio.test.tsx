@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TeacherPortfolio } from '../teacher-portfolio';
 import { dictionary } from '@/lib/i18n';
 import type { BrowserFollowsClient } from '@/lib/follows/types';
-import type { PublicTeacher } from '@/lib/teachers/types';
+import type { PublicTeacher, TeacherCard } from '@/lib/teachers/types';
 
 const ALIAS_TEACHER: PublicTeacher = {
   userId: '44444444-4444-4444-8444-444444444444',
@@ -208,5 +208,77 @@ describe('TeacherPortfolio next exam pill', () => {
     );
 
     expect(screen.getByText('अगली परीक्षा: NET 18 दिस')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Issue 67-teachers-filter-and-free-badge: the Mocks tile shows the SAME
+ * "Free sample" badge as the Teachers list.
+ *
+ * Same flag, same words, same place in the journey: a student who tapped a
+ * badged card has to find the badge again on the page they land on, or the
+ * list looks like it lied.
+ *
+ * The flag comes off `teacher_cards` (0050) and nothing else, so a draft set
+ * cannot light it and the component counts nothing itself.
+ */
+const FREE_SAMPLE_TEACHER: TeacherCard = { ...PUBLIC_TEACHER, hasFreeSample: true };
+const NO_SAMPLE_TEACHER: TeacherCard = { ...PUBLIC_TEACHER, hasFreeSample: false };
+
+describe('TeacherPortfolio free-sample badge', () => {
+  it('shows the badge when the teacher has a free sample', () => {
+    render(
+      <TeacherPortfolio teacher={FREE_SAMPLE_TEACHER} following={false} client={fakeClient()} />,
+    );
+
+    expect(screen.getByText(dictionary.en['teachers.freeSample'])).toBeInTheDocument();
+  });
+
+  it('shows it ONCE, on the Mocks tile and nowhere else', () => {
+    render(
+      <TeacherPortfolio teacher={FREE_SAMPLE_TEACHER} following={false} client={fakeClient()} />,
+    );
+
+    const badge = screen.getByText(dictionary.en['teachers.freeSample']);
+    const mocks = screen.getByRole('link', { name: dictionary.en['tile.mocks'] });
+    expect(mocks).toContainElement(badge);
+  });
+
+  it('leaves the Mocks tile a plain link, so its name is still one word', () => {
+    render(
+      <TeacherPortfolio teacher={FREE_SAMPLE_TEACHER} following={false} client={fakeClient()} />,
+    );
+
+    expect(screen.getByRole('link', { name: dictionary.en['tile.mocks'] })).toHaveAttribute(
+      'href',
+      `/t/${PUBLIC_TEACHER.userId}/mocks`,
+    );
+  });
+
+  it('shows NO badge when the flag is false', () => {
+    render(
+      <TeacherPortfolio teacher={NO_SAMPLE_TEACHER} following={false} client={fakeClient()} />,
+    );
+
+    expect(screen.queryByText(dictionary.en['teachers.freeSample'])).not.toBeInTheDocument();
+  });
+
+  it('shows NO badge for a plain teacher row with no flag at all', () => {
+    render(<TeacherPortfolio teacher={PUBLIC_TEACHER} following={false} client={fakeClient()} />);
+
+    expect(screen.queryByText(dictionary.en['teachers.freeSample'])).not.toBeInTheDocument();
+  });
+
+  it('says it in Hindi too', () => {
+    render(
+      <TeacherPortfolio
+        teacher={FREE_SAMPLE_TEACHER}
+        following={false}
+        client={fakeClient()}
+        mode="hi"
+      />,
+    );
+
+    expect(screen.getByText(dictionary.hi['teachers.freeSample'])).toBeInTheDocument();
   });
 });
