@@ -385,3 +385,48 @@ export interface BrowserExamClient {
   /** Re-read the payload. After submit it carries the key, for the review. */
   load(): Promise<ExamLoad | null>;
 }
+
+// --------------------------------------------------------------------------
+// The offline answer queue (issue 58-exam-answer-queue)
+// --------------------------------------------------------------------------
+
+/**
+ * How often a failing send is tried again: ONCE every 10 seconds (B6).
+ *
+ * The same number drives the queue retry and the auto-submit retry, because
+ * both are the same bet about the same connection, and two different numbers
+ * would just mean two clocks arguing on a phone with no signal.
+ */
+export const RETRY_MS = 10_000;
+
+/**
+ * How many times auto-submit tries before it gives up and leaves Submit to the
+ * student: 30 tries, so 5 minutes of 10 second tries.
+ *
+ * B6 wants the retry BOUNDED, and the deadline cannot be the bound, because
+ * auto-submit starts AT the deadline. A paper still unsent after 5 minutes of
+ * trying is a phone with no signal, and the Submit button is still on screen.
+ */
+export const AUTO_SUBMIT_TRIES = 30;
+
+/**
+ * The offline answer queue. Built in `exam-answer-queue.ts`, an interface here
+ * so the player takes a fake one in tests.
+ */
+export interface ExamAnswerQueue {
+  /** Hold one answer and try to send it now. NEVER throws. */
+  push(answer: ExamAnswer): Promise<void>;
+  /**
+   * Send everything still held, oldest first. Returns HOW MANY are still held
+   * afterwards, so 0 means the server has them all. NEVER throws.
+   */
+  flush(): Promise<number>;
+  /** How many answers are still held. The offline bar reads this. */
+  pending(): number;
+  /** The question ids still held, so the player can draw a "saving" mark. */
+  waiting(): readonly string[];
+  /** Called whenever the held list changes. Returns the unsubscribe function. */
+  subscribe(listener: () => void): () => void;
+  /** Stop sending. Called on unmount (B6). What is held stays on the phone. */
+  stop(): void;
+}

@@ -5,10 +5,17 @@
  * to our own route handlers; those read the student's access token out of the
  * httpOnly session cookie and let Postgres RLS decide.
  *
- * `saveAnswer` THROWS on failure, on purpose: the retry queue above decides
- * what to do with a failure, and it can only do that if it is told. A refusal
- * after the deadline is a failure like any other, and the clock on screen has
- * already told the student why.
+ * `saveAnswer` THROWS on failure, on purpose: the queue in
+ * `exam-answer-queue.ts` decides what to do with a failure, and it can only do
+ * that if it is told. It holds the answer on the phone and sends it when the
+ * net returns (issue 58-exam-answer-queue). A refusal AFTER the deadline is a
+ * failure like any other and stays one: the queue makes a late answer fail
+ * honestly, it never makes one legal, because `attempt_answers_insert_open`
+ * and `attempt_answers_update_open` in `0018_exam_mode.sql` are the gate.
+ *
+ * Until issue 58 there was no queue, and this file's own comment said there
+ * was. The failure went straight into a `.catch(() => {})` in the player, so a
+ * dropped signal cost the student marks and said nothing.
  *
  * `submit` RETURNS THE SERVER'S SCORE. It is not a number this file can work
  * out: the browser was never given the answer key (F-E5), so the only honest
