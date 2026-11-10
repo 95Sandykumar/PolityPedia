@@ -126,6 +126,13 @@ export const dictionary = {
     'teachers.title': 'Teachers',
     'teachers.none': 'No teachers yet',
     'teachers.notConfigured': 'Teachers are not set up yet',
+    // Teachers list: the exam filter and the free-sample badge
+    // (issue 67-teachers-filter-and-free-badge).
+    'teachers.filter': 'Which teachers',
+    'teachers.myExams': 'My exams',
+    'teachers.showAll': 'Show all',
+    'teachers.noneForExams': 'No teachers for your exams yet',
+    'teachers.freeSample': 'Free sample',
     'home.following': 'Teachers you follow',
     'home.followingNone': 'Follow a teacher to see them here',
     'portfolio.notFound': 'Teacher not found',
@@ -273,7 +280,6 @@ export const dictionary = {
     // score is the one the server stored, so nothing here promises a total
     // the browser worked out.
     'result.title': 'Your result',
-    'result.percent': 'Percent',
     'result.right': 'Right',
     'result.wrong': 'Wrong',
     'result.skipped': 'Skipped',
@@ -283,8 +289,25 @@ export const dictionary = {
     'result.noneWrong': 'Nothing wrong in this paper. Well done.',
     // 0030: the key is shut while the same test is open under a clock (F-E5).
     'result.rightLocked': 'The right answer opens once you submit your open exam.',
+    // Two keys, not one template with a plural "s" bolted on: Hindi inflects
+    // the verb for one as well (ticket 56b).
     'result.saved': '{n} wrong answers were saved to Saved.',
+    'result.savedOne': '1 wrong answer was saved to Saved.',
     'result.next': 'Next test',
+    // The review screen of a finished sitting (ticket 57-review-and-retake).
+    // Review READS a submitted sitting; Retake is the other button, and it is
+    // the only one of the two that starts a new sitting.
+    'recap.title': 'Review',
+    'recap.readOnly': 'This test is finished. This page only shows it. Nothing here is saved.',
+    'recap.questions': 'Every question',
+    'recap.retake': 'Retake',
+    'recap.mistakes': 'Review mistakes',
+    'recap.none': 'Nothing to review yet. Finish this test first.',
+    'recap.skippedOne': 'You skipped this question.',
+    'recap.marked': 'You marked this for later.',
+    // 0037, the twin of `result.rightLocked`: `question_explanations()` refuses
+    // the prose while the same test is open under a clock.
+    'recap.explanationLocked': 'The explanation opens once you submit your open exam.',
     // Timed exam mode (issue 18-exam-mode). F-E5: nothing here names a right
     // answer, because no answer is on the phone until the paper is submitted.
     'exam.title': 'Exam',
@@ -865,6 +888,11 @@ export const dictionary = {
     'teachers.title': 'शिक्षक',
     'teachers.none': 'अभी कोई शिक्षक नहीं',
     'teachers.notConfigured': 'शिक्षक अभी सेट नहीं हैं',
+    'teachers.filter': 'कौन से शिक्षक',
+    'teachers.myExams': 'मेरी परीक्षाएँ',
+    'teachers.showAll': 'सभी दिखाएँ',
+    'teachers.noneForExams': 'आपकी परीक्षाओं के लिए अभी कोई शिक्षक नहीं',
+    'teachers.freeSample': 'मुफ़्त नमूना',
     'home.following': 'आपके फ़ॉलो किए शिक्षक',
     'home.followingNone': 'किसी शिक्षक को फ़ॉलो करें, वे यहाँ दिखेंगे',
     'portfolio.notFound': 'शिक्षक नहीं मिला',
@@ -993,7 +1021,6 @@ export const dictionary = {
     'player.examOpen': 'पहले परीक्षा पूरी करें और जमा करें। उसके बाद अभ्यास खुलेगा।',
     // परिणाम पेज (issue 56-result-page).
     'result.title': 'आपका परिणाम',
-    'result.percent': 'प्रतिशत',
     'result.right': 'सही',
     'result.wrong': 'गलत',
     'result.skipped': 'छोड़े गए',
@@ -1003,7 +1030,17 @@ export const dictionary = {
     'result.noneWrong': 'इस पेपर में कुछ भी गलत नहीं। बहुत अच्छा।',
     'result.rightLocked': 'सही उत्तर आपकी खुली परीक्षा जमा करने के बाद दिखेगा।',
     'result.saved': '{n} गलत उत्तर Saved में सहेजे गए।',
+    'result.savedOne': '1 गलत उत्तर Saved में सहेजा गया।',
     'result.next': 'अगला टेस्ट',
+    'recap.title': 'समीक्षा',
+    'recap.readOnly': 'यह टेस्ट पूरा हो गया। यह पेज सिर्फ़ दिखाता है। यहाँ कुछ सेव नहीं होता।',
+    'recap.questions': 'सभी सवाल',
+    'recap.retake': 'दोबारा दें',
+    'recap.mistakes': 'गलतियाँ देखें',
+    'recap.none': 'अभी समीक्षा के लिए कुछ नहीं। पहले यह टेस्ट पूरा करें।',
+    'recap.skippedOne': 'आपने यह सवाल छोड़ दिया था।',
+    'recap.marked': 'आपने इसे बाद के लिए मार्क किया था।',
+    'recap.explanationLocked': 'व्याख्या आपकी खुली परीक्षा जमा करने के बाद दिखेगी।',
     // परीक्षा मोड (issue 18-exam-mode).
     'exam.title': 'परीक्षा',
     'exam.timeLeft': 'बाकी समय',

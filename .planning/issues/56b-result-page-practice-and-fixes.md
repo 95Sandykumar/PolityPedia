@@ -1,6 +1,6 @@
 ---
 id: 56b-result-page-practice-and-fixes
-status: todo
+status: done
 type: afk
 depends_on: [56-result-page]
 ---
@@ -40,3 +40,5 @@ No review route (ticket 57), no rank, no share, no topic split.
 - Tests: `web/src/components/__tests__/question-player.test.tsx`, `exam-player.test.tsx`, `mock-practice-player.test.tsx`
 - Do not open migrations or DB test setup. Do not grep the whole repo.
 - Work order (commit after each step): 1) StrictMode latch plus its test, 2) singular key and `result.percent` cleanup, 3) wire the panel into `QuestionPlayer`/`PracticePlayer` plus tests, 4) pass `nextHref` from both play pages plus test, 5) full checks.
+
+<!-- ralph 2026-11-10T02:57:20.506Z: committed + tests pass -->

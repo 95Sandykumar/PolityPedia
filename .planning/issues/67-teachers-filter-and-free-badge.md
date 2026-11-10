@@ -1,6 +1,6 @@
 ---
 id: 67-teachers-filter-and-free-badge
-status: todo
+status: done
 type: afk
 depends_on: [67a-teachers-reader-filter]
 ---
@@ -36,3 +36,5 @@ No ratings, no search, no student counts.
 - Shared pieces: `web/src/components/student-ui.tsx` (prefetch link wrapper), `web/src/lib/i18n.ts` (add keys only)
 - Do not open migrations. Do not grep the whole repo.
 - Work order: 1) the list switch plus test, 2) the card badge plus test, 3) the tile badge, 4) i18n, 5) full checks. Commit after each step.
+
+<!-- ralph 2026-11-10T03:50:31.872Z: committed + tests pass -->

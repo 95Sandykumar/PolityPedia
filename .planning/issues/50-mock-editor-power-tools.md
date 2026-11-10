@@ -1,6 +1,6 @@
 ---
 id: 50-mock-editor-power-tools
-status: todo
+status: blocked
 type: afk
 depends_on: [49-subjects-and-topics]
 ---
@@ -39,3 +39,5 @@ No .docx import, no question bank, no AI writer (Upcoming). Do not edit package.
 <!-- ralph 2026-11-09T21:25:09.192Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-10T00:05:26.329Z: upstream 54-visible-read-errors blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.599Z: upstream 54c-read-errors-saved-practice-media blocked -->

@@ -7,14 +7,18 @@
  * formats what comes back. Every read fails soft: a Supabase hiccup gives
  * `null` or an empty list and the page simply leaves that line out, it never
  * 500s and never shows a wrong number.
+ *
+ * "Never shows a wrong number" became true in
+ * issue 54b-read-errors-home-teachers. Before it, a broken read reached here as
+ * `[]` and `.length` turned that into a confident `0` on the tile.
  */
 import type { AuthSession } from '@/lib/auth/types';
 import type { Exam } from '@/lib/exams/types';
 import { createSupabasePlansClient } from '@/lib/plans/supabase-plans-client';
 import type { Plan } from '@/lib/plans/types';
-import { readTeacherPosts } from '@/lib/posts/server-posts';
-import { readLivePapers } from '@/lib/papers/teacher-page';
-import { readMockList } from '@/lib/set-access/student-page';
+import { readTeacherPostsResult } from '@/lib/posts/server-posts';
+import { readLivePapersResult } from '@/lib/papers/student-page';
+import { readMockListResult } from '@/lib/set-access/student-page';
 import { createSupabaseTeacherExamsClient } from '@/lib/teacher-exams/supabase-teacher-exams-client';
 import { readNextExam } from '@/lib/teacher-exams/teacher-page';
 import { todayIso, type NextExam } from '@/lib/teacher-exams/types';
@@ -80,10 +84,30 @@ export interface PortfolioCounts {
   news: number | null;
 }
 
-/** How much is behind each of the four portfolio tiles. `null` = could not read. */
+/** Injected in tests only. Production passes nothing and the env is read lazily. */
+export interface PortfolioCountsOptions {
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * How much is behind each of the four portfolio tiles. `null` = could not read.
+ *
+ * `null` versus `0` is the whole point of this function
+ * (issue 54b-read-errors-home-teachers). A count is the read-error bug in
+ * miniature: the query broke, the Supabase client swallowed the 400 into `[]`,
+ * `.length` made that a confident `0`, and the Past papers tile told the
+ * student the teacher had uploaded nothing. Three of the four reads now return
+ * a RESULT, so a failure gives `null` and the tile shows NO number at all,
+ * which is the only honest answer. A real 0 is still a real 0 and still shown.
+ *
+ * The videos count is the exception and keeps the old fail-soft shape: that
+ * reader belongs to ticket 54c, which does the videos screen.
+ */
 export async function readPortfolioCounts(
   session: AuthSession | null,
   teacher: PublicTeacher,
+  options: PortfolioCountsOptions = {},
 ): Promise<PortfolioCounts> {
   const [videos, papers, mocks, news] = await Promise.all([
     teacher.videosVisible
@@ -91,15 +115,15 @@ export async function readPortfolioCounts(
           .then((data) => data.videos.length)
           .catch(() => null)
       : Promise.resolve(null),
-    readLivePapers(session, teacher.userId)
-      .then((rows) => rows.length)
-      .catch(() => null),
-    readMockList(session, teacher.userId)
-      .then((sets) => sets.reduce((sum, set) => sum + set.tests.length, 0))
-      .catch(() => null),
-    readTeacherPosts(session, teacher.userId)
-      .then((rows) => rows.length)
-      .catch(() => null),
+    readLivePapersResult(session, teacher.userId, options).then((read) =>
+      read.ok ? read.data.length : null,
+    ),
+    readMockListResult(session, teacher.userId, options).then((read) =>
+      read.ok ? read.data.reduce((sum, set) => sum + set.tests.length, 0) : null,
+    ),
+    readTeacherPostsResult(session, teacher.userId, options).then((read) =>
+      read.ok ? read.data.length : null,
+    ),
   ]);
   return { videos, papers, mocks, news };
 }

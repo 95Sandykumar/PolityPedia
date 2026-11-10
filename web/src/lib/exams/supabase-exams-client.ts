@@ -100,11 +100,24 @@ export function createSupabaseExamsClient(
       // Two small reads instead of one join: each table has its own RLS policy,
       // and a missing profile row must not hide the exam answer.
       const profiles = await rows<{ lang?: unknown }>(caller, '/profiles?select=lang&limit=1');
-      const picked = await rows<unknown>(caller, '/student_exams?select=exam_id&limit=1');
+      // Every id, not `limit=1`: the Teachers list filters on them
+      // (issue 67-teachers-filter-and-free-badge). A student picks a handful
+      // of exams at most, and the order makes the request cacheable.
+      const picked = await rows<{ exam_id?: unknown }>(
+        caller,
+        '/student_exams?select=exam_id&order=exam_id.asc',
+      );
       const lang = profiles[0]?.lang;
+      // A row with no usable id is dropped rather than passed on as `''`: an
+      // empty string in the filter would be rejected downstream anyway, and a
+      // silent bad id is harder to see than a shorter list.
+      const examIds = picked
+        .map((row) => row.exam_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
       return {
         lang: isLangMode(lang) ? lang : DEFAULT_MODE,
-        hasExams: picked.length > 0,
+        hasExams: examIds.length > 0,
+        examIds,
       };
     },
 

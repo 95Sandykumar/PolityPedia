@@ -1,6 +1,6 @@
 ---
 id: 67a-teachers-reader-filter
-status: todo
+status: done
 type: afk
 depends_on: []
 ---
@@ -25,3 +25,5 @@ Reader tests: filter on and off, sort order, badge only for live sets. A PGlite 
 
 ## Notes / scope guard
 No screens, no i18n. No ratings, no search, no student counts.
+
+<!-- ralph 2026-11-10T03:30:47.569Z: committed + tests pass -->

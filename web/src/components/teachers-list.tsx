@@ -18,14 +18,69 @@
  * The link's accessible name is the teacher's name and nothing else: the bio
  * and the Following pill sit beside it, and the whole card is tappable through
  * a stretched pseudo element on the name link.
+ *
+ * `failed` is the read-error half (issue 54b-read-errors-home-teachers): a
+ * broken read used to reach here as an empty list and be announced as "You
+ * follow nobody yet", which is a lie the student cannot act on.
+ *
+ * Issue 67-teachers-filter-and-free-badge adds two things to the Teachers tab:
+ * the exam filter switch, and the "Free sample" badge.
+ *
+ * The switch is TWO LINKS, not a button and not a form. The list is read on
+ * the server, so the only way to change it is to ask for another URL:
+ * `/teachers` is the student's own exams, `/teachers?all=1` is everybody.
+ * Links also mean back works and a filtered list can be shared.
+ *
+ * The badge comes from `hasFreeSample` and nothing else. That flag is decided
+ * in SQL by the `teacher_cards` view (0050), which only counts a LIVE,
+ * non-archived set with a non-archived free sample test, so a draft set can
+ * never light the badge. This component does no arithmetic of its own.
  */
-import { Check, ChevronRight, Search, Users } from 'lucide-react';
+import { Check, ChevronRight, Gift, Search, Users } from 'lucide-react';
 import Link from 'next/link';
+import { ReadError } from '@/components/read-error';
 import { TeacherAvatar } from '@/components/teacher-avatar';
 import { CARD, EmptyState, Lines, SectionLink, SectionTitle } from '@/components/student-ui';
 import { teacherPath } from '@/lib/follows/types';
 import { DEFAULT_MODE, plain, type LangMode, type MessageKey } from '@/lib/i18n';
-import type { PublicTeacher } from '@/lib/teachers/types';
+import type { LucideIcon } from 'lucide-react';
+import type { PublicTeacher, TeacherCard } from '@/lib/teachers/types';
+
+/** Which view of the list the Teachers tab is showing. */
+export type ExamFilter = 'mine' | 'all';
+
+/**
+ * Does this row carry the badge?
+ *
+ * `=== true` and nothing looser, the same rule the reader uses. A row with no
+ * flag at all is the Home strip's `PublicTeacher`, and the one wrong answer
+ * that matters here is telling a student a test is free when it is not.
+ */
+function hasFreeSample(teacher: PublicTeacher | TeacherCard): boolean {
+  return 'hasFreeSample' in teacher && teacher.hasFreeSample === true;
+}
+
+/**
+ * The small rounded label under a teacher's name. Icon plus a word, never
+ * colour on its own (DESIGN.md section 3).
+ */
+function Pill({ Icon, text }: { Icon: LucideIcon; text: string }) {
+  return (
+    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 text-xs leading-5 font-medium text-primary">
+      <Icon aria-hidden="true" className="size-3.5" strokeWidth={2.5} />
+      {text}
+    </span>
+  );
+}
+
+/**
+ * The two halves of the switch, in the order they are drawn. A table and not
+ * two copies of the same JSX, so the pair cannot drift apart.
+ */
+const FILTER_LINKS: readonly { which: ExamFilter; href: string; key: MessageKey }[] = [
+  { which: 'mine', href: '/teachers', key: 'teachers.myExams' },
+  { which: 'all', href: '/teachers?all=1', key: 'teachers.showAll' },
+];
 
 export function TeachersList({
   teachers,
@@ -35,8 +90,10 @@ export function TeachersList({
   configured = true,
   variant = 'list',
   followedIds = [],
+  failed = false,
+  examFilter,
 }: {
-  teachers: readonly PublicTeacher[];
+  teachers: readonly (PublicTeacher | TeacherCard)[];
   titleKey: MessageKey;
   emptyKey: MessageKey;
   mode?: LangMode;
@@ -46,8 +103,50 @@ export function TeachersList({
   variant?: 'list' | 'strip';
   /** Teacher ids the student follows, so the list can say "Following". */
   followedIds?: readonly string[];
+  /**
+   * True when the server read FAILED rather than came back empty
+   * (issue 54b-read-errors-home-teachers). It wins over `teachers`: a
+   * part-read list shown as if it were whole tells a student a teacher is not
+   * there when they are.
+   */
+  failed?: boolean;
+  /**
+   * Which view the Teachers tab is showing, and the only thing that draws the
+   * switch (issue 67-teachers-filter-and-free-badge). Left out on the Home
+   * strip, which has no filter and no URL of its own.
+   */
+  examFilter?: ExamFilter;
 }) {
   const strip = variant === 'strip';
+
+  // Drawn in EVERY branch below, the empty and the failed one included: a
+  // student whose exams match nobody has to be able to reach "Show all", and a
+  // switch that disappears exactly when the list is empty is a dead end.
+  const filterSwitch =
+    examFilter === undefined ? null : (
+      <nav aria-label={plain('teachers.filter', mode)} className="flex flex-wrap gap-2">
+        {FILTER_LINKS.map(({ which, href, key }) => {
+          const current = examFilter === which;
+          return (
+            <Link
+              key={which}
+              href={href}
+              prefetch={false}
+              // `aria-current`, never `disabled`: the current view stays a
+              // link, so a reload and a shared URL both keep working.
+              aria-current={current ? 'page' : undefined}
+              className={`inline-flex min-h-12 items-center rounded-full border px-3 text-sm leading-6 font-medium transition-colors duration-100 ${
+                current
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground'
+              }`}
+            >
+              {plain(key, mode)}
+            </Link>
+          );
+        })}
+      </nav>
+    );
 
   const title = strip ? (
     <SectionTitle
@@ -71,9 +170,22 @@ export function TeachersList({
     return (
       <section className="flex flex-col gap-3">
         {title}
+        {filterSwitch}
         <p role="status" className="text-muted-foreground">
           {plain('teachers.notConfigured', mode)}
         </p>
+      </section>
+    );
+  }
+
+  // Checked BEFORE the empty state, never after: a broken read must not say
+  // "You follow nobody yet".
+  if (failed) {
+    return (
+      <section className="flex flex-col gap-3">
+        {title}
+        {filterSwitch}
+        <ReadError mode={mode} />
       </section>
     );
   }
@@ -82,6 +194,7 @@ export function TeachersList({
     return (
       <section className="flex flex-col gap-3">
         {title}
+        {filterSwitch}
         <EmptyState
           Icon={Search}
           text={plain(emptyKey, mode)}
@@ -145,10 +258,13 @@ export function TeachersList({
   return (
     <section className="flex flex-col gap-3">
       {title}
+      {filterSwitch}
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {teachers.map((teacher) => {
           const bio = (mode === 'hi' ? teacher.bioHi : teacher.bioEn) ?? teacher.bioEn ?? teacher.bioHi;
+          const free = hasFreeSample(teacher);
+          const following = followed.has(teacher.userId);
           return (
             <li
               key={teacher.userId}
@@ -171,10 +287,12 @@ export function TeachersList({
                 {bio ? (
                   <p className="line-clamp-2 text-sm leading-5 text-muted-foreground">{bio}</p>
                 ) : null}
-                {followed.has(teacher.userId) ? (
-                  <span className="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 text-xs leading-5 font-medium text-primary">
-                    <Check aria-hidden="true" className="size-3.5" strokeWidth={2.5} />
-                    {plain('follow.following', mode)}
+                {free || following ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {free ? <Pill Icon={Gift} text={plain('teachers.freeSample', mode)} /> : null}
+                    {following ? (
+                      <Pill Icon={Check} text={plain('follow.following', mode)} />
+                    ) : null}
                   </span>
                 ) : null}
               </div>

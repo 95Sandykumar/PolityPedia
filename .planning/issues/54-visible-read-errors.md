@@ -1,6 +1,6 @@
 ---
 id: 54-visible-read-errors
-status: todo
+status: blocked
 type: afk
 depends_on: [54b-read-errors-home-teachers, 54c-read-errors-saved-practice-media]
 ---
@@ -23,3 +23,5 @@ A grep-based test (or documented command) that fails if a student reader swallow
 
 ## Notes / scope guard
 Do not change what any query selects. No alerts (ticket 55). Do not touch teacher screens.
+
+<!-- ralph 2026-11-10T02:33:51.585Z: upstream 54c-read-errors-saved-practice-media blocked -->

@@ -1,6 +1,6 @@
 ---
 id: 55-schema-guard-and-read-alerts
-status: todo
+status: blocked
 type: afk
 depends_on: [54-visible-read-errors]
 ---
@@ -34,3 +34,5 @@ Do not run the check against the live database yourself. No Telegram or email se
 <!-- ralph 2026-11-09T21:37:04.252Z: upstream 54-visible-read-errors blocked -->
 
 <!-- ralph 2026-11-10T00:05:26.373Z: upstream 54-visible-read-errors blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.604Z: upstream 54c-read-errors-saved-practice-media blocked -->

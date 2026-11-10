@@ -43,6 +43,13 @@ export interface StudentState {
   lang: LangMode;
   /** False for a brand new student, which is what triggers onboarding. */
   hasExams: boolean;
+  /**
+   * The exams this student picked at onboarding
+   * (issue 67-teachers-filter-and-free-badge). The Teachers list filters on
+   * them, so the ids are read, not just counted. Empty means "picked none",
+   * which is the same state `hasExams: false` reports.
+   */
+  examIds: readonly string[];
 }
 
 /** Who is asking. The access token is what RLS checks; never log either field. */

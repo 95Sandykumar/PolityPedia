@@ -52,6 +52,34 @@ export interface PublicTeacher {
   videosVisible: boolean;
 }
 
+/**
+ * One row of the Teachers list: a `PublicTeacher` plus the free-sample badge
+ * (issue 67a-teachers-reader-filter).
+ *
+ * `hasFreeSample` is decided in SQL by the `teacher_cards` view (0050), and it
+ * is true ONLY for a live, non-archived set with a non-archived free sample
+ * test. The app never computes it, so a draft set can never light the badge.
+ */
+export interface TeacherCard extends PublicTeacher {
+  hasFreeSample: boolean;
+}
+
+/**
+ * How much of the Teachers list to return.
+ *
+ * `examIds` LEFT OUT means "every approved teacher": that is the "Show all"
+ * link. `examIds` GIVEN cuts the list to teachers who teach at least one of
+ * them, which is the default view for a student who picked exams at
+ * onboarding.
+ *
+ * An empty or all-invalid `examIds` lists NOBODY, never everybody. Asking to
+ * filter and getting the unfiltered list back is the one answer a page cannot
+ * tell apart from a real one, so this fails closed.
+ */
+export interface ListTeacherCardsInput {
+  examIds?: readonly string[];
+}
+
 /** A teacher waiting for approval, as the admin screen lists them. */
 export interface PendingTeacher {
   userId: string;
@@ -90,6 +118,23 @@ export interface TeachersClient {
    * unapproved id simply drops out.
    */
   listPublicByIds(userIds: readonly string[]): Promise<PublicTeacher[]>;
+  /**
+   * The Teachers list (issue 67a-teachers-reader-filter): approved teachers
+   * with the free-sample badge, cut to the student's chosen exams or not cut
+   * at all.
+   *
+   * ONE request for the whole list, never one per teacher (B8): the
+   * `teacher_cards` view carries the badge and the exam ids, so the filter is
+   * a single overlap test in Postgres.
+   *
+   * Order: a free sample first, then A to Z. Empty list on any failure.
+   */
+  listCards(input?: ListTeacherCardsInput): Promise<TeacherCard[]>;
+  /**
+   * One teacher's card for the portfolio page, so the Mocks tile can show the
+   * same badge as the list. Null when there is no such approved teacher.
+   */
+  readCard(userId: string): Promise<TeacherCard | null>;
 }
 
 export interface ApproveInput {

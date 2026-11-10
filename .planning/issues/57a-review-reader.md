@@ -1,6 +1,6 @@
 ---
 id: 57a-review-reader
-status: todo
+status: done
 type: afk
 depends_on: [56-result-page]
 ---
@@ -24,3 +24,5 @@ PGlite: the attempts row count is unchanged after the reader runs in practice an
 
 ## Notes / scope guard
 No screens. No analytics, no sharing.
+
+<!-- ralph 2026-11-10T02:54:49.555Z: committed + tests pass -->

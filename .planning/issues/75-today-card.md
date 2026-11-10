@@ -1,6 +1,6 @@
 ---
 id: 75-today-card
-status: todo
+status: blocked
 type: afk
 depends_on: [74-spaced-repetition, 71-exam-countdown-own-exam]
 ---
@@ -30,3 +30,5 @@ No daily goal setting, no streak flame (progress lives in Me, ticket 70).
 <!-- ralph 2026-11-09T21:25:09.164Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-09T23:38:30.981Z: upstream 67-teachers-filter-and-free-badge blocked -->
+
+<!-- ralph 2026-11-10T02:33:51.595Z: upstream 54c-read-errors-saved-practice-media blocked -->

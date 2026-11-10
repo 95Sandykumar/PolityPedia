@@ -16,12 +16,17 @@
  * It sorts again itself (`sortPosts`), so a response that came back in another
  * order still paints loudest-and-newest first.
  *
+ * `failed` is the read-error half (issue 54b-read-errors-home-teachers): a
+ * broken read used to reach here as an empty list and be announced as "No
+ * notices yet", so a student could miss a notice that was actually written.
+ *
  * Security: a `link` is rendered as an `href`, so only an http(s) one is drawn
  * at all. `normalizeLink` decides, the route and the client agree, and
  * Postgres has the same check in 0009. Four layers, because a `javascript:`
  * href is a script a student would tap.
  */
 import { AlertTriangle, Bell, ExternalLink, Info, Megaphone } from 'lucide-react';
+import { ReadError } from '@/components/read-error';
 import { CARD, EmptyState, SectionTitle } from '@/components/student-ui';
 import { DEFAULT_MODE, plain, type Lang, type LangMode, type MessageKey } from '@/lib/i18n';
 import { formatExamDate, isIsoDate } from '@/lib/teacher-exams/types';
@@ -82,6 +87,7 @@ export function PostList({
   mode = DEFAULT_MODE,
   configured = true,
   showAuthor = false,
+  failed = false,
 }: {
   posts: readonly TeacherPost[] | readonly FeedPost[];
   titleKey: MessageKey;
@@ -89,6 +95,12 @@ export function PostList({
   mode?: LangMode;
   configured?: boolean;
   showAuthor?: boolean;
+  /**
+   * True when the server read FAILED rather than came back empty
+   * (issue 54b-read-errors-home-teachers). It wins over `posts`: a part-read
+   * feed shown as if it were whole can hide the notice that mattered.
+   */
+  failed?: boolean;
 }) {
   // h2, not h1: both pages that use this already have their own page title.
   const dateLang: Lang = mode === 'hi' ? 'hi' : 'en';
@@ -109,6 +121,17 @@ export function PostList({
         <p role="status" className="text-muted-foreground">
           {plain('posts.notConfigured', mode)}
         </p>
+      </section>
+    );
+  }
+
+  // Checked BEFORE the empty state, never after: a broken read must not say
+  // "No notices yet".
+  if (failed) {
+    return (
+      <section className="flex flex-col gap-3">
+        {title}
+        <ReadError mode={mode} />
       </section>
     );
   }

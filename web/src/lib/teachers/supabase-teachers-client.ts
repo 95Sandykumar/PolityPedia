@@ -28,8 +28,10 @@ import {
   isTeacherStatus,
   MAX_INVITE_CODE_LENGTH,
   type ApproveInput,
+  type ListTeacherCardsInput,
   type PendingTeacher,
   type PublicTeacher,
+  type TeacherCard,
   type TeacherStatus,
   type TeachersClient,
 } from './types';
@@ -38,11 +40,26 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const TABLE = '/rest/v1/teachers';
 const VIEW = '/rest/v1/teachers_public';
+/** `teachers_public` plus the badge and the exam ids (0050). */
+const CARDS_VIEW = '/rest/v1/teacher_cards';
 const REDEEM_RPC = '/rest/v1/rpc/redeem_teacher_invite';
 
 /** Columns the admin screen needs. Never `select=*`, so a new column cannot leak. */
 const PENDING_COLUMNS = 'user_id,real_name,alias,created_at';
 const PUBLIC_COLUMNS = 'user_id,identity_mode,display_name,avatar_path,bio_en,bio_hi,videos_visible';
+/**
+ * The card columns. `exam_ids` is deliberately NOT asked for: it is what the
+ * filter runs on in Postgres, and no screen shows it, so it stays out of the
+ * response.
+ */
+const CARD_COLUMNS = `${PUBLIC_COLUMNS},has_free_sample`;
+
+/**
+ * Free sample first, then A to Z. Postgres sorts booleans false < true, so
+ * `desc` puts the badge on top. `sortCards` repeats this in JavaScript and is
+ * the real guarantee; this parameter just lets the index do the work.
+ */
+const CARD_ORDER = 'order=has_free_sample.desc,display_name.asc';
 
 export interface SupabaseTeachersClientOptions {
   /** The caller's Supabase access token, from the session cookie. */
@@ -66,6 +83,10 @@ interface PublicRow {
   bio_en?: unknown;
   bio_hi?: unknown;
   videos_visible?: unknown;
+}
+
+interface CardRow extends PublicRow {
+  has_free_sample?: unknown;
 }
 
 function text(value: unknown): string | null {
@@ -212,31 +233,96 @@ export function createSupabaseTeachersClient(
       );
       return mapPublic(rows);
     },
+
+    async listCards(input: ListTeacherCardsInput = {}) {
+      const query = [`select=${CARD_COLUMNS}`, CARD_ORDER];
+
+      if (input.examIds !== undefined) {
+        // Checked before they go into the URL, the same rule as every other id
+        // here: a crafted value cannot steer the request at another path.
+        const examIds = input.examIds.filter((id) => UUID_RE.test(id));
+        // Fails CLOSED. "Filter by these exams" with no usable exam is an
+        // empty list, never the whole list: see ListTeacherCardsInput.
+        if (examIds.length === 0) return [];
+        query.push(`exam_ids=ov.{${examIds.join(',')}}`);
+      }
+
+      const rows = await readRows(`${CARDS_VIEW}?${query.join('&')}`);
+      return sortCards(mapCards(rows));
+    },
+
+    async readCard(userId: string) {
+      if (!UUID_RE.test(userId)) return null;
+
+      const rows = await readRows(
+        `${CARDS_VIEW}?select=${CARD_COLUMNS}&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+      );
+      return mapCards(rows)[0] ?? null;
+    },
   };
 }
 
 /**
- * Rows of `teachers_public` to `PublicTeacher`. One place, so `listPublic`,
- * `readPublic` and `listPublicByIds` cannot drift apart and start mapping a
- * different set of columns.
+ * ONE row of `teachers_public` (or of `teacher_cards`, which repeats its
+ * columns) to `PublicTeacher`, or null when the row is unusable.
+ *
+ * One place, so `listPublic`, `readPublic`, `listPublicByIds`, `listCards` and
+ * `readCard` cannot drift apart and start mapping a different set of columns.
  */
+function mapPublicRow(raw: PublicRow): PublicTeacher | null {
+  const userId = text(raw.user_id);
+  const displayName = text(raw.display_name);
+  // A teacher with no name to show is not shown at all. Better a short list
+  // than a row that leans on a fallback and leaks something.
+  if (userId === null || displayName === null || !isIdentityMode(raw.identity_mode)) return null;
+  return {
+    userId,
+    identityMode: raw.identity_mode,
+    displayName,
+    avatarPath: text(raw.avatar_path),
+    bioEn: text(raw.bio_en),
+    bioHi: text(raw.bio_hi),
+    videosVisible: raw.videos_visible !== false,
+  };
+}
+
 function mapPublic(rows: unknown[]): PublicTeacher[] {
   const out: PublicTeacher[] = [];
   for (const raw of rows as PublicRow[]) {
-    const userId = text(raw.user_id);
-    const displayName = text(raw.display_name);
-    // A teacher with no name to show is not shown at all. Better a short list
-    // than a row that leans on a fallback and leaks something.
-    if (userId === null || displayName === null || !isIdentityMode(raw.identity_mode)) continue;
-    out.push({
-      userId,
-      identityMode: raw.identity_mode,
-      displayName,
-      avatarPath: text(raw.avatar_path),
-      bioEn: text(raw.bio_en),
-      bioHi: text(raw.bio_hi),
-      videosVisible: raw.videos_visible !== false,
-    });
+    const mapped = mapPublicRow(raw);
+    if (mapped !== null) out.push(mapped);
   }
   return out;
+}
+
+/**
+ * Rows of `teacher_cards` to `TeacherCard`.
+ *
+ * The badge is `=== true` and nothing looser. A missing column or the STRING
+ * `"true"` is NO badge: the one wrong answer that matters here is telling a
+ * student a test is free when it is not.
+ */
+function mapCards(rows: unknown[]): TeacherCard[] {
+  const out: TeacherCard[] = [];
+  for (const raw of rows as CardRow[]) {
+    const mapped = mapPublicRow(raw);
+    if (mapped !== null) out.push({ ...mapped, hasFreeSample: raw.has_free_sample === true });
+  }
+  return out;
+}
+
+/**
+ * Free sample first, then A to Z.
+ *
+ * The request already asks Postgres for this order, so why sort again? Because
+ * the order is a PROMISE to the page, and a dropped `order` parameter or a new
+ * caller that forgets it would silently change what the student sees. Sorting
+ * a list of tens of teachers costs nothing, and makes the promise true in one
+ * place instead of in every URL.
+ */
+function sortCards(cards: TeacherCard[]): TeacherCard[] {
+  return cards.sort((a, b) => {
+    if (a.hasFreeSample !== b.hasFreeSample) return a.hasFreeSample ? -1 : 1;
+    return a.displayName.localeCompare(b.displayName, 'en');
+  });
 }

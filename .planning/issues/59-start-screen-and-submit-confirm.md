@@ -1,6 +1,6 @@
 ---
 id: 59-start-screen-and-submit-confirm
-status: todo
+status: blocked
 type: afk
 depends_on: [58-exam-answer-queue]
 ---
@@ -37,3 +37,5 @@ Do not change scoring. Result page is ticket 56.
 <!-- ralph 2026-11-09T21:25:09.179Z: upstream 56-result-page blocked -->
 
 <!-- ralph 2026-11-10T00:24:23.920Z: upstream 58-exam-answer-queue blocked -->
+
+<!-- ralph 2026-11-10T03:11:08.503Z: upstream 58-exam-answer-queue blocked -->
